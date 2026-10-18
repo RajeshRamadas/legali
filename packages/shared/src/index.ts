@@ -34,7 +34,10 @@ export type TicketCreate = {
   property_type: PropertyType;
   service_slug: string;
   location: string;
-  description: string;
+  description?: string;
+  email?: string;
+  package?: string;
+  source?: "website" | "chat" | "mobile";
 };
 
 export type TicketCreated = {
@@ -43,13 +46,37 @@ export type TicketCreated = {
   message: string;
 };
 
+// Mirrors _public_ticket in backend/app/main.py.
+export type TicketStatus = {
+  ticket_number: string;
+  service_name: string;
+  package: string | null;
+  status: string;
+  status_label: string;
+  created_at: string;
+  history: { status: string; label: string; note: string; at: string }[];
+};
+
+// Mirrors the chat endpoint in backend/app/main.py.
+export type ChatReply = {
+  reply: string;
+  action: "request" | "track" | null;
+  ticket_number: string | null;
+  service: Service | null;
+  suggestions: string[];
+};
+
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, init);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const detail = typeof data.detail === "string" ? data.detail : "Request failed.";
+    // FastAPI validation errors arrive as a list; show the first one.
+    const detail =
+      typeof data.detail === "string" ? data.detail
+      : Array.isArray(data.detail) && data.detail[0]?.msg ? `${data.detail[0].loc?.at(-1) ?? "Field"}: ${data.detail[0].msg}`
+      : "Request failed.";
     throw new Error(detail);
   }
   return data as T;
@@ -66,6 +93,20 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+      });
+    },
+    lookupTicket(ticketNumber: string, contact: string): Promise<TicketStatus> {
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket_number: ticketNumber, contact }),
+      });
+    },
+    chat(message: string): Promise<ChatReply> {
+      return request<ChatReply>(baseUrl, "/api/v1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
       });
     },
   };
