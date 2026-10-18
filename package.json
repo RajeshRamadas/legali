@@ -1,0 +1,14 @@
+{
+  "name": "homexo",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "mobile",
+    "packages/*"
+  ],
+  "scripts": {
+    "web": "npm run dev --workspace frontend",
+    "mobile": "npm run start --workspace mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { createApiClient, DEFAULT_API_BASE_URL, PROPERTY_TYPES, type PropertyType } from "@homexo/shared";
+
+const api = createApiClient(process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL);
 
 const services = [
   { icon: "⌂", title: "Home & Apartment", desc: "Support for home ownership, apartment records, rentals and property-related requests.", tags: "Homes · Apartments", slug: "home-apartment-assistance" },
@@ -22,7 +25,7 @@ export default function HomePage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
   const [selectedService, setSelectedService] = useState(services[0].slug);
-  const [form, setForm] = useState({ name: "", contact: "", propertyType: "apartment", location: "", description: "" });
+  const [form, setForm] = useState<{ name: string; contact: string; propertyType: PropertyType; location: string; description: string }>({ name: "", contact: "", propertyType: "apartment", location: "", description: "" });
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -31,21 +34,14 @@ export default function HomePage() {
     setNotice("");
     setSending(true);
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-      const response = await fetch(`${base}/api/v1/tickets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer_name: form.name,
-          contact: form.contact,
-          property_type: form.propertyType,
-          service_slug: selectedService,
-          location: form.location,
-          description: form.description,
-        }),
+      const data = await api.createTicket({
+        customer_name: form.name,
+        contact: form.contact,
+        property_type: form.propertyType,
+        service_slug: selectedService,
+        location: form.location,
+        description: form.description,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "Could not submit the request.");
       setNotice(`Request received. Your demo ticket number is ${data.ticket_number}. Save it for reference.`);
       setForm({ name: "", contact: "", propertyType: "apartment", location: "", description: "" });
     } catch (error) {
@@ -129,7 +125,7 @@ export default function HomePage() {
           <form onSubmit={submitRequest} className="request-form">
             <label>What service do you need?<select value={selectedService} onChange={(e) => setSelectedService(e.target.value)}>{services.map((s) => <option value={s.slug} key={s.title}>{s.title}</option>)}</select></label>
             <div className="form-row"><label>Your name<input required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" /></label><label>Email or phone<input required minLength={5} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} placeholder="How can we reach you?" /></label></div>
-            <div className="form-row"><label>Property type<select value={form.propertyType} onChange={(e) => setForm({ ...form, propertyType: e.target.value })}><option value="apartment">Apartment</option><option value="independent_house">Independent house</option><option value="residential_plot">Residential plot</option><option value="agricultural_land">Agricultural land</option><option value="commercial">Commercial property</option><option value="other">Other</option></select></label><label>Property location<input required minLength={2} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City / locality" /></label></div>
+            <div className="form-row"><label>Property type<select value={form.propertyType} onChange={(e) => setForm({ ...form, propertyType: e.target.value as PropertyType })}>{PROPERTY_TYPES.map((p) => <option value={p.value} key={p.value}>{p.label}</option>)}</select></label><label>Property location<input required minLength={2} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City / locality" /></label></div>
             <label>Briefly describe what you need<textarea required minLength={5} rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="For example, I need help with an EC for my apartment..." /></label>
             <p className="form-privacy">Please don’t submit Aadhaar numbers, passwords, bank details or sensitive documents in this form. We’ll explain any required documents during follow-up.</p>
             {notice && <div className="form-notice" role="status">{notice}</div>}
