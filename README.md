@@ -7,6 +7,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 ## Included
 
 - Responsive Next.js homepage with service catalogue, navigation, process steps, CTA and chatbot entry point.
+- Expo (React Native) app for Android and iPhone with the service list and request form.
+- Shared TypeScript package (`packages/shared`) with API types and client, used by both the website and the app.
 - FastAPI backend starter with health, service catalogue and ticket creation/listing endpoints.
 - PostgreSQL schema for customers, property profiles, conversations, service requests/tickets, assignments, messages, files, notifications and audit events.
 - Docker Compose for local PostgreSQL + API.
@@ -21,6 +23,11 @@ Customer browser
         ├── Homepage / service catalogue
         ├── Chatbot UI (starter entry point)
         └── Future customer account / ticket tracking
+  Android / iPhone app
+  └── Expo app (mobile/)
+        ├── Service list
+        └── Request form
+  Both use packages/shared (API types + client)
                  │ HTTPS / JSON
                  ▼
            FastAPI backend (backend/)
@@ -58,12 +65,11 @@ Admin dashboard and agent workspace should be added as authenticated role-based 
    docker compose -f infra/docker-compose.yml up --build
    ```
 
-3. In another terminal, run the frontend:
+3. In another terminal, install JavaScript dependencies once from the repo root (npm workspaces cover `frontend/`, `mobile/` and `packages/`), then run the website:
 
    ```bash
-   cd frontend
    npm install
-   npm run dev
+   npm run web
    ```
 
 4. Open:
@@ -72,6 +78,21 @@ Admin dashboard and agent workspace should be added as authenticated role-based 
    - API docs: http://localhost:8000/docs
 
 The frontend is configured to use `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` by default.
+
+### Run the mobile app (Android / iPhone)
+
+1. Install [Expo Go](https://expo.dev/go) on your phone, or use an Android emulator / iOS simulator.
+2. Point the app at the API. `localhost` on a phone means the phone itself, so use your computer's LAN address (or `http://10.0.2.2:8000` on the Android emulator):
+
+   ```bash
+   EXPO_PUBLIC_API_BASE_URL=http://192.168.1.20:8000 npm run mobile
+   ```
+
+3. Scan the QR code with Expo Go (Android) or the Camera app (iPhone).
+
+Publishing to the stores needs an Apple Developer account and a Google Play developer account; builds are made with EAS Build (`npx eas build`). Add mobile packages with `npx expo install <package>` from `mobile/` so versions match the Expo SDK.
+
+Run `npm run typecheck` from the repo root to type-check the website, app and shared package together.
 
 ## Publish to GitHub
 
