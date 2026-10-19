@@ -72,6 +72,12 @@ CHAT_TOPICS = [
         "suggestions": ["Package prices", "Talk to a specialist"],
     },
     {
+        "keywords": ["affidavit", "name change affidavit", "notary", "notarise", "notarize", "notarisation", "notarization", "self declaration"],
+        "reply": "An advocate can draft your affidavit, such as name change, address proof, gap or loss of documents, on stamp paper and arrange notarisation. Stamp paper and notary charges are quoted separately.",
+        "service_slug": "affidavit-drafting",
+        "suggestions": ["Courier delivery", "Talk to a specialist"],
+    },
+    {
         "keywords": ["stamp duty", "registration fee", "government fee"],
         "reply": "Stamp duty, registration fees and other government charges are not part of our packages. They are billed separately at actuals.",
         "service_slug": None,

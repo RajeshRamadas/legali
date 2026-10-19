@@ -1,410 +1,276 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import { PROPERTY_TYPES, type PropertyType } from "@homexo/shared";
-import { api } from "./api";
+import Link from "next/link";
+import { createApiClient, DEFAULT_API_BASE_URL, formatFee, type LawyerCard, type PostSummary, type ReraProjectCard, type ReraSummary } from "@homexo/shared";
+import CallbackSection from "./CallbackSection";
 import ChatWidget from "./ChatWidget";
-import TrackRequest from "./TrackRequest";
-import {
-  BUNDLES, DOC_SERVICES, FAQS, LIFECYCLE, PACKAGES, PROCESS, SERVICE_OPTIONS, TESTIMONIALS, VERIFY_SERVICES, WHY, serviceLabel,
-} from "./content";
+import Faq from "./Faq";
+import HomeHero from "./HomeHero";
+import ServiceButton, { AskButton } from "./ServiceButton";
+import SiteFooter from "./SiteFooter";
+import SiteHeader from "./SiteHeader";
+import { PACKAGES } from "./content";
+import { ProjectCard, RiskBar, SampleNotice, n, pct, rupees } from "./rera/ui";
+import "./rera/rera.css";
+import "./home.css";
 
-const NAV = [
-  ["/lawyers", "Find a lawyer"], ["/rera", "RERA check"], ["#packages", "Packages"], ["#developers", "For developers"], ["#how-it-works", "How it works"], ["#services", "What we verify"],
-  ["#document-desk", "Document delivery"], ["#track", "Track request"], ["#faq", "FAQs"], ["/blog", "Insights"],
+export const revalidate = 300;
+
+const serverApi = createApiClient(process.env.API_INTERNAL_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL);
+
+// Each block of live data is optional: when the API can't be reached the page still renders, without that block.
+async function load() {
+  const [rera, flagged, lawyers, posts] = await Promise.all([
+    serverApi.reraSummary().catch(() => null) as Promise<ReraSummary | null>,
+    serverApi.searchReraProjects({ risk: "red", sort: "risk", page_size: 1 }).then((r) => r.items[0] ?? null).catch(() => null) as Promise<ReraProjectCard | null>,
+    serverApi.searchLawyers({ sort: "soonest" }).then((r) => r.items.slice(0, 3)).catch(() => []) as Promise<LawyerCard[]>,
+    serverApi.listPosts({ pageSize: 3 }).then((r) => r.items).catch(() => []) as Promise<PostSummary[]>,
+  ]);
+  return { rera, flagged, lawyers, posts };
+}
+
+const STEPS = [
+  { title: "Tell us what you need", badge: "2 minutes", text: "Ask the assistant in plain words, or pick a service. It explains your options and points you to the right lawyer or package." },
+  { title: "Book a time and pay", badge: "One tap", text: "Pick a verified advocate and a slot that suits you, and pay the fixed fee online. You get a request number straight away." },
+  { title: "Meet, track, receive", badge: "From home", text: "Join your call on Google Meet, follow each stage as the team updates it, and get every document and report from us." },
 ];
 
-const emptyForm = { name: "", phone: "", email: "", propertyType: "apartment" as PropertyType, location: "", description: "" };
+const ICONS = {
+  rera: <path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6" />,
+  search: <><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></>,
+  chat: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />,
+  shield: <><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z" /><path d="M9 12l2 2 4-4" /></>,
+  pen: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></>,
+  file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></>,
+  pulse: <path d="M3 12h4l3 8 4-16 3 8h4" />,
+  card: <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+  video: <><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3" /></>,
+  check: <path d="M5 12l5 5L20 7" />,
+};
 
-export default function HomePage() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [faqOpen, setFaqOpen] = useState<number | null>(null);
-  const [service, setService] = useState("title-verification");
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [sending, setSending] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [created, setCreated] = useState<{ ticket: string; contact: string; name: string; message: string } | null>(null);
-  const [trackPrefill, setTrackPrefill] = useState({ ticket: "", contact: "", key: 0 });
-  const [toast, setToast] = useState("");
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+function Icon({ name, size = 20 }: { name: keyof typeof ICONS; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>;
+}
 
-  function notify(text: string) {
-    setToast(text);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 3600);
-  }
+const TILES: { icon: keyof typeof ICONS; title: string; text: string; href: string; cta: string; ask?: boolean }[] = [
+  { icon: "rera", title: "Check a RERA project", text: "A free warning-sign check on any registered project and its developer.", href: "/rera", cta: "Check a project" },
+  { icon: "search", title: "Find a lawyer", text: "Compare advocates by speciality, language, fee and next free slot.", href: "/lawyers", cta: "Browse lawyers" },
+  { icon: "shield", title: "Verify a property", text: "Title, EC, RERA and approvals checked, ending in a plain-English verdict.", href: "#packages", cta: "See packages" },
+  { icon: "pen", title: "Make an affidavit", text: "Name change, address proof, gap or loss affidavits, drafted by an advocate and ready to sign.", href: "/?service=affidavit-drafting#callback", cta: "Start an affidavit" },
+  { icon: "file", title: "Get a document", text: "EC, RTC, certified copies, deeds and POA, with courier delivery where available.", href: "/services#documents", cta: "Request a document" },
+  { icon: "chat", title: "Ask the assistant", text: "Plain-English answers any time, with a hand-off to a person when you need one.", href: "", cta: "Start a chat", ask: true },
+  { icon: "card", title: "Pay online", text: "UPI, cards or netbanking when you book a consultation. Government fees stay at actuals.", href: "/lawyers", cta: "Book and pay" },
+  { icon: "pulse", title: "Track your request", text: "Enter your request number and phone to see the latest stage and reply to the team.", href: "#track", cta: "Track now" },
+];
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setCreated(null);
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
-
-  // Preselect a service in the callback form and take the visitor there.
-  function chooseService(slug: string, message: string, pkg: string | null = null) {
-    setService(slug);
-    setSelectedPackage(pkg);
-    document.getElementById("callback")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => document.getElementById("fullName")?.focus({ preventScroll: true }), 500);
-    notify(message);
-  }
-
-  async function submitCallback(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setFormError("");
-    setSending(true);
-    try {
-      const data = await api.createTicket({
-        customer_name: form.name.trim(),
-        contact: form.phone.trim(),
-        email: form.email.trim() || undefined,
-        property_type: form.propertyType,
-        service_slug: service,
-        package: selectedPackage ?? undefined,
-        location: form.location.trim(),
-        description: form.description.trim(),
-        source: "website",
-      });
-      setCreated({ ticket: data.ticket_number, contact: form.phone.trim(), name: form.name.trim(), message: data.message });
-      setForm(emptyForm);
-      setSelectedPackage(null);
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : "We couldn't send your request. Please try again.");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  function trackCreated() {
-    if (!created) return;
-    setTrackPrefill((prev) => ({ ticket: created.ticket, contact: created.contact, key: prev.key + 1 }));
-    setCreated(null);
-    setTimeout(() => document.getElementById("track")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
-  }
+export default async function HomePage() {
+  const { rera, flagged, lawyers, posts } = await load();
 
   return (
     <>
-      <div className="topline"><div className="wrap"><span><strong>Property legal services · Bangalore</strong> &nbsp; For buyers and real estate developers.</span><span>Speak to a specialist: <a href="#callback"><strong>Request a free callback</strong></a></span></div></div>
-      <header className="header">
-        <div className="wrap navrow">
-          <a className="brand" href="#home" aria-label="Homexo Legal home"><span className="brandmark">H</span><span>homexo legal<small>Property clarity, end to end</small></span></a>
-          <nav className={`navlinks${menuOpen ? " is-open" : ""}`} id="navlinks" aria-label="Main navigation">
-            {NAV.map(([href, label]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>)}
-          </nav>
-          <div className="navright">
-            <a className="btn small" href="#callback">Get free callback ↗</a>
-            <button className="menu" aria-expanded={menuOpen} aria-controls="navlinks" aria-label={menuOpen ? "Close navigation" : "Open navigation"} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "×" : "☰"}</button>
-          </div>
-        </div>
-      </header>
-
-      <main id="home">
-        <section className="hero">
-          <div className="wrap hero-grid">
-            <div>
-              <div className="eyebrow">Property legal verification · Bangalore</div>
-              <h1 className="serif">Buy your home<br />with complete <em>confidence.</em></h1>
-              <p className="hero-copy">Property verification, registration support and post-purchase assistance—with fixed-fee packages, clear status updates and a plain-English Go / Investigate / Do Not Proceed verdict.</p>
-              <div className="hero-actions"><a className="btn" href="#packages">View packages <span>↗</span></a><a className="btn light" href="/lawyers">Book a lawyer consultation ↗</a><a className="btn light" href="#how-it-works">See how it works ↓</a></div>
-              <div className="trustline"><span>Transparent package pricing</span><span>Advocate-led review</span><span>Case status updates</span></div>
+      <SiteHeader />
+      <main id="home" className="hx">
+        <section className="hx-hero">
+          <div className="wrap hx-hero-grid">
+            <div className="hx-hero-copy">
+              <div className="eyebrow">Verified advocates · Fixed fees · Every step tracked</div>
+              <h1 className="serif">Legal work, done<br />in a few <em>easy steps.</em></h1>
+              <p className="hero-copy">Check a RERA project, book a verified lawyer, verify a property or get a document. Pay one fixed fee and follow every step from your phone.</p>
+              <HomeHero />
+              <div className="trustline"><span>Answers in seconds from our assistant</span><span>Video consults on Google Meet</span><span>Updates on WhatsApp</span></div>
             </div>
-            <div className="hero-visual">
-              <div className="visual-frame">
-                <div className="verdict">
-                  <div className="verdict-top"><div className="verdict-brand">homexo legal<br /><span className="tiny-label">Property review summary</span></div><span className="tiny-label">Illustrative preview</span></div>
-                  <h3>Property Legal Verdict</h3>
-                  <div className="verdict-sub">A clear summary of checks, open issues and next steps.</div>
-                  <div className="verdict-badge"><i /> REVIEW IN PROGRESS</div>
-                  <div className="checks">
-                    {[["✓", "Title chain"], ["✓", "EC review"], ["✓", "RERA / approvals"], ["…", "Litigation search"], ["…", "SRO records"], ["→", "Lawyer review"]].map(([mark, label]) => (
-                      <div className="check" key={label}><b>{mark}</b> {label}</div>
-                    ))}
-                  </div>
-                  <div className="verdict-foot"><span>Case status: evidence review</span><span>Updated by case team</span></div>
+            <div className="hx-journey-wrap">
+              <div className="hx-journey" aria-label="An example request, step by step">
+                <div className="hx-journey-head">
+                  <div><span className="tiny-label">Example request</span><b>Flat purchase, Whitefield</b></div>
+                  <span className="hx-pill ok"><i />On track</span>
                 </div>
+                <ol>
+                  <li className="done"><span className="dot"><Icon name="check" size={14} /></span><div><b>Asked the assistant</b><small>“Is this flat safe to buy?” It suggested Shield Pro.</small></div></li>
+                  <li className="done"><span className="dot"><Icon name="check" size={14} /></span><div className="split"><div><b>Paid the fixed fee</b><small>Shield Pro · receipt on the request</small></div><span className="serif amount">₹9,999</span></div></li>
+                  <li className="now"><span className="dot"><Icon name="video" size={14} /></span><div className="split"><div><b>Call with your advocate</b><small>Today, 4:00 pm · Google Meet</small></div><span className="btn small" aria-hidden="true">Join call</span></div></li>
+                  <li><span className="dot" /><div><b>Title review &amp; verdict</b><small>EC and title chain in progress</small></div></li>
+                </ol>
+                <div className="hx-journey-foot"><span className="hx-icon sm"><Icon name="file" size={18} /></span><div><b>Reports and documents</b><small>Sale agreement draft, EC, Khata extract</small></div></div>
               </div>
-              <div className="floating-note"><strong>One clear next step</strong>Know what is verified—and what still needs attention.</div>
+              <div className="floating-note"><strong>One place for everything</strong>Chat, payment, calls, documents and status.</div>
             </div>
           </div>
         </section>
 
         <section className="stats">
           <div className="wrap stats-grid">
-            <div className="stat"><b>₹4,999</b><span>Starting package price</span></div>
-            <div className="stat"><b>5–7 days</b><span>Typical Pro package turnaround</span></div>
-            <div className="stat"><b>Fixed fee</b><span>Scope explained upfront</span></div>
-            <div className="stat"><b>End to end</b><span>Verification to post-purchase support</span></div>
+            <div className="stat"><b>{lawyers.length ? `From ${formatFee(Math.min(...lawyers.map((l) => l.consultation_fee)))}` : "Video calls"}</b><span>Consultation with a verified advocate</span></div>
+            <div className="stat"><b>From ₹4,999</b><span>Property verification package</span></div>
+            <div className="stat"><b>Free</b><span>RERA project check</span></div>
+            <div className="stat"><b>One number</b><span>Track every request with it</span></div>
           </div>
         </section>
 
-        <section className="developer-intro" id="developers">
+        <section className="section hx-rera rr" id="rera">
           <div className="wrap">
-            <div className="developer-hero">
-              <div className="developer-copy">
-                <div className="eyebrow">For real estate developers</div>
-                <h2 className="serif">From land acquisition to registered ownership.</h2>
-                <p>Coordinate legal due diligence, high-volume registrations and post-registration records through one managed workflow—built for development teams and their buyers.</p>
-                <div className="hero-actions">
-                  <a className="btn gold" href="#developer-bundles">Explore developer services ↗</a>
-                  <button className="btn light" onClick={() => chooseService("bulk-registration-operations", "Developer services selected. Tell us about your project in the callback form.")}>Talk to our team</button>
+            <div className="section-head"><div><div className="eyebrow">Free RERA project check · Karnataka</div><h2 className="serif">Check a project<br />before you pay a rupee.</h2></div><p>See whether a registration is valid, how late a project is against the date first promised, how much has sold, and how its developer has delivered before.</p></div>
+            <form className="rr-search" action="/rera" role="search">
+              <input name="q" placeholder="Project name, RERA number, developer, locality or PIN code" aria-label="Search RERA projects" />
+              <button className="btn">Check project</button>
+            </form>
+            {rera ? (
+              <>
+                <div style={{ marginTop: 14 }}><SampleNotice data={rera.data} /></div>
+                <div className="hx-rera-grid">
+                  {flagged && (
+                    <div className="hx-rera-example">
+                      <div className="tiny-label">A project our check flagged</div>
+                      <ProjectCard project={flagged} />
+                      <div className="hx-rera-help"><b>Found a warning sign?</b><span><Link className="btn small" href="/lawyers?q=RERA">Talk to a property lawyer</Link><Link className="btn small light" href="#packages">Verify the unit</Link></span></div>
+                    </div>
+                  )}
+                  <div className="hx-panel hx-rera-market">
+                    <div className="hx-rera-market-head"><h3>What the RERA register says</h3><small>Figures as of {new Date(rera.as_of).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</small></div>
+                    <div className="hx-mini-stats">
+                      <div><b className="serif">{n(rera.market.projects)}</b><span>RERA projects</span></div>
+                      <div><b className="serif">{rupees(rera.market.median_price_per_sqft)}</b><span>Median / sq ft</span></div>
+                      <div><b className="serif">{pct(rera.market.late_pct)}</b><span>Running late</span></div>
+                      <div><b className="serif">{pct(rera.delivery.on_time_pct)}</b><span>Delivered on time</span></div>
+                    </div>
+                    <h4>Warning signs across all projects</h4>
+                    <RiskBar risk={rera.risk} />
+                    <table className="hx-loc">
+                      <thead><tr><th scope="col">Locality</th><th scope="col">Booked</th><th scope="col">₹ / sq ft</th><th scope="col">Late</th></tr></thead>
+                      <tbody>
+                        {rera.localities.slice(0, 4).map((loc) => (
+                          <tr key={loc.slug}><td><Link href={`/rera/localities/${loc.slug}`}>{loc.name}</Link></td><td>{pct(loc.booked_pct)}</td><td>{rupees(loc.median_price_per_sqft)}</td><td>{pct(loc.late_pct)}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <Link className="hx-more" href="/rera">See the full market report →</Link>
+                  </div>
                 </div>
-                <div className="developer-proof"><span><b>01</b> Screen land before commitment</span><span><b>02</b> Track each registration</span><span><b>03</b> Follow through to mutation</span></div>
-              </div>
-              <div className="developer-dashboard">
-                <div className="dash-top"><div><span className="tiny-label">Illustrative portfolio view</span><h3>Project operations</h3></div><span className="dash-pill">WORKFLOW OVERVIEW</span></div>
-                <div className="dash-stats">
-                  <div><span>Land parcels</span><b>12</b><small>Due diligence pipeline</small></div>
-                  <div><span>Unit registrations</span><b>84</b><small>Across active projects</small></div>
-                  <div><span>Post-sale actions</span><b>26</b><small>Mutation / Khata follow-up</small></div>
-                </div>
-                <div className="dash-list">
-                  {[["done", "Land screening", "Evidence collection and title review"], ["active", "Registration execution", "Document readiness and SRO coordination"], ["pending", "Mutation & records", "Post-registration follow-up"]].map(([state, title, sub]) => (
-                    <div key={title}><span className={`dash-dot ${state}`} /><span><b>{title}</b><small>{sub}</small></span><em>Workflow stage</em></div>
-                  ))}
-                </div>
-                <p className="dash-note">Illustrative interface only—not live portfolio data or a claim of completed registrations.</p>
-              </div>
+              </>
+            ) : (
+              <p className="hx-quiet"><Link href="/rera">Open the RERA project check →</Link></p>
+            )}
+          </div>
+        </section>
+
+        <section className="section hx-steps" id="how-it-works">
+          <div className="wrap">
+            <div className="section-head"><div><div className="eyebrow">How it works</div><h2 className="serif">Three steps.<br />No office visits.</h2></div><p>Whatever you need, the path is the same: tell us, book and pay, then follow along until it is done.</p></div>
+            <div className="hx-steps-grid">
+              {STEPS.map((step, i) => (
+                <article className="hx-step" key={step.title}>
+                  <div className="hx-step-top"><span className="serif">{i + 1}</span><span className="hx-pill">{step.badge}</span></div>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                  {i === 0 && <div className="hx-demo"><span className="me">Do I need an EC before buying a resale flat?</span><span className="bot">Yes. An EC shows loans or claims on the property. Shield Starter covers it.</span></div>}
+                  {i === 1 && <div className="hx-demo"><div className="hx-slots"><span>12:30 pm</span><span className="on">4:00 pm</span><span>6:00 pm</span></div><div className="hx-pay"><b>Pay the fee securely</b><span className="hx-pill gold">UPI · Card</span></div></div>}
+                  {i === 2 && <div className="hx-demo"><div className="hx-progress" aria-hidden="true"><i className="on" /><i className="on" /><i className="on" /><i /></div><b>Stage 3 of 4 · Lawyer review</b><small>WhatsApp: “Your report is in lawyer review.”</small></div>}
+                </article>
+              ))}
             </div>
-            <div className="lifecycle">
-              <div className="lifecycle-heading"><div className="eyebrow">The full lifecycle</div><h3>From raw land to handed-over keys.</h3></div>
-              <div className="lifecycle-grid">
-                {LIFECYCLE.map((step, i) => (
-                  <article key={step.title}><span>{String(i + 1).padStart(2, "0")}</span><div><h4>{step.title}</h4><p>{step.text}</p></div></article>
+          </div>
+        </section>
+
+        <section className="section hx-tiles-section" id="services">
+          <div className="wrap">
+            <div className="section-head"><div><div className="eyebrow">Everything in one place</div><h2 className="serif">Start anywhere.<br />It all connects.</h2></div><p>Every request gets one number, so a chat, a booking, a payment and a document all end up on the same case.</p></div>
+            <div className="hx-tiles">
+              {TILES.map((tile) => {
+                const body = <><span className="hx-icon"><Icon name={tile.icon} /></span><b>{tile.title}</b><p>{tile.text}</p><span className="hx-tile-cta">{tile.cta} →</span></>;
+                return tile.ask
+                  ? <AskButton className="hx-tile" key={tile.title}>{body}</AskButton>
+                  : <Link className="hx-tile" href={tile.href} key={tile.title}>{body}</Link>;
+              })}
+            </div>
+          </div>
+        </section>
+
+        {lawyers.length > 0 && (
+          <section className="section hx-lawyers" id="lawyers">
+            <div className="wrap">
+              <div className="section-head"><div><div className="eyebrow">Book a video consultation</div><h2 className="serif">Talk to a verified advocate.</h2></div><Link className="btn light" href="/lawyers">See all lawyers →</Link></div>
+              <div className="hx-lawyer-grid">
+                {lawyers.map((lawyer) => (
+                  <article className="hx-lawyer" key={lawyer.slug}>
+                    <div className="hx-lawyer-top"><span className="hx-avatar serif">{lawyer.initials}</span><div><h3><Link href={`/lawyers/${lawyer.slug}`}>{lawyer.name}</Link></h3><p>{lawyer.headline}</p></div></div>
+                    <small>{lawyer.experience_years} years · {lawyer.locality ? `${lawyer.locality}, ` : ""}{lawyer.city} · {lawyer.languages.join(", ")}</small>
+                    <div className="hx-lawyer-foot">
+                      <div><b className="serif">{formatFee(lawyer.consultation_fee)}</b>{lawyer.next_available ? <span>Next: {lawyer.next_available.day}, {lawyer.next_available.label}</span> : <span className="none">No open slots soon</span>}</div>
+                      <Link className="btn small" href={`/lawyers/${lawyer.slug}`}>Book</Link>
+                    </div>
+                  </article>
                 ))}
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        <section className="section developer-bundles" id="developer-bundles">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Developer product bundles</div><h2 className="serif">Deploy the whole lifecycle,<br />or start with one part.</h2></div><p>Modular services for acquisition, legal, sales and post-sale operations. Scope and capacity are confirmed for each engagement.</p></div>
-            <div className="bundle-grid">
-              {BUNDLES.map((bundle, i) => (
-                <article className={`bundle-card${bundle.featured ? " featured" : ""}`} key={bundle.name}>
-                  <span className="bundle-num">{String(i + 1).padStart(2, "0")}</span>
-                  <div className="bundle-icon">{bundle.icon}</div>
-                  <h3>{bundle.name}</h3>
-                  <p className="bundle-audience">{bundle.audience}</p>
-                  <div className="bundle-rule" />
-                  <span className="tiny-label">Includes</span>
-                  <ul>{bundle.items.map((item) => <li key={item}>{item}</li>)}</ul>
-                  <button className={`btn${bundle.featured ? "" : " light"}`} onClick={() => chooseService(bundle.slug, `${bundle.name} selected. Share your project location, parcel or unit volume and timeline.`)}>{bundle.cta} →</button>
-                </article>
-              ))}
+        <section className="section hx-packages" id="packages">
+          <div className="wrap hx-split">
+            <div>
+              <div className="eyebrow">Buying a property?</div>
+              <h2 className="serif">One flat fee.<br />Clear scope.</h2>
+              <p>Each package ends in a plain-English Go / Investigate / Do Not Proceed verdict. Stamp duty, registration fees and government charges are billed at actuals.</p>
+              <Link className="hx-more" href="/services">See everything we verify →</Link>
             </div>
-            <div className="developer-ops">
-              <div><div className="eyebrow">One operations view</div><h3>Know where every parcel and unit stands.</h3><p>Organise case owners, documents, blockers, upcoming appointments and post-registration tasks in one workflow. Portfolio counts and case statuses become live only when connected to your operational backend.</p></div>
-              <div className="ops-checks">
-                {["Parcel and project records", "Unit-level registration cases", "Document checklist and audit trail", "Pending mutation / Khata tasks", "Buyer-facing progress updates", "Role-based team assignments"].map((item) => <span key={item}>{item}</span>)}
-              </div>
-            </div>
-            <p className="fineprint">Service availability depends on location, records and local execution partners. Stamp duty, registration fees and government charges are separate at actuals. Registration and mutation outcomes are determined by the relevant authorities; legal opinions require qualified advocate review.</p>
-          </div>
-        </section>
-
-        <section className="section pricing" id="packages">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Service packages</div><h2 className="serif">One flat fee.<br />Clear scope. No surprises.</h2></div><p>Choose the level of support that matches your property and transaction. Stamp duty, registration fees and government charges are billed at actuals.</p></div>
-            <div className="price-grid">
+            <div className="hx-package-list">
               {PACKAGES.map((pkg) => (
-                <article className={`price-card${pkg.popular ? " popular" : ""}`} key={pkg.name}>
-                  {pkg.popular && <div className="popular-tag">Most popular</div>}
-                  <div className="tier">{pkg.tier}</div>
-                  <h3>{pkg.name}</h3>
-                  <div className="price">{pkg.price}</div>
-                  <div className="delivery">◷ {pkg.delivery}</div>
-                  <ul className="features">{pkg.features.map((f) => <li key={f.text} className={f.off ? "off" : undefined}>{f.text}</li>)}</ul>
-                  <button className={`btn${pkg.popular ? "" : " light"}`} onClick={() => chooseService(pkg.slug, `${pkg.name} selected. Request a callback so we can confirm scope, documents and payment.`, pkg.name)}>{pkg.cta} →</button>
-                </article>
+                <div className={`hx-package${pkg.popular ? " popular" : ""}`} key={pkg.name}>
+                  <div className="hx-package-name"><b>{pkg.name}</b>{pkg.popular && <span className="hx-pill gold">Most chosen</span>}<small>{pkg.summary}</small></div>
+                  <div className="hx-package-price"><b className="serif">{pkg.price}</b><small>{pkg.delivery.replace(/^Delivery in /, "")}</small></div>
+                  <ServiceButton className={`btn small${pkg.popular ? "" : " light"}`} request={{ slug: pkg.slug, pkg: pkg.name, message: `${pkg.name} selected. Request a callback so we can confirm scope, documents and payment.` }}>Choose</ServiceButton>
+                </div>
               ))}
             </div>
-            <p className="fineprint">Turnaround times depend on document completeness, record availability and case complexity. Stamp duty, registration fees and government charges are separate. Final legal opinions and statutory decisions are made by the qualified advocate or relevant authority.</p>
           </div>
         </section>
 
-        <section className="callback-band" id="callback">
-          <div className="wrap callback-grid">
-            <div>
-              <div className="eyebrow">Free expert callback</div>
-              <h2>Not sure what your property needs?</h2>
-              <p>Share a few details. A legal specialist can discuss the property, the service scope and the next step with you. You&apos;ll get a ticket number to track your request.</p>
-              {selectedPackage && <p className="selected-package">Package: <b>{selectedPackage}</b> <button type="button" className="text-link" onClick={() => setSelectedPackage(null)}>Remove</button></p>}
+        <section className="hx-dev" id="developers">
+          <div className="wrap">
+            <div className="hx-dev-band">
+              <div><div className="eyebrow">For real estate developers</div><h2 className="serif">From land acquisition to registered ownership.</h2><p>Land screening, acquisition due diligence, bulk registration and mutation follow-up, each tracked in one workflow.</p></div>
+              <Link className="btn gold" href="/developers">Explore developer services ↗</Link>
             </div>
-            <form className="callback-form" onSubmit={submitCallback}>
-              <div className="field"><label htmlFor="fullName">Full name</label><input id="fullName" placeholder="Your name" autoComplete="name" required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div className="field"><label htmlFor="phone">Phone number</label><input id="phone" type="tel" placeholder="10-digit mobile number" autoComplete="tel" pattern="[0-9+\(\) \-]{8,18}" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" placeholder="you@email.com" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <div className="field"><label htmlFor="service">Service needed</label>
-                <select id="service" value={service} onChange={(e) => { setService(e.target.value); setSelectedPackage(null); }}>
-                  {SERVICE_OPTIONS.map((option) => <option key={option.slug} value={option.slug}>{option.label}</option>)}
-                </select>
+          </div>
+        </section>
+
+        <CallbackSection />
+
+        {posts.length > 0 && (
+          <section className="section hx-posts" id="insights">
+            <div className="wrap">
+              <div className="section-head"><div><div className="eyebrow">Insights</div><h2 className="serif">Know before you sign.</h2></div><Link className="btn light" href="/blog">All articles →</Link></div>
+              <div className="hx-post-grid">
+                {posts.map((post) => (
+                  <Link className="hx-post" href={`/blog/${post.slug}`} key={post.slug}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {post.cover_image_url ? <img src={post.cover_image_url} alt="" /> : <span className={`hx-post-cover ${post.post_type}`} />}
+                    <div><span className="eyebrow">{post.type_label}</span><b>{post.title}</b><small>{post.reading_minutes} min read</small></div>
+                  </Link>
+                ))}
               </div>
-              <div className="field"><label htmlFor="propertyType">Property type</label>
-                <select id="propertyType" value={form.propertyType} onChange={(e) => setForm({ ...form, propertyType: e.target.value as PropertyType })}>
-                  {PROPERTY_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-                </select>
-              </div>
-              <div className="field"><label htmlFor="location">Property location</label><input id="location" placeholder="Area, city" required minLength={2} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
-              <div className="field wide"><label htmlFor="description">Anything we should know? (optional)</label><textarea id="description" rows={2} placeholder="e.g. Resale 2BHK, registration planned next month" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <button className="btn" type="submit" disabled={sending}>{sending ? "Sending…" : "Request free callback ↗"}</button>
-              {formError ? <div className="form-note form-error" role="alert">{formError}</div> : <div className="form-note">Your details are used only to respond to this request.</div>}
-            </form>
-          </div>
-        </section>
-
-        <TrackRequest key={trackPrefill.key} initialTicket={trackPrefill.ticket} initialContact={trackPrefill.contact} />
-
-        <section className="section consult" id="consultation">
-          <div className="wrap consult-grid">
-            <div>
-              <div className="eyebrow">Add-on service</div>
-              <h2 className="serif">Start with a conversation. Make the next move with clarity.</h2>
-              <p>Book a 30-minute consultation with a senior property advocate before choosing a package—or as a standalone service. Discuss your property, documents, concerns and the verification scope that makes sense.</p>
-              <div className="trustline"><span style={{ color: "#d5e7df" }}>Property-specific questions</span><span style={{ color: "#d5e7df" }}>Risk discussion</span><span style={{ color: "#d5e7df" }}>Written summary</span></div>
             </div>
-            <div className="consult-card">
-              <div className="consult-card-top"><div><div className="eyebrow">Video consultation</div><h3>Talk to an advocate</h3><div className="tiny-label">30 minutes · 1-on-1</div></div><div className="consult-price">₹999</div></div>
-              <ul>
-                <li>Discuss your property, documents or concerns</li><li>Understand the headline risk profile and next steps</li><li>Get a customized document checklist</li><li>Receive a written summary by email</li><li>₹999 credited toward a Shield package ordered within 7 days</li>
-              </ul>
-              <button className="btn" onClick={() => chooseService("advocate-consultation", "Consultation selected. We'll confirm advocate availability when we call.")}>Enquire about a consultation →</button>
-            </div>
-          </div>
-        </section>
-
-        <section className="section process" id="how-it-works">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">How it works</div><h2 className="serif">Real transparency<br />from day one.</h2></div><p>Follow your order from document intake to lawyer-reviewed findings. Updates should reflect the actual case status—never a simulated live government lookup.</p></div>
-            <div className="process-grid">
-              {PROCESS.map((step, i) => (
-                <article className="process-card" key={step.title}><div className="process-num">{String(i + 1).padStart(2, "0")}</div><div><h3>{step.title}</h3><p>{step.text}</p><div className="message-example">{step.message}</div></div></article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section services" id="services">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">What we verify &amp; handle</div><h2 className="serif">Every angle of your<br />property’s legal health.</h2></div><p>From historical title and compliance to drafting, registration coordination and post-purchase paperwork—see the scope in one place.</p></div>
-            <div className="service-grid">
-              {VERIFY_SERVICES.map((item) => (
-                <article className="service-card" key={item.title}><div className="service-icon">{item.icon}</div><h3>{item.title}</h3><p>{item.text}</p><div className="tags">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section why">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Why Homexo Legal</div><h2 className="serif">A legal product.<br />Built around the buyer.</h2></div><p>Make a high-stakes decision with a clearer process, a defined scope and a place to track what happens next.</p></div>
-            <div className="why-grid">
-              {WHY.map((item) => <article className="why-card" key={item.title}><div className="why-icon">{item.icon}</div><h3>{item.title}</h3><p>{item.text}</p></article>)}
-            </div>
-          </div>
-        </section>
-
-        <section className="section">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Customer stories</div><h2 className="serif">Clarity for the<br />biggest purchase.</h2></div><p>Illustrative testimonials from the supplied content. Publish only after obtaining customer consent and verifying each statement.</p></div>
-            <div className="testimonial-grid">
-              {TESTIMONIALS.map((t) => <article className="quote" key={t.name}><div className="quote-mark">“</div><p>{t.quote}</p><strong>{t.name}</strong><small>{t.role}</small></article>)}
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="section faq" id="faq">
           <div className="wrap faq-grid">
             <div>
               <div className="eyebrow">FAQs</div>
               <h2 className="serif" style={{ fontSize: 42, color: "var(--forest)", margin: "10px 0 14px" }}>Questions before you begin?</h2>
-              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.7 }}>Start with a callback or a consultation if you are unsure which service fits your property.</p>
+              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.7 }}>Ask the assistant any time, or request a callback if you are unsure which service fits.</p>
               <a className="btn" href="#callback">Ask a specialist →</a>
             </div>
-            <div className="faq-list">
-              {FAQS.map((item, i) => (
-                <div className={`faq-item${faqOpen === i ? " open" : ""}`} key={item.q}>
-                  <button className="faq-q" aria-expanded={faqOpen === i} onClick={() => setFaqOpen(faqOpen === i ? null : i)}>{item.q}<span>+</span></button>
-                  <div className="faq-a">{item.a}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section document-desk" id="document-desk">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Stay home. We handle the paperwork.</div><h2 className="serif">Property documents,<br />delivered to your door.</h2></div><p>Request eligible property-related documents or document services from home. Our team helps clarify the requirements, coordinates the process, and arranges secure courier delivery when physical delivery is available.</p></div>
-            <div className="doc-desk-grid">
-              <div className="doc-desk-copy">
-                <div className="doc-desk-badge">⌂ &nbsp; Home-to-home service</div>
-                <h3>One request. A team to take it forward.</h3>
-                <p>Tell us which document you need and where the property is located. We’ll confirm the issuing authority, eligibility, required authorisation, expected timeline and government charges before proceeding.</p>
-                <div className="doc-benefits"><span>✓ Document checklist and guidance</span><span>✓ Agent coordination where required</span><span>✓ Request status and follow-up</span><span>✓ Courier tracking for physical documents</span></div>
-                <button className="btn gold" onClick={() => chooseService("document-retrieval-courier", "Document retrieval and courier selected. Describe the document you need in the form.")}>Request a document ↗</button>
-                <small className="doc-disclaimer">Availability depends on the issuing authority, document type, applicant eligibility and authorisation. Government fees, agent visits and courier charges are quoted separately where applicable.</small>
-              </div>
-              <div className="doc-service-list">
-                {DOC_SERVICES.map((doc) => (
-                  <article key={doc.title}>
-                    <span className="doc-icon">{doc.icon}</span>
-                    <div><h4>{doc.title}</h4><p>{doc.text}</p><button type="button" className="text-link" onClick={() => chooseService(doc.slug, `${serviceLabel(doc.slug)} selected. Complete the form and we'll confirm availability, fees and delivery.`)}>Request this service <span>↗</span></button></div>
-                  </article>
-                ))}
-                <div className="courier-flow">
-                  {["Request", "We coordinate", "Verify & dispatch", "Delivered"].map((step, i) => (
-                    <span key={step} style={{ display: "contents" }}>
-                      {i > 0 && <i>→</i>}
-                      <div className="courier-step"><b>{String(i + 1).padStart(2, "0")}</b><span>{step}</span></div>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <Faq />
           </div>
         </section>
 
         <section className="final-cta">
           <div className="wrap">
-            <div><div className="eyebrow" style={{ color: "#cce4d7" }}>Property due diligence</div><h2>Verify first. Register with confidence.</h2><p>From document review to registration coordination and post-purchase follow-up.</p></div>
+            <div><div className="eyebrow" style={{ color: "#cce4d7" }}>Not sure where to start?</div><h2>Check first. Decide with confidence.</h2><p>Ask a question, book a lawyer or leave your number and we will call you back.</p></div>
             <a className="btn gold" href="#callback">Get a free callback ↗</a>
           </div>
         </section>
       </main>
-
-      <footer className="footer">
-        <div className="wrap">
-          <div className="footer-grid">
-            <div><a className="brand" href="#home"><span className="brandmark">H</span><span>homexo legal<small style={{ color: "#a4bcb2" }}>Property clarity, end to end</small></span></a><p>Property legal verification, acquisition due diligence, registration coordination and post-registration support for buyers and developers in Bangalore.</p></div>
-            <div><h4>Explore</h4><a href="/lawyers">Find a lawyer</a><a href="/rera">RERA project check</a><a href="/bookings">My bookings</a><a href="#packages">Buyer packages</a><a href="#developers">Developer services</a><a href="#developer-bundles">Developer bundles</a><a href="#how-it-works">How it works</a><a href="#services">What we verify</a><a href="#consultation">Advocate consultation</a></div>
-            <div><h4>Property services</h4><a href="#services">Title &amp; EC</a><a href="#services">Sale deed / agreement</a><a href="#services">Registration</a><a href="#services">Khata &amp; tax</a><a href="#document-desk">Document retrieval &amp; courier</a></div>
-            <div><h4>Important</h4><a href="/blog">Insights &amp; case studies</a><a href="#track">Track a request</a><a href="#faq">FAQs</a><a href="#callback">Contact</a><a href="#faq">Scope &amp; limitations</a></div>
-          </div>
-          <div className="copyright">© 2026 Homexo Legal. Service scope, delivery estimates and availability depend on the selected package and property records. Legal opinions must be provided by a qualified advocate; government fees and statutory decisions remain with the relevant authority. Homexo does not connect to live government systems.</div>
-        </div>
-      </footer>
-
-      <div className={`toast${toast ? " show" : ""}`} role="status" aria-live="polite">{toast}</div>
-
-      <div className={`modal${created ? " show" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modalTitle" onClick={(e) => e.target === e.currentTarget && setCreated(null)}>
-        {created && (
-          <div className="modal-box">
-            <button className="modal-close" aria-label="Close dialog" onClick={() => setCreated(null)}>×</button>
-            <div className="eyebrow">Request received</div>
-            <h2 id="modalTitle">Thanks, {created.name.split(" ")[0]}.</h2>
-            <div className="ticket-chip"><span>Your ticket number</span><b>{created.ticket}</b></div>
-            <p>{created.message} Save this number to track your request.</p>
-            <div className="modal-actions"><button className="btn" onClick={trackCreated} autoFocus>Track this request</button><button className="btn light" onClick={() => setCreated(null)}>Continue browsing</button></div>
-          </div>
-        )}
-      </div>
-
+      <SiteFooter />
       <ChatWidget />
     </>
   );

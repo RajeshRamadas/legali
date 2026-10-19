@@ -11,6 +11,7 @@ def test_chat_suggests_a_service(client):
 def test_chat_prefers_most_specific_topic(client):
     assert _chat(client, "We need bulk registration for 80 units")["service"]["slug"] == "bulk-registration-operations"
     assert _chat(client, "How much does the Pro package cost?")["service"]["slug"] == "legal-due-diligence"
+    assert _chat(client, "I need a name change affidavit")["service"]["slug"] == "affidavit-drafting"
 
 def test_chat_tracking_extracts_ticket_number(client):
     body = _chat(client, "what is the status of hx-261018-abc123")

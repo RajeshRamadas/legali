@@ -105,6 +105,13 @@ SERVICES = [
         "property_types": ALL_PROPERTY_TYPES,
     },
     {
+        "slug": "affidavit-drafting",
+        "name": "Affidavit Drafting & Notarisation",
+        "category": "Documents",
+        "description": "Name change, address proof, gap, loss and other affidavits drafted by an advocate on stamp paper, with notarisation arranged.",
+        "property_types": ALL_PROPERTY_TYPES,
+    },
+    {
         "slug": "advocate-consultation",
         "name": "Advocate Consultation",
         "category": "Consultation",

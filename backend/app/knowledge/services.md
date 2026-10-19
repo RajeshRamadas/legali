@@ -12,6 +12,9 @@ Where the package includes it (Shield Pro and Shield Complete), the team coordin
 ## Drafting and vetting of agreements and deeds
 The team coordinates sale agreement, sale deed and buyer-protective clauses with the responsible advocate, based on the transaction. It also assists with Power of Attorney (POA), Gift Deed, Will registration and other property deeds, subject to professional review. Services: Sale Agreement / Sale Deed (sale-agreement-deed) and Deed Drafting / Registration Support (deed-drafting-registration).
 
+## Affidavits
+An advocate drafts affidavits such as name change, address proof, date-of-birth or gap affidavits, loss of documents, and declarations needed for Khata, bank or registration work. The affidavit is prepared on stamp paper of the right value and notarisation is arranged; stamp paper and notary charges are quoted separately. Service: Affidavit Drafting & Notarisation (affidavit-drafting).
+
 ## Property registration
 The team prepares a readiness checklist, coordinates the transaction paperwork, the deed and the SRO appointment, and supports the customer on registration day. Government fees and statutory outcomes remain separate. Service: Property Registration (property-registration).
 
