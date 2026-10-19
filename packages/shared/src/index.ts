@@ -60,12 +60,26 @@ export type TicketStatus = {
 };
 
 // Mirrors the chat endpoint in backend/app/chat.py.
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+export type ChatTicket = { ticket_number: string; contact: string };
+export type ChatOptions = {
+  // Earlier turns of this chat, oldest first, so follow-up questions make sense.
+  history?: ChatTurn[];
+  // A ticket the customer verified in this chat; the server re-checks it on every message.
+  ticket?: ChatTicket | null;
+};
 export type ChatReply = {
   reply: string;
-  action: "request" | "track" | null;
+  // "status": the reply is about the verified ticket, which comes back in `ticket`.
+  action: "request" | "track" | "status" | null;
   ticket_number: string | null;
   service: Service | null;
   suggestions: string[];
+  // Knowledge-base sections an AI answer drew on.
+  sources: { title: string; section: string }[];
+  mode: "ai" | "rules";
+  ticket: TicketStatus | null;
+  ticket_verified: boolean;
 };
 
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
@@ -111,11 +125,11 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
         body: JSON.stringify({ ticket_number: ticketNumber, contact, message }),
       });
     },
-    chat(message: string): Promise<ChatReply> {
+    chat(message: string, options: ChatOptions = {}): Promise<ChatReply> {
       return request<ChatReply>(baseUrl, "/api/v1/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, history: options.history ?? [], ticket: options.ticket ?? null }),
       });
     },
   };

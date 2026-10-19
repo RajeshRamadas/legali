@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PROPERTY_TYPES, type PropertyType, type Service, type TicketStatus } from "@homexo/shared";
+import { PROPERTY_TYPES, type ChatReply, type ChatTicket, type ChatTurn, type PropertyType, type Service, type TicketStatus } from "@homexo/shared";
 import { api } from "./api";
 import { TicketStatusCard } from "./TrackRequest";
 
 type NewMessage =
   | { from: "user"; text: string }
-  | { from: "bot"; text: string; offer?: Service | null; status?: TicketStatus };
+  | { from: "bot"; text: string; offer?: Service | null; status?: TicketStatus; sources?: ChatReply["sources"] };
 type Message = NewMessage & { id: number };
 
 type OpenForm = { kind: "request"; service: Service; messageId: number } | { kind: "track"; ticketNumber: string; messageId: number } | null;
@@ -18,6 +18,8 @@ const WELCOME: Message = {
   text: "Hi! I'm the Homexo Legal assistant. Ask me about packages, title checks, registration or documents. I can also raise a callback request or track one for you.",
 };
 const STARTERS = ["Is this property safe to buy?", "Package prices", "Developer services", "Track my request"];
+// Turns sent with each question so the assistant can follow the conversation.
+const HISTORY_TURNS = 12;
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -26,6 +28,8 @@ export default function ChatWidget() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [form, setForm] = useState<OpenForm>(null);
+  // The ticket the customer verified in this chat. Sent with each question so answers can use it.
+  const [verified, setVerified] = useState<ChatTicket | null>(null);
   const nextId = useRef(1);
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -45,11 +49,16 @@ export default function ChatWidget() {
     setInput("");
     setForm(null);
     setSuggestions([]);
+    const history: ChatTurn[] = messages
+      .filter((m) => m.id !== WELCOME.id)
+      .slice(-HISTORY_TURNS)
+      .map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
     push({ from: "user", text: message });
     setThinking(true);
     try {
-      const reply = await api.chat(message);
-      push({ from: "bot", text: reply.reply, offer: reply.action === "request" ? reply.service : null });
+      const reply = await api.chat(message, { history, ticket: verified });
+      if (verified && !reply.ticket_verified) setVerified(null);
+      push({ from: "bot", text: reply.reply, offer: reply.action === "request" ? reply.service : null, status: reply.ticket ?? undefined, sources: reply.sources });
       setSuggestions(reply.suggestions);
       if (reply.action === "track") setForm({ kind: "track", ticketNumber: reply.ticket_number ?? "", messageId: nextId.current - 1 });
     } catch {
@@ -75,7 +84,16 @@ export default function ChatWidget() {
             {messages.map((m) => (
               <div key={m.id} className={`chat-msg ${m.from}`}>
                 <p>{m.text}</p>
-                {m.from === "bot" && m.status && <TicketStatusCard ticket={m.status} />}
+                {m.from === "bot" && m.sources && m.sources.length > 0 && (
+                  <small className="chat-sources">From: {m.sources.map((s) => s.section).join(" · ")}</small>
+                )}
+                {m.from === "bot" && m.status && (
+                  <TicketStatusCard
+                    ticket={m.status}
+                    contact={verified?.ticket_number === m.status.ticket_number ? verified.contact : undefined}
+                    onUpdate={(status) => setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, status } : x)))}
+                  />
+                )}
                 {m.from === "bot" && m.offer && !(form?.kind === "request" && form.messageId === m.id) && (
                   <button className="chat-action" onClick={() => setForm({ kind: "request", service: m.offer!, messageId: m.id })}>
                     Request a callback for {m.offer.name} →
@@ -83,8 +101,8 @@ export default function ChatWidget() {
                 )}
                 {form && form.messageId === m.id && (
                   form.kind === "request"
-                    ? <ChatRequestForm service={form.service} onDone={(ticket) => { setForm(null); push({ from: "bot", text: `Done! Your ticket number is ${ticket}. A specialist will call you to confirm scope, documents and fees. Ask me to "track my request" any time.` }); setSuggestions(["Track my request", "Package prices"]); }} onCancel={() => setForm(null)} />
-                    : <ChatTrackForm ticketNumber={form.ticketNumber} onDone={(status) => { setForm(null); push({ from: "bot", text: `Here's the latest on ${status.ticket_number}.`, status }); setSuggestions(["Talk to a specialist", "Package prices"]); }} onCancel={() => setForm(null)} />
+                    ? <ChatRequestForm service={form.service} onDone={(ticket, phone) => { setForm(null); setVerified({ ticket_number: ticket, contact: phone }); push({ from: "bot", text: `Done! Your ticket number is ${ticket}. A specialist will call you to confirm scope, documents and fees. Ask me to "track my request" any time.` }); setSuggestions(["Track my request", "Package prices"]); }} onCancel={() => setForm(null)} />
+                    : <ChatTrackForm ticketNumber={form.ticketNumber} onDone={(status, contact) => { setForm(null); setVerified({ ticket_number: status.ticket_number, contact }); push({ from: "bot", text: `Here's the latest on ${status.ticket_number}. You can message your case team below, or ask me about this request.`, status }); setSuggestions(["What's happening with my request?", "What do you need from me?"]); }} onCancel={() => setForm(null)} />
                 )}
               </div>
             ))}
@@ -103,7 +121,7 @@ export default function ChatWidget() {
   );
 }
 
-function ChatRequestForm({ service, onDone, onCancel }: { service: Service; onDone: (ticket: string) => void; onCancel: () => void }) {
+function ChatRequestForm({ service, onDone, onCancel }: { service: Service; onDone: (ticket: string, phone: string) => void; onCancel: () => void }) {
   const types = PROPERTY_TYPES.filter((t) => service.property_types.includes(t.value));
   const [values, setValues] = useState({ name: "", phone: "", propertyType: (types[0]?.value ?? "other") as PropertyType, location: "" });
   const [error, setError] = useState("");
@@ -123,7 +141,7 @@ function ChatRequestForm({ service, onDone, onCancel }: { service: Service; onDo
         description: "Raised from the website chat assistant.",
         source: "chat",
       });
-      onDone(data.ticket_number);
+      onDone(data.ticket_number, values.phone.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not raise the request.");
     } finally {
@@ -146,7 +164,7 @@ function ChatRequestForm({ service, onDone, onCancel }: { service: Service; onDo
   );
 }
 
-function ChatTrackForm({ ticketNumber, onDone, onCancel }: { ticketNumber: string; onDone: (status: TicketStatus) => void; onCancel: () => void }) {
+function ChatTrackForm({ ticketNumber, onDone, onCancel }: { ticketNumber: string; onDone: (status: TicketStatus, contact: string) => void; onCancel: () => void }) {
   const [values, setValues] = useState({ ticket: ticketNumber, contact: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -156,7 +174,7 @@ function ChatTrackForm({ ticketNumber, onDone, onCancel }: { ticketNumber: strin
     setError("");
     setLoading(true);
     try {
-      onDone(await api.lookupTicket(values.ticket.trim(), values.contact.trim()));
+      onDone(await api.lookupTicket(values.ticket.trim(), values.contact.trim()), values.contact.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not check that request.");
     } finally {

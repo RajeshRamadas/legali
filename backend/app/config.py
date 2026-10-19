@@ -16,3 +16,11 @@ ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "480"))
 BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "")
 BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
 BOOTSTRAP_ADMIN_NAME = os.getenv("BOOTSTRAP_ADMIN_NAME", "Homexo Admin")
+
+# AI chat assistant. Without an API key the chat answers from the rule-based topics in chat.py.
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+CHAT_MODEL = os.getenv("CHAT_MODEL", "claude-opus-5-5")
+CHAT_EFFORT = os.getenv("CHAT_EFFORT", "low")
+# Server-side refusal fallback is a Claude API feature; set to "off" on Bedrock, Vertex AI or Foundry.
+CHAT_FALLBACKS = os.getenv("CHAT_FALLBACKS", "default")
+CHAT_RATE_LIMIT_PER_MINUTE = int(os.getenv("CHAT_RATE_LIMIT_PER_MINUTE", "20"))

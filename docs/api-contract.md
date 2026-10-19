@@ -70,11 +70,15 @@ A customer reply to the case team. Same verification as lookup; returns the upda
 Request: `{"ticket_number": "HX-261018-ABC123", "contact": "9876543210", "message": "I've emailed the EC."}`
 
 ## POST `/api/v1/chat`
-Rule-based assistant behind the website chat widget. Matches keywords to an answer and, where relevant, a service the visitor can raise a request for, or asks for ticket details to track a request.
+Assistant behind the website chat widget. With `ANTHROPIC_API_KEY` set it answers with Claude, grounded in the knowledge base (`backend/app/knowledge/*.md`, retrieved per question) and, when the request carries a ticket that verifies, that ticket's customer view (never internal notes). Without a key, or if the AI call fails or declines, it answers from rule-based topics. Rate limited per client (`CHAT_RATE_LIMIT_PER_MINUTE`, default 20; 429 when exceeded).
 
-Request: `{"message": "Is this property safe to buy?"}`
+Request: `{"message": "What do you need from me?", "history": [{"role": "user" | "assistant", "content": "..."}], "ticket": {"ticket_number": "HX-261018-ABC123", "contact": "9876543210"} | null}`
 
-Response: `{"reply": "...", "action": "request" | "track" | null, "ticket_number": null, "service": {...} | null, "suggestions": ["Package prices", "..."]}`
+`history` (optional, last 12 turns used) lets follow-up questions make sense. `ticket` is re-verified on every message, exactly like lookup.
+
+Response: `{"reply": "...", "action": "request" | "track" | "status" | null, "ticket_number": null, "service": {...} | null, "suggestions": ["..."], "sources": [{"title": "Buyer packages", "section": "Shield Pro (₹9,999)"}], "mode": "ai" | "rules", "ticket": {...customer view...} | null, "ticket_verified": true}`
+
+`action` tells the widget what to render: `request` a callback form for `service`, `track` a ticket-verification form, `status` the status card for `ticket` (with the reply box).
 
 ## Staff API
 

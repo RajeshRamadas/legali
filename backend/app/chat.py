@@ -1,17 +1,39 @@
+"""Website chat assistant. Answers with Claude grounded in the knowledge base (assistant.py) when an API key is
+configured, and from the rule-based topics below otherwise or whenever the AI call fails."""
 import re
+import threading
+import time
+from collections import defaultdict, deque
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from . import assistant, config, tickets
 from .catalogue import SERVICES_BY_SLUG
+from .db import get_db
+from .public import _find_for_customer
 
 router = APIRouter()
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2000)
+
+class ChatTicket(BaseModel):
+    ticket_number: str = Field(min_length=5, max_length=40)
+    contact: str = Field(min_length=5, max_length=254)
+
 class ChatMessage(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=40)
+    # A ticket the customer verified earlier in this chat. Re-checked on every message.
+    ticket: ChatTicket | None = None
 
-# Rule-based assistant for the website chat widget. Each topic maps keywords to an answer
-# and, optionally, a service the visitor can raise a ticket for. Swap for an AI provider later.
+HISTORY_TURNS = 12
+
+# Rule-based topics: each maps keywords to an answer and, optionally, a service the visitor can raise a ticket for.
 CHAT_TOPICS = [
     {
         "keywords": ["developer", "builder", "project", "bulk", "units", "acquisition", "parcel", "land screening"],
@@ -112,11 +134,52 @@ CHAT_TOPICS = [
 ]
 TICKET_NUMBER_RE = re.compile(r"\bHX-\d{6}-[0-9A-F]{6}\b", re.IGNORECASE)
 
+_recent: dict[str, deque] = defaultdict(deque)
+_recent_lock = threading.Lock()
+
+def _rate_limit(request: Request) -> None:
+    """Per-client sliding one-minute window. In-process only; use a shared store when running several workers."""
+    key = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    with _recent_lock:
+        hits = _recent[key]
+        while hits and now - hits[0] > 60:
+            hits.popleft()
+        if len(hits) >= config.CHAT_RATE_LIMIT_PER_MINUTE:
+            raise HTTPException(status_code=429, detail="You're sending messages quickly. Please wait a moment and try again.")
+        hits.append(now)
+
 @router.post("/api/v1/chat")
-def chat(payload: ChatMessage):
-    text = payload.message.strip().lower()
-    ticket_match = TICKET_NUMBER_RE.search(payload.message)
+def chat(payload: ChatMessage, request: Request, db: Session = Depends(get_db)):
+    _rate_limit(request)
+    ticket_view = None
+    if payload.ticket:
+        try:
+            ticket_view = tickets.customer_view(_find_for_customer(db, payload.ticket.ticket_number, payload.ticket.contact))
+        except HTTPException:
+            ticket_view = None
+    history = [turn.model_dump() for turn in payload.history[-HISTORY_TURNS:]]
+    reply = assistant.answer(payload.message.strip(), history, ticket_view) or rule_based_reply(payload.message, ticket_view)
+    return {
+        "sources": [],
+        "mode": "rules",
+        **reply,
+        "ticket": ticket_view if reply["action"] == "status" else None,
+        "ticket_verified": ticket_view is not None,
+    }
+
+def rule_based_reply(message: str, ticket_view: dict | None) -> dict:
+    text = message.strip().lower()
+    ticket_match = TICKET_NUMBER_RE.search(message)
     if ticket_match or any(re.search(rf"\b{word}\b", text) for word in ["track", "status", "my request", "my ticket"]):
+        if ticket_view and (not ticket_match or ticket_match.group(0).upper() == ticket_view["ticket_number"]):
+            return {
+                "reply": f"{ticket_view['ticket_number']} is at '{ticket_view['status_label']}'. Here are the details.",
+                "action": "status",
+                "ticket_number": ticket_view["ticket_number"],
+                "service": None,
+                "suggestions": ["Package prices", "Talk to a specialist"],
+            }
         return {
             "reply": "I can check that. Enter your ticket number and the phone number or email you used.",
             "action": "track",

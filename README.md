@@ -22,7 +22,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 Customer browser
   └── Next.js frontend (frontend/)
         ├── Homepage / service catalogue
-        ├── Chat assistant (rule-based, raises and tracks tickets)
+        ├── AI chat assistant (answers from the knowledge base and the verified ticket; raises, tracks and replies to tickets)
         ├── Ticket tracking and replies (ticket number + phone/email)
         └── Staff workspace /admin (admins and agents)
   Android / iPhone app
@@ -37,7 +37,7 @@ Customer browser
                  ├── Customer intake / conversations (next phase)
                  ├── Ticket lifecycle
                  ├── Staff APIs (admins see all tickets, agents see assigned)
-                 └── AI provider integration (next phase)
+                 └── Claude API for the chat assistant (optional; rule-based without a key)
                  │
                  ▼
            PostgreSQL database
@@ -83,6 +83,12 @@ Admin dashboard and agent workspace should be added as authenticated role-based 
 The API container runs `alembic upgrade head` before starting, so the database schema is always current. The first admin is created only when no admin exists; change its password and add agents from **Staff** in the workspace.
 
 The frontend is configured to use `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` by default.
+
+### AI chat assistant
+
+Set `ANTHROPIC_API_KEY` in `infra/.env` to turn on AI answers in the chat. The assistant retrieves the most relevant sections of the knowledge base in `backend/app/knowledge/*.md` for each question and, once a customer verifies their ticket in the chat, reads that ticket's status, history and case-team messages (never internal notes). It uses `claude-opus-5-5` by default (`CHAT_MODEL`, `CHAT_EFFORT`) with Anthropic's server-side refusal fallback; set `CHAT_FALLBACKS=off` when calling Claude through Bedrock, Vertex AI or Foundry. Without a key, or if a call fails, the chat answers from its built-in rule-based topics.
+
+To teach the assistant something new, edit the markdown files: every `## ` heading is one section it can retrieve, so keep each section about one topic.
 
 ### Run the API without Docker
 
@@ -137,11 +143,11 @@ Never commit `.env`, API keys, database passwords, customer documents, or produc
 Before production, implement:
 1. Password reset, MFA for admins, and OTP verification for customers before showing ticket details (today a ticket number plus the phone or email used is enough).
 2. SLA targets and due dates on tickets.
-3. Conversational intake with validation, consent, resumable sessions and AI provider abstraction.
+3. Conversational intake with validation, consent and resumable sessions. The chat assistant answers questions but still raises tickets through the form.
 4. Secure document upload/download using private object storage, file scanning and expiring URLs.
 5. A delivery worker and provider for notifications (email/SMS/WhatsApp); notifications are recorded as queued but not sent yet.
 6. Payment integration only after selecting a compliant provider; never store card data.
-7. Rate limiting (login, ticket intake, lookup and chat), abuse protection, backups, observability, privacy retention and security testing.
+7. Rate limiting (login, ticket intake and lookup; chat has a per-process limit only), abuse protection, backups, observability, privacy retention and security testing.
 8. Legal review of service descriptions and authorization requirements for accessing government records.
 
 See `docs/requirements.md`, `docs/architecture.md`, `docs/api-contract.md`, `docs/implementation-plan.md` and `docs/security-checklist.md`.
