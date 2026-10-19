@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PROPERTY_TYPES, type ChatReply, type ChatTicket, type ChatTurn, type PropertyType, type Service, type TicketStatus } from "@homexo/shared";
+import { PROPERTY_TYPES, type ChatReply, type ChatTicket, type PropertyType, type Service, type TicketStatus } from "@homexo/shared";
 import { api } from "./api";
 import { TicketStatusCard } from "./TrackRequest";
 
@@ -18,8 +18,6 @@ const WELCOME: Message = {
   text: "Hi! I'm the Homexo Legal assistant. Ask me about packages, title checks, registration or documents. I can also raise a callback request or track one for you.",
 };
 const STARTERS = ["Is this property safe to buy?", "Package prices", "Developer services", "Track my request"];
-// Turns sent with each question so the assistant can follow the conversation.
-const HISTORY_TURNS = 12;
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -30,6 +28,8 @@ export default function ChatWidget() {
   const [form, setForm] = useState<OpenForm>(null);
   // The ticket the customer verified in this chat. Sent with each question so answers can use it.
   const [verified, setVerified] = useState<ChatTicket | null>(null);
+  // The saved conversation on the server; it holds the history and is shown to staff on any ticket raised from it.
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const nextId = useRef(1);
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -49,14 +49,11 @@ export default function ChatWidget() {
     setInput("");
     setForm(null);
     setSuggestions([]);
-    const history: ChatTurn[] = messages
-      .filter((m) => m.id !== WELCOME.id)
-      .slice(-HISTORY_TURNS)
-      .map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text }));
     push({ from: "user", text: message });
     setThinking(true);
     try {
-      const reply = await api.chat(message, { history, ticket: verified });
+      const reply = await api.chat(message, { conversationId, ticket: verified });
+      setConversationId(reply.conversation_id);
       if (verified && !reply.ticket_verified) setVerified(null);
       push({ from: "bot", text: reply.reply, offer: reply.action === "request" ? reply.service : null, status: reply.ticket ?? undefined, sources: reply.sources });
       setSuggestions(reply.suggestions);
@@ -101,7 +98,7 @@ export default function ChatWidget() {
                 )}
                 {form && form.messageId === m.id && (
                   form.kind === "request"
-                    ? <ChatRequestForm service={form.service} onDone={(ticket, phone) => { setForm(null); setVerified({ ticket_number: ticket, contact: phone }); push({ from: "bot", text: `Done! Your ticket number is ${ticket}. A specialist will call you to confirm scope, documents and fees. Ask me to "track my request" any time.` }); setSuggestions(["Track my request", "Package prices"]); }} onCancel={() => setForm(null)} />
+                    ? <ChatRequestForm service={form.service} conversationId={conversationId} onDone={(ticket, phone) => { setForm(null); setVerified({ ticket_number: ticket, contact: phone }); push({ from: "bot", text: `Done! Your ticket number is ${ticket}. A specialist will call you to confirm scope, documents and fees. Ask me to "track my request" any time.` }); setSuggestions(["Track my request", "Package prices"]); }} onCancel={() => setForm(null)} />
                     : <ChatTrackForm ticketNumber={form.ticketNumber} onDone={(status, contact) => { setForm(null); setVerified({ ticket_number: status.ticket_number, contact }); push({ from: "bot", text: `Here's the latest on ${status.ticket_number}. You can message your case team below, or ask me about this request.`, status }); setSuggestions(["What's happening with my request?", "What do you need from me?"]); }} onCancel={() => setForm(null)} />
                 )}
               </div>
@@ -115,13 +112,14 @@ export default function ChatWidget() {
             <input aria-label="Type your question" placeholder="Ask about your property…" value={input} onChange={(e) => setInput(e.target.value)} maxLength={1000} />
             <button className="btn small" type="submit" disabled={!input.trim() || thinking} aria-label="Send">↑</button>
           </form>
+          <small className="chat-note">Chats are saved so our team can follow up on your request. A specialist confirms scope and fees on the call.</small>
         </section>
       )}
     </>
   );
 }
 
-function ChatRequestForm({ service, onDone, onCancel }: { service: Service; onDone: (ticket: string, phone: string) => void; onCancel: () => void }) {
+function ChatRequestForm({ service, conversationId, onDone, onCancel }: { service: Service; conversationId: string | null; onDone: (ticket: string, phone: string) => void; onCancel: () => void }) {
   const types = PROPERTY_TYPES.filter((t) => service.property_types.includes(t.value));
   const [values, setValues] = useState({ name: "", phone: "", propertyType: (types[0]?.value ?? "other") as PropertyType, location: "" });
   const [error, setError] = useState("");
@@ -140,6 +138,7 @@ function ChatRequestForm({ service, onDone, onCancel }: { service: Service; onDo
         location: values.location.trim(),
         description: "Raised from the website chat assistant.",
         source: "chat",
+        conversation_id: conversationId,
       });
       onDone(data.ticket_number, values.phone.trim());
     } catch (err) {

@@ -83,6 +83,20 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
         <div className="ticket-main">
           <Conversation ticket={ticket} onSend={(message, visibility) => act("/messages", "POST", { message, visibility }, visibility === "internal" ? "Internal note added." : "Message sent to the customer.")} />
 
+          {ticket.chat_transcript.length > 0 && (
+            <details className="admin-card chat-transcript">
+              <summary><h2>Chat with the assistant</h2><small>{ticket.chat_transcript.filter((m) => m.from === "customer").length} customer messages · {formatDate(ticket.chat_transcript[0].at)}</small></summary>
+              <ol>
+                {ticket.chat_transcript.map((m, i) => (
+                  <li key={i} className={`from-${m.from}`}>
+                    <small>{m.from === "customer" ? "Customer" : m.from === "assistant" ? "Assistant" : "System"} · {formatDate(m.at)}</small>
+                    <p>{m.message}</p>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
+
           <section className="admin-card">
             <h2>Activity</h2>
             <ol className="admin-timeline">

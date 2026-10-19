@@ -1,4 +1,5 @@
 """Customer-facing endpoints: service catalogue, raising tickets, tracking and replying."""
+import uuid
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,6 +24,8 @@ class TicketCreate(BaseModel):
     location: str = Field(min_length=2, max_length=180)
     description: str = Field(default="", max_length=4000)
     source: Literal["website", "chat", "mobile"] = "website"
+    # The chat this request was raised from, if any; staff see its transcript on the ticket.
+    conversation_id: uuid.UUID | None = None
 
 class TicketLookup(BaseModel):
     ticket_number: str = Field(min_length=5, max_length=40)
@@ -70,6 +73,8 @@ def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
         property_type=payload.property_type, service=service, package=payload.package, location=payload.location.strip(),
         description=payload.description.strip(), source=payload.source,
     )
+    if payload.conversation_id:
+        tickets.link_conversation(db, ticket, payload.conversation_id)
     db.commit()
     return {
         "ticket_number": ticket.ticket_number,

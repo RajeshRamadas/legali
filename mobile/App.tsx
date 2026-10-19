@@ -13,28 +13,13 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
-  createApiClient,
-  DEFAULT_API_BASE_URL,
   PROPERTY_TYPES,
   type PropertyType,
   type Service,
 } from "@homexo/shared";
 
-// On a phone or emulator, localhost is the device itself. Set EXPO_PUBLIC_API_BASE_URL
-// to your computer's LAN address (or http://10.0.2.2:8000 on the Android emulator).
-const api = createApiClient(process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL);
-
-const colors = {
-  ink: "#17342e",
-  muted: "#667771",
-  green: "#1e6b50",
-  greenDark: "#164c3d",
-  lime: "#d5ef9b",
-  cream: "#f7f7f0",
-  line: "#e5e9e1",
-  white: "#fff",
-  danger: "#a23b2a",
-};
+import { ChatScreen } from "./ChatScreen";
+import { api, colors } from "./theme";
 
 const emptyForm = { name: "", contact: "", propertyType: "apartment" as PropertyType, location: "", description: "" };
 
@@ -52,7 +37,8 @@ export default function App() {
 function HomeScreen() {
   const [services, setServices] = useState<Service[]>([]);
   const [loadError, setLoadError] = useState("");
-  const [selected, setSelected] = useState<Service | null>(null);
+  const [selected, setSelected] = useState<{ service: Service; conversationId?: string | null } | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   async function loadServices() {
     setLoadError("");
@@ -67,13 +53,19 @@ function HomeScreen() {
     loadServices();
   }, []);
 
-  if (selected) return <RequestScreen service={selected} onBack={() => setSelected(null)} />;
+  // The chat stays mounted while a request opened from it is on screen, so going back keeps the conversation.
+  const chat = <ChatScreen visible={chatOpen && !selected} onClose={() => setChatOpen(false)} onRequest={(service, conversationId) => setSelected({ service, conversationId })} />;
+  if (selected) return <>{chat}<RequestScreen service={selected.service} conversationId={selected.conversationId} onBack={() => setSelected(null)} /></>;
+  if (chatOpen) return chat;
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <Text style={styles.brand}>homexo<Text style={{ color: colors.green }}>.</Text></Text>
       <Text style={styles.title}>Property services, <Text style={{ color: colors.green }}>made simpler.</Text></Text>
       <Text style={styles.body}>Choose a service to start a request. Our team reviews scope and availability.</Text>
+      <Pressable style={styles.button} onPress={() => setChatOpen(true)}>
+        <Text style={styles.buttonText}>Ask the assistant or track a request</Text>
+      </Pressable>
 
       {loadError ? (
         <View style={styles.card}>
@@ -84,7 +76,7 @@ function HomeScreen() {
         <ActivityIndicator color={colors.green} style={{ marginTop: 32 }} />
       ) : (
         services.map((service) => (
-          <Pressable key={service.slug} style={styles.card} onPress={() => setSelected(service)}>
+          <Pressable key={service.slug} style={styles.card} onPress={() => setSelected({ service })}>
             <Text style={styles.tag}>{service.category.toUpperCase()}</Text>
             <Text style={styles.cardTitle}>{service.name}</Text>
             <Text style={styles.body}>{service.description}</Text>
@@ -96,7 +88,7 @@ function HomeScreen() {
   );
 }
 
-function RequestScreen({ service, onBack }: { service: Service; onBack: () => void }) {
+function RequestScreen({ service, conversationId, onBack }: { service: Service; conversationId?: string | null; onBack: () => void }) {
   const [form, setForm] = useState({
     ...emptyForm,
     propertyType: service.property_types[0] ?? emptyForm.propertyType,
@@ -118,8 +110,9 @@ function RequestScreen({ service, onBack }: { service: Service; onBack: () => vo
         location: form.location,
         description: form.description,
         source: "mobile",
+        conversation_id: conversationId,
       });
-      setNotice(`Request received. Your demo ticket number is ${data.ticket_number}. Save it for reference.`);
+      setNotice(`Request received. Your ticket number is ${data.ticket_number}. Save it to track your request in the assistant.`);
       setForm({ ...form, name: "", contact: "", location: "", description: "" });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not connect to Homexo. Please try again.");
@@ -131,7 +124,7 @@ function RequestScreen({ service, onBack }: { service: Service; onBack: () => vo
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={onBack} hitSlop={12}><Text style={styles.link}>← All services</Text></Pressable>
+        <Pressable onPress={onBack} hitSlop={12}><Text style={styles.link}>{conversationId ? "← Back to the chat" : "← All services"}</Text></Pressable>
         <Text style={styles.tag}>HOMEXO REQUEST</Text>
         <Text style={styles.title}>{service.name}</Text>
 

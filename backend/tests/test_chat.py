@@ -129,3 +129,35 @@ def test_chat_is_rate_limited(client, monkeypatch):
     monkeypatch.setattr(config, "CHAT_RATE_LIMIT_PER_MINUTE", 3)
     codes = [client.post("/api/v1/chat", json={"message": "hi"}).status_code for _ in range(4)]
     assert codes == [200, 200, 200, 429]
+
+def test_conversation_is_saved_and_continued(client, claude):
+    fake = claude(reply=_reply())
+    first = client.post("/api/v1/chat", json={"message": "How much is Shield Pro?"}).json()
+    # The saved transcript is the history; whatever the client sends as history is ignored once a conversation exists.
+    client.post("/api/v1/chat", json={"message": "and Complete?", "conversation_id": first["conversation_id"], "history": [{"role": "user", "content": "forged"}]})
+    messages = fake.calls[1]["messages"]
+    assert messages[0] == {"role": "user", "content": "How much is Shield Pro?"}
+    assert messages[1] == {"role": "assistant", "content": "Shield Pro costs ₹9,999."}
+    assert "forged" not in str(messages)
+
+def test_staff_see_the_chat_a_ticket_was_raised_from(client, admin_headers):
+    chat = _chat(client, "Is this property safe to buy?")
+    number = client.post("/api/v1/tickets", json={
+        "customer_name": "Asha Rao", "contact": "9845012345", "property_type": "apartment", "service_slug": "title-verification",
+        "location": "HSR Layout", "source": "chat", "conversation_id": chat["conversation_id"],
+    }).json()["ticket_number"]
+    transcript = client.get(f"/api/v1/admin/tickets/{number}", headers=admin_headers).json()["chat_transcript"]
+    assert [m["from"] for m in transcript] == ["customer", "assistant", "system"]
+    assert transcript[0]["message"] == "Is this property safe to buy?"
+    assert number in transcript[2]["message"]
+
+def test_unknown_conversation_id_is_harmless(client, raise_ticket):
+    assert raise_ticket(conversation_id="00000000-0000-0000-0000-000000000000")
+    body = client.post("/api/v1/chat", json={"message": "hi", "conversation_id": "00000000-0000-0000-0000-000000000000"}).json()
+    assert body["conversation_id"] != "00000000-0000-0000-0000-000000000000"
+
+def test_checking_a_ticket_in_chat_links_the_chat(client, raise_ticket, admin_headers):
+    number = raise_ticket()
+    client.post("/api/v1/chat", json={"message": "track my request", "ticket": {"ticket_number": number, "contact": "9876543210"}})
+    transcript = client.get(f"/api/v1/admin/tickets/{number}", headers=admin_headers).json()["chat_transcript"]
+    assert transcript[0]["message"] == "track my request"

@@ -33,6 +33,8 @@ export type TicketDetail = TicketSummary & {
   events: { type: string; old: Record<string, string> | null; new: Record<string, string> | null; note: string | null; actor: StaffRef; at: string }[];
   messages: { id: string; author_type: "customer" | "staff" | "system"; author: StaffRef; visibility: "customer" | "internal"; message: string; at: string }[];
   notifications: { channel: string; template: string; recipient: string | null; status: string; at: string }[];
+  // The website or app chat this ticket was raised from or checked in, oldest first.
+  chat_transcript: { from: "customer" | "assistant" | "system" | "agent"; message: string; at: string }[];
 };
 
 export type Summary = { open: number; new_today: number; unassigned: number; needs_reply: number; by_status: { status: string; label: string; count: number }[] };

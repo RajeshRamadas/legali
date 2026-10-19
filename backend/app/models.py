@@ -132,7 +132,10 @@ class ServiceType(TimestampMixin, Base):
 
 class Conversation(TimestampMixin, Base):
     __tablename__ = "conversations"
-    __table_args__ = (CheckConstraint(_check_in("state", ("active", "submitted", "closed", "abandoned")), name="ck_conversations_state"),)
+    __table_args__ = (
+        CheckConstraint(_check_in("state", ("active", "submitted", "closed", "abandoned")), name="ck_conversations_state"),
+        Index("idx_conversations_client_key", "client_key"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     customer_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customers.id", ondelete="SET NULL"))
@@ -142,10 +145,17 @@ class Conversation(TimestampMixin, Base):
     intake_data: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
     consent_notice_version: Mapped[str | None] = mapped_column(Text)
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Salted hash of the chat client's address, for rate limiting across API workers. Never the raw IP.
+    client_key: Mapped[str | None] = mapped_column(Text)
+
+    messages: Mapped[list["ConversationMessage"]] = relationship(order_by="ConversationMessage.created_at")
 
 class ConversationMessage(Base):
     __tablename__ = "conversation_messages"
-    __table_args__ = (CheckConstraint(_check_in("sender_type", ("customer", "assistant", "system", "agent")), name="ck_conversation_messages_sender"),)
+    __table_args__ = (
+        CheckConstraint(_check_in("sender_type", ("customer", "assistant", "system", "agent")), name="ck_conversation_messages_sender"),
+        Index("idx_conversation_messages_conversation", "conversation_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     conversation_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
@@ -190,6 +200,7 @@ class ServiceRequest(TimestampMixin, Base):
     assignments: Mapped[list["Assignment"]] = relationship(back_populates="service_request", order_by="Assignment.assigned_at", lazy="selectin")
     events: Mapped[list["TicketEvent"]] = relationship(order_by="TicketEvent.created_at", lazy="selectin")
     messages: Mapped[list["TicketMessage"]] = relationship(order_by="TicketMessage.created_at", lazy="selectin")
+    conversation: Mapped[Conversation | None] = relationship()
 
     @property
     def active_assignment(self) -> "Assignment | None":
