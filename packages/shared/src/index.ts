@@ -18,7 +18,7 @@ export const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-// Mirrors SERVICES in backend/app/main.py.
+// Mirrors SERVICES in backend/app/catalogue.py.
 export type Service = {
   slug: string;
   name: string;
@@ -27,7 +27,7 @@ export type Service = {
   property_types: PropertyType[];
 };
 
-// Mirrors TicketCreate in backend/app/main.py.
+// Mirrors TicketCreate in backend/app/public.py.
 export type TicketCreate = {
   customer_name: string;
   contact: string;
@@ -38,6 +38,8 @@ export type TicketCreate = {
   email?: string;
   package?: string;
   source?: "website" | "chat" | "mobile";
+  // The chat this request was raised from, so staff can read it on the ticket.
+  conversation_id?: string | null;
 };
 
 export type TicketCreated = {
@@ -46,7 +48,7 @@ export type TicketCreated = {
   message: string;
 };
 
-// Mirrors _public_ticket in backend/app/main.py.
+// Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
   ticket_number: string;
   service_name: string;
@@ -55,15 +57,34 @@ export type TicketStatus = {
   status_label: string;
   created_at: string;
   history: { status: string; label: string; note: string; at: string }[];
+  messages: { from: "you" | "homexo"; message: string; at: string }[];
+  can_reply: boolean;
 };
 
-// Mirrors the chat endpoint in backend/app/main.py.
+// Mirrors the chat endpoint in backend/app/chat.py.
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+export type ChatTicket = { ticket_number: string; contact: string };
+export type ChatOptions = {
+  // From the previous reply. Continues the saved conversation, whose transcript is then the history.
+  conversationId?: string | null;
+  // Earlier turns, oldest first. Only used to start a conversation the server has not saved yet.
+  history?: ChatTurn[];
+  // A ticket the customer verified in this chat; the server re-checks it on every message.
+  ticket?: ChatTicket | null;
+};
 export type ChatReply = {
   reply: string;
-  action: "request" | "track" | null;
+  // "status": the reply is about the verified ticket, which comes back in `ticket`.
+  action: "request" | "track" | "status" | null;
   ticket_number: string | null;
   service: Service | null;
   suggestions: string[];
+  // Knowledge-base sections an AI answer drew on.
+  sources: { title: string; section: string }[];
+  mode: "ai" | "rules";
+  ticket: TicketStatus | null;
+  ticket_verified: boolean;
+  conversation_id: string;
 };
 
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
@@ -102,11 +123,18 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
         body: JSON.stringify({ ticket_number: ticketNumber, contact }),
       });
     },
-    chat(message: string): Promise<ChatReply> {
+    replyToTicket(ticketNumber: string, contact: string, message: string): Promise<TicketStatus> {
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket_number: ticketNumber, contact, message }),
+      });
+    },
+    chat(message: string, options: ChatOptions = {}): Promise<ChatReply> {
       return request<ChatReply>(baseUrl, "/api/v1/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, conversation_id: options.conversationId ?? null, history: options.history ?? [], ticket: options.ticket ?? null }),
       });
     },
   };

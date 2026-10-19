@@ -1,4 +1,4 @@
-// Static copy for the home page. Service slugs mirror SERVICES in backend/app/main.py.
+// Static copy for the home page. Service slugs mirror SERVICES in backend/app/catalogue.py.
 
 export const SERVICE_OPTIONS = [
   { slug: "title-verification", label: "Title Verification" },
