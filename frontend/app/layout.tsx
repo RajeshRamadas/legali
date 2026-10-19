@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Homexo | Property services, made simpler",
-  description: "Property services for homes, apartments, plots and land documentation.",
+  title: "Homexo Legal — Property Verification, Registration & Developer Operations",
+  description: "Property legal verification, land acquisition due diligence, registration coordination and post-registration support for buyers and real estate developers in Bangalore.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -6,7 +6,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
-- Responsive Next.js homepage with service catalogue, navigation, process steps, CTA and chatbot entry point.
+- Responsive Next.js homepage for Homexo Legal (buyer packages, developer services, document desk) with a callback form that raises tickets, ticket tracking and a chat assistant.
 - Expo (React Native) app for Android and iPhone with the service list and request form.
 - Shared TypeScript package (`packages/shared`) with API types and client, used by both the website and the app.
 - FastAPI backend starter with health, service catalogue and ticket creation/listing endpoints.
@@ -21,8 +21,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 Customer browser
   └── Next.js frontend (frontend/)
         ├── Homepage / service catalogue
-        ├── Chatbot UI (starter entry point)
-        └── Future customer account / ticket tracking
+        ├── Chat assistant (rule-based, raises and tracks tickets)
+        └── Ticket tracking (ticket number + phone/email)
   Android / iPhone app
   └── Expo app (mobile/)
         ├── Service list

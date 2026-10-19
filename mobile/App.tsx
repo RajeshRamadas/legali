@@ -117,6 +117,7 @@ function RequestScreen({ service, onBack }: { service: Service; onBack: () => vo
         service_slug: service.slug,
         location: form.location,
         description: form.description,
+        source: "mobile",
       });
       setNotice(`Request received. Your demo ticket number is ${data.ticket_number}. Save it for reference.`);
       setForm({ ...form, name: "", contact: "", location: "", description: "" });
