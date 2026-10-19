@@ -15,6 +15,7 @@ export const SERVICE_OPTIONS = [
   { slug: "rtc-mutation-survey-records", label: "RTC / Mutation / Survey Records" },
   { slug: "khata-property-tax-documents", label: "Khata / Property Tax Documents" },
   { slug: "deed-drafting-registration", label: "Deed Drafting / Registration Support" },
+  { slug: "affidavit-drafting", label: "Affidavit Drafting & Notarisation" },
   { slug: "advocate-consultation", label: "Advocate Consultation" },
   { slug: "general-guidance", label: "Not sure — need guidance" },
 ];
@@ -29,15 +30,15 @@ const off = (...items: string[]): Feature[] => items.map((text) => ({ text, off:
 
 export const PACKAGES = [
   {
-    tier: "Tier 01", name: "Shield Starter", price: "₹4,999", delivery: "Delivery in 48–72 hours", slug: "title-verification", cta: "Choose Starter",
+    tier: "Tier 01", name: "Shield Starter", price: "₹4,999", delivery: "Delivery in 48–72 hours", slug: "title-verification", cta: "Choose Starter", summary: "Title, EC, RERA and litigation checks with a Go / No-Go verdict",
     features: [...on("Title deed verification", "Encumbrance Certificate check", "RERA registration check", "Basic litigation check", "1-page Go / No-Go verdict PDF", "WhatsApp status updates"), ...off("SRO field verification", "Sale Agreement drafting", "Khata Transfer support"), ...on("1 video consultation session")],
   },
   {
-    tier: "Tier 02", name: "Shield Pro", price: "₹9,999", delivery: "Delivery in 5–7 working days", slug: "legal-due-diligence", cta: "Choose Pro", popular: true,
+    tier: "Tier 02", name: "Shield Pro", price: "₹9,999", delivery: "Delivery in 5–7 working days", slug: "legal-due-diligence", cta: "Choose Pro", popular: true, summary: "30-year title history, SRO field check and a buyer-protective sale agreement",
     features: [...on("Everything in Starter", "30-year title history check", "Mother Deed chain verification", "BBMP / BDA / BMRDA audit", "Land acquisition notice check", "SRO physical field verification", "Buyer-protective Sale Agreement", "Khata & property tax records"), ...off("Khata Transfer execution"), ...on("2 video consultation sessions")],
   },
   {
-    tier: "Tier 03", name: "Shield Complete", price: "₹18,999", delivery: "7–10 days + post-purchase support", slug: "property-registration", cta: "Choose Complete",
+    tier: "Tier 03", name: "Shield Complete", price: "₹18,999", delivery: "7–10 days + post-purchase support", slug: "property-registration", cta: "Choose Complete", summary: "Sale deed, registration, Khata transfer and 12 months of help after purchase",
     features: on("Everything in Pro", "Sale Deed drafting & registration support", "Khata Transfer (BBMP / BDA)", "Property tax name change", "BESCOM name change support", "Aadhaar eSign support for documents", "Secure document vault", "12-month post-purchase helpline", "Dedicated advocate assigned", "3 video consultation sessions"),
   },
 ];
@@ -76,21 +77,6 @@ export const VERIFY_SERVICES = [
   { icon: "⇢", title: "Registration coordination", text: "Coordinate readiness checklists, transaction paperwork and SRO appointment steps. Government fees and statutory outcomes remain separate.", tags: ["Checklist", "Appointment", "Follow-up"] },
 ];
 
-export const WHY = [
-  { icon: "◷", title: "Clear case status", text: "Track the reported stage of your order and receive updates as the case team records progress." },
-  { icon: "▤", title: "Plain-English findings", text: "Understand material risks and open items without having to interpret a dense legal brief on your own." },
-  { icon: "₹", title: "Fixed-fee packages", text: "See the included scope before ordering. Stamp duty and government charges are disclosed separately." },
-  { icon: "⌂", title: "Support after purchase", text: "Keep track of Khata, tax and electricity-name-change follow-up after registration." },
-  { icon: "☏", title: "WhatsApp-friendly updates", text: "Receive customer-friendly progress messages when the service team confirms a stage change." },
-  { icon: "⚖", title: "Professional review", text: "Automated tools can organize evidence, but legal conclusions and final opinions require qualified professional review." },
-];
-
-export const TESTIMONIALS = [
-  { quote: "I was nervous about a 2BHK in Whitefield. The review helped us identify a gap that needed checking before we proceeded.", name: "Arun K.", role: "IT professional · Whitefield" },
-  { quote: "The status updates made it easier to understand what was happening and what was still being checked.", name: "Priya D.", role: "Product manager · Koramangala" },
-  { quote: "We understood the property-tax issue and the steps needed to address it before registration.", name: "Rohit & Sneha", role: "First-time buyers · JP Nagar" },
-];
-
 export const FAQS = [
   { q: "Can you tell me whether a property is safe to buy?", a: "The advocate reviews the available evidence and explains material risks, missing information and next steps. No service can guarantee that every possible risk or dispute will be found." },
   { q: "What documents should I ask the seller for?", a: "The checklist depends on the property type and transaction. It may include title deeds, EC, revenue records, approvals, khata/tax records, survey documents and development-rights documents." },
@@ -105,4 +91,5 @@ export const DOC_SERVICES = [
   { icon: "⌕", title: "Registration documents", text: "Encumbrance Certificate, registered deed copies and eligible certified-copy requests.", slug: "certified-copy-ec" },
   { icon: "⌂", title: "Khata & property records", text: "Khata / e-Khata guidance, property-tax records and application follow-up.", slug: "khata-property-tax-documents" },
   { icon: "⚖", title: "Legal documents & deeds", text: "Sale agreement, sale deed, POA, Gift Deed and other property-document drafting or vetting support.", slug: "deed-drafting-registration" },
+  { icon: "✎", title: "Affidavits", text: "Name change, address proof, gap, loss and other affidavits, drafted by an advocate on stamp paper and arranged for notarisation.", slug: "affidavit-drafting" },
 ];

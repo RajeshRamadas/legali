@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PROPERTY_TYPES, type ChatReply, type ChatTicket, type PropertyType, type Service, type TicketStatus } from "@homexo/shared";
 import { api } from "./api";
+import { ASK_EVENT } from "./homeEvents";
 import { TicketStatusCard } from "./TrackRequest";
 
 type NewMessage =
@@ -65,6 +66,19 @@ export default function ChatWidget() {
       setThinking(false);
     }
   }
+
+  // Elsewhere on the page (the home page's "Ask a question" box) can open the chat, with a question to send.
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    function onAsk(event: Event) {
+      setOpen(true);
+      const question = (event as CustomEvent<string>).detail;
+      if (question) sendRef.current(question);
+    }
+    window.addEventListener(ASK_EVENT, onAsk);
+    return () => window.removeEventListener(ASK_EVENT, onAsk);
+  }, []);
 
   return (
     <>
