@@ -96,6 +96,10 @@ Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send 
 | GET | `/api/v1/admin/meta` | staff | Status and priority options |
 | GET / POST | `/api/v1/admin/staff` | admin | List staff / add `{"display_name", "email", "password", "role"}` |
 | PATCH | `/api/v1/admin/staff/{id}` | admin | `{"account_status": "active" or "suspended", "role"}` |
+| GET | `/api/v1/posts` | public | Published blog posts, newest first. Filters: `type` (`article` or `case_study`), `tag`, `q`, `page`, `page_size` |
+| GET | `/api/v1/posts/{slug}` | public | One published post with its Markdown `body`, `highlights` and up to 3 `related` posts of the same type |
+| GET / POST | `/api/v1/admin/posts` | admin | List all posts (filters `type`, `status`, `q`) / create `{"post_type", "title", "slug"?, "status", "excerpt", "body", "cover_image_url", "tags", "highlights"}` |
+| GET / PATCH / DELETE | `/api/v1/admin/posts/{id}` | admin | Read, edit, publish (`{"status": "published"}`), unpublish (`"draft"`) or delete a post |
 
 Status changes, assignments, sign-ins and staff changes are written to `audit_logs`; every ticket change is also a `ticket_events` row.
 

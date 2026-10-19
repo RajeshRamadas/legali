@@ -29,6 +29,8 @@ PRIORITIES = ("low", "normal", "high", "urgent")
 TICKET_SOURCES = ("website", "chat", "mobile", "phone", "whatsapp", "admin", "referral")
 PROPERTY_TYPES = ("apartment", "independent_house", "commercial", "residential_plot", "agricultural_land", "other")
 STAFF_ROLES = ("agent", "admin")
+POST_TYPES = ("article", "case_study")
+POST_STATUSES = ("draft", "published")
 
 class Base(DeclarativeBase):
     pass
@@ -325,3 +327,29 @@ class AuditLog(Base):
     # "metadata" is reserved on declarative models, so the attribute name differs from the column.
     metadata_: Mapped[dict] = mapped_column("metadata", JSONType, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+class Post(TimestampMixin, Base):
+    """A blog article or case study. Admins write the body in Markdown; the website renders published posts."""
+    __tablename__ = "posts"
+    __table_args__ = (
+        CheckConstraint(_check_in("post_type", POST_TYPES), name="ck_posts_type"),
+        CheckConstraint(_check_in("status", POST_STATUSES), name="ck_posts_status"),
+        Index("idx_posts_published", "status", "published_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    post_type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="draft", nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    excerpt: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    cover_image_url: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    # Short facts shown beside a case study, e.g. [{"label": "Location", "value": "Whitefield"}].
+    highlights: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    author_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    # Set the first time the post is published and kept if it is unpublished and published again.
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    author: Mapped[User | None] = relationship(lazy="joined")
