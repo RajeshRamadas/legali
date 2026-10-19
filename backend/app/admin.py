@@ -11,10 +11,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from . import tickets
+from . import config, google_calendar, tickets, whatsapp
 from .db import get_db
 from .models import (
-    CLOSED_STATUSES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, Customer, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
+    CLOSED_STATUSES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, Customer, Meeting, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
 )
 from .security import create_access_token, current_staff, hash_password, require_admin, verify_password
 
@@ -42,19 +42,34 @@ class StaffCreate(BaseModel):
     email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     password: str = Field(min_length=10, max_length=200)
     role: Literal[STAFF_ROLES]  # type: ignore[valid-type]
+    phone: str | None = Field(default=None, max_length=20, description="WhatsApp number for meeting invites, reminders and the daily agenda.")
 
 class StaffUpdate(BaseModel):
     account_status: Literal["active", "suspended"] | None = None
     role: Literal[STAFF_ROLES] | None = None  # type: ignore[valid-type]
+    phone: str | None = Field(default=None, max_length=20, description="Empty string removes the number.")
 
 def _me(user: User) -> dict:
-    return {"id": str(user.id), "name": user.display_name, "email": user.email, "role": "admin" if user.is_admin else "agent"}
+    return {"id": str(user.id), "name": user.display_name, "email": user.email, "phone": user.phone, "role": "admin" if user.is_admin else "agent"}
+
+def _staff_phone(db: Session, value: str, user_id: uuid.UUID | None = None) -> str | None:
+    value = value.strip()
+    if not value:
+        return None
+    if len(tickets.normalize_phone(value)) < 10:
+        raise HTTPException(status_code=422, detail="Enter a full mobile number for WhatsApp.")
+    taken = db.scalars(select(User).where(User.phone == value, *([User.id != user_id] if user_id else []))).first()
+    if taken:
+        raise HTTPException(status_code=409, detail=f"{taken.display_name} already uses this number.")
+    return value
 
 def _visible_tickets(user: User):
     query = select(ServiceRequest)
     if not user.is_admin:
-        query = query.where(exists().where(
-            Assignment.service_request_id == ServiceRequest.id, Assignment.agent_user_id == user.id, Assignment.unassigned_at.is_(None),
+        # An agent works tickets assigned to them, and opens those where they take a meeting.
+        query = query.where(or_(
+            exists().where(Assignment.service_request_id == ServiceRequest.id, Assignment.agent_user_id == user.id, Assignment.unassigned_at.is_(None)),
+            exists().where(Meeting.service_request_id == ServiceRequest.id, Meeting.lawyer_user_id == user.id, Meeting.status != "cancelled"),
         ))
     return query
 
@@ -219,6 +234,10 @@ def meta(user: User = Depends(current_staff)):
     return {
         "statuses": [{"value": s, "label": tickets.staff_status_label(s)} for s in TICKET_STATUSES if s != "draft"],
         "priorities": list(PRIORITIES),
+        "meetings": {
+            "google_calendar": google_calendar.enabled(), "whatsapp": whatsapp.enabled(),
+            "timezone": config.MEETING_TIMEZONE, "reminder_minutes": config.MEETING_REMINDER_MINUTES,
+        },
     }
 
 @router.get("/admin/staff")
@@ -240,7 +259,8 @@ def create_staff(payload: StaffCreate, admin: User = Depends(require_admin), db:
     email = payload.email.strip().lower()
     if db.scalars(select(User).where(func.lower(User.email) == email)).first():
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
-    user = User(display_name=payload.display_name.strip(), email=email, password_hash=hash_password(payload.password), roles=[_role(db, payload.role)])
+    phone = _staff_phone(db, payload.phone) if payload.phone else None
+    user = User(display_name=payload.display_name.strip(), email=email, phone=phone, password_hash=hash_password(payload.password), roles=[_role(db, payload.role)])
     db.add(user)
     db.flush()
     tickets.audit(db, admin, "staff.created", None, user_id=str(user.id), role=payload.role)
@@ -258,6 +278,8 @@ def update_staff(user_id: uuid.UUID, payload: StaffUpdate, admin: User = Depends
         user.account_status = payload.account_status
     if payload.role:
         user.roles = [r for r in user.roles if r.name not in STAFF_ROLES] + [_role(db, payload.role)]
+    if payload.phone is not None:
+        user.phone = _staff_phone(db, payload.phone, user.id)
     tickets.audit(db, admin, "staff.updated", None, user_id=str(user.id), **payload.model_dump(exclude_none=True))
     db.commit()
     return _me(user) | {"account_status": user.account_status}

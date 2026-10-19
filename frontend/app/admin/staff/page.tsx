@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useStaff } from "../AdminShell";
 import { adminFetch, type StaffUser } from "../api";
 
-const emptyForm = { display_name: "", email: "", password: "", role: "agent" as "agent" | "admin" };
+const emptyForm = { display_name: "", email: "", password: "", phone: "", role: "agent" as "agent" | "admin" };
 
 export default function StaffPage() {
   const { user, onError } = useStaff();
@@ -13,6 +13,7 @@ export default function StaffPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingPhone, setEditingPhone] = useState<{ id: string; value: string } | null>(null);
 
   const load = useCallback(() => {
     adminFetch<{ items: StaffUser[] }>("/admin/staff").then((r) => setStaff(r.items)).catch((e) => setError(onError(e)));
@@ -40,10 +41,11 @@ export default function StaffPage() {
 
   async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (await run(() => adminFetch("/admin/staff", { method: "POST", body: JSON.stringify(form) }), `${form.display_name} can now sign in.`)) setForm(emptyForm);
+    const body = { ...form, phone: form.phone.trim() || null };
+    if (await run(() => adminFetch("/admin/staff", { method: "POST", body: JSON.stringify(body) }), `${form.display_name} can now sign in.`)) setForm(emptyForm);
   }
 
-  const update = (member: StaffUser, body: object, done: string) =>
+  const update = (member: StaffUser, body: object, done: string): Promise<boolean> =>
     run(() => adminFetch(`/admin/staff/${member.id}`, { method: "PATCH", body: JSON.stringify(body) }), done);
 
   return (
@@ -59,6 +61,20 @@ export default function StaffPage() {
                 <div>
                   <b>{member.name}{member.id === user.id && " (you)"}</b>
                   <small>{member.email} · {member.role === "admin" ? "Admin" : "Agent"}{member.account_status !== "active" && " · suspended"}</small>
+                  {editingPhone?.id === member.id ? (
+                    <form className="staff-phone" onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (await update(member, { phone: editingPhone.value.trim() }, editingPhone.value.trim() ? `${member.name} will get meeting updates on WhatsApp.` : `${member.name}'s WhatsApp number was removed.`)) setEditingPhone(null);
+                    }}>
+                      <input type="tel" autoFocus placeholder="+91 98765 43210" value={editingPhone.value} onChange={(e) => setEditingPhone({ id: member.id, value: e.target.value })} aria-label="WhatsApp number" />
+                      <button className="admin-link" disabled={busy}>Save</button>
+                      <button type="button" className="admin-link" onClick={() => setEditingPhone(null)}>Cancel</button>
+                    </form>
+                  ) : (
+                    <small className="staff-wa">
+                      WhatsApp: {member.phone ?? "not set"} · <button className="admin-link" onClick={() => setEditingPhone({ id: member.id, value: member.phone ?? "" })}>{member.phone ? "Change" : "Add number"}</button>
+                    </small>
+                  )}
                 </div>
                 {member.id !== user.id && (
                   <div className="staff-actions">
@@ -79,6 +95,7 @@ export default function StaffPage() {
           <h2>Add a team member</h2>
           <label>Name<input required minLength={2} value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} /></label>
           <label>Email<input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+          <label>WhatsApp number (optional)<input type="tel" placeholder="+91 98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
           <label>Temporary password<input type="password" required minLength={10} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
           <label>Role
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "agent" | "admin" })}>

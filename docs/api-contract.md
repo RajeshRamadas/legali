@@ -80,9 +80,25 @@ Response: `{"reply": "...", "action": "request" | "track" | "status" | null, "ti
 
 `action` tells the widget what to render: `request` a callback form for `service`, `track` a ticket-verification form, `status` the status card for `ticket` (with the reply box).
 
+## Find a lawyer and bookings
+
+Public endpoints for searching lawyers, booking a consultation and managing it with the booking (ticket) number and the phone or email used. Details and examples in `docs/lawyer-booking.md`.
+
+| Method | Path | What |
+| --- | --- | --- |
+| GET | `/api/v1/lawyers` | Search: `q`, `specialisation`, `language`, `city`, `max_fee`, `min_experience`, `available` (`today`, `3days`), `sort` |
+| GET | `/api/v1/lawyers/filters` | Filter options with counts |
+| GET | `/api/v1/lawyers/{slug}` | Profile with credentials, hours and reviews |
+| GET | `/api/v1/lawyers/{slug}/slots` | Open slots by day (`days`, up to 14) |
+| POST | `/api/v1/lawyers/{slug}/bookings` | Book: `{"starts_at", "customer_name", "phone", "email", "issue", "source"}` |
+| POST | `/api/v1/bookings/lookup` | `{"ticket_number", "contact"}` |
+| POST | `/api/v1/bookings/reschedule` | `{"ticket_number", "contact", "starts_at"}` |
+| POST | `/api/v1/bookings/cancel` | `{"ticket_number", "contact", "reason"}` |
+| POST | `/api/v1/bookings/review` | `{"ticket_number", "contact", "rating", "comment"}` |
+
 ## Staff API
 
-Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send the returned `access_token` as `Authorization: Bearer <token>`. Admins see and act on every ticket; agents only on tickets currently assigned to them (others return 404).
+Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send the returned `access_token` as `Authorization: Bearer <token>`. Admins see and act on every ticket; agents only on tickets currently assigned to them or where they take a meeting (others return 404).
 
 | Method | Path | Who | What |
 | --- | --- | --- | --- |
@@ -94,8 +110,13 @@ Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send 
 | POST | `/api/v1/admin/tickets/{ticket_number}/messages` | staff | `{"message", "visibility": "customer" or "internal"}` |
 | GET | `/api/v1/admin/reports/summary` | staff | Open, new today, unassigned, waiting on us, counts by status |
 | GET | `/api/v1/admin/meta` | staff | Status and priority options |
-| GET / POST | `/api/v1/admin/staff` | admin | List staff / add `{"display_name", "email", "password", "role"}` |
-| PATCH | `/api/v1/admin/staff/{id}` | admin | `{"account_status": "active" or "suspended", "role"}` |
+| GET / POST | `/api/v1/admin/staff` | admin | List staff / add `{"display_name", "email", "password", "role", "phone"}` (`phone` is the WhatsApp number for meeting messages) |
+| PATCH | `/api/v1/admin/staff/{id}` | admin | `{"account_status": "active" or "suspended", "role", "phone"}` |
+| POST | `/api/v1/admin/tickets/{ticket_number}/meetings` | staff | Book a video meeting; see `docs/meetings.md` |
+| PATCH | `/api/v1/admin/meetings/{id}` | admin or the meeting's lawyer | Reschedule, cancel, mark done or add a `meet_link` |
+| GET | `/api/v1/admin/meetings` | staff | Calendar: `start`, `end`, `lawyer` (`me`, `all` or an id) |
+| GET / PUT | `/api/v1/admin/lawyer-profile` | staff (admins: any `user_id`) | Your Find a lawyer profile and weekly hours; see `docs/lawyer-booking.md` |
+| GET | `/api/v1/admin/lawyer-profiles` | staff | Staff with whether their profile is listed |
 | GET | `/api/v1/posts` | public | Published blog posts, newest first. Filters: `type` (`article` or `case_study`), `tag`, `q`, `page`, `page_size` |
 | GET | `/api/v1/posts/{slug}` | public | One published post with its Markdown `body`, `highlights` and up to 3 `related` posts of the same type |
 | GET / POST | `/api/v1/admin/posts` | admin | List all posts (filters `type`, `status`, `q`) / create `{"post_type", "title", "slug"?, "status", "excerpt", "body", "cover_image_url", "tags", "highlights"}` |

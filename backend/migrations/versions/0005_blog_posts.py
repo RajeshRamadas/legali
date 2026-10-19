@@ -1,7 +1,7 @@
 """blog posts
 
-Revision ID: 0003
-Revises: 0002
+Revision ID: 0005
+Revises: 0004_lawyer_booking
 Create Date: 2026-10-19 04:14:47.257310
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '0003'
-down_revision: Union[str, Sequence[str], None] = '0002'
+revision: str = '0005'
+down_revision: Union[str, Sequence[str], None] = '0004_lawyer_booking'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

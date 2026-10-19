@@ -10,7 +10,7 @@ import {
 } from "./content";
 
 const NAV = [
-  ["#packages", "Packages"], ["#developers", "For developers"], ["#how-it-works", "How it works"], ["#services", "What we verify"],
+  ["/lawyers", "Find a lawyer"], ["#packages", "Packages"], ["#developers", "For developers"], ["#how-it-works", "How it works"], ["#services", "What we verify"],
   ["#document-desk", "Document delivery"], ["#track", "Track request"], ["#faq", "FAQs"], ["/blog", "Insights"],
 ];
 
@@ -111,7 +111,7 @@ export default function HomePage() {
               <div className="eyebrow">Property legal verification · Bangalore</div>
               <h1 className="serif">Buy your home<br />with complete <em>confidence.</em></h1>
               <p className="hero-copy">Property verification, registration support and post-purchase assistance—with fixed-fee packages, clear status updates and a plain-English Go / Investigate / Do Not Proceed verdict.</p>
-              <div className="hero-actions"><a className="btn" href="#packages">View packages <span>↗</span></a><a className="btn light" href="#how-it-works">See how it works ↓</a></div>
+              <div className="hero-actions"><a className="btn" href="#packages">View packages <span>↗</span></a><a className="btn light" href="/lawyers">Book a lawyer consultation ↗</a><a className="btn light" href="#how-it-works">See how it works ↓</a></div>
               <div className="trustline"><span>Transparent package pricing</span><span>Advocate-led review</span><span>Case status updates</span></div>
             </div>
             <div className="hero-visual">
@@ -382,7 +382,7 @@ export default function HomePage() {
         <div className="wrap">
           <div className="footer-grid">
             <div><a className="brand" href="#home"><span className="brandmark">H</span><span>homexo legal<small style={{ color: "#a4bcb2" }}>Property clarity, end to end</small></span></a><p>Property legal verification, acquisition due diligence, registration coordination and post-registration support for buyers and developers in Bangalore.</p></div>
-            <div><h4>Explore</h4><a href="#packages">Buyer packages</a><a href="#developers">Developer services</a><a href="#developer-bundles">Developer bundles</a><a href="#how-it-works">How it works</a><a href="#services">What we verify</a><a href="#consultation">Advocate consultation</a></div>
+            <div><h4>Explore</h4><a href="/lawyers">Find a lawyer</a><a href="/bookings">My bookings</a><a href="#packages">Buyer packages</a><a href="#developers">Developer services</a><a href="#developer-bundles">Developer bundles</a><a href="#how-it-works">How it works</a><a href="#services">What we verify</a><a href="#consultation">Advocate consultation</a></div>
             <div><h4>Property services</h4><a href="#services">Title &amp; EC</a><a href="#services">Sale deed / agreement</a><a href="#services">Registration</a><a href="#services">Khata &amp; tax</a><a href="#document-desk">Document retrieval &amp; courier</a></div>
             <div><h4>Important</h4><a href="/blog">Insights &amp; case studies</a><a href="#track">Track a request</a><a href="#faq">FAQs</a><a href="#callback">Contact</a><a href="#faq">Scope &amp; limitations</a></div>
           </div>
