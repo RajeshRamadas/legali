@@ -1,8 +1,11 @@
 """Service catalogue. Synced into the service_types table at startup; the website and app read it from the API."""
 
-ALL_PROPERTY_TYPES = ["apartment", "independent_house", "residential_plot", "agricultural_land", "commercial", "other"]
-BUILT_PROPERTY_TYPES = ["apartment", "independent_house", "commercial", "other"]
-LAND_PROPERTY_TYPES = ["residential_plot", "agricultural_land", "commercial", "other"]
+ALL_PROPERTY_TYPES = [
+    "apartment", "villa", "independent_house", "residential_plot", "agricultural_land", "farmhouse", "plantation_estate",
+    "industrial_land", "commercial", "other",
+]
+BUILT_PROPERTY_TYPES = ["apartment", "villa", "independent_house", "farmhouse", "commercial", "other"]
+LAND_PROPERTY_TYPES = ["residential_plot", "agricultural_land", "farmhouse", "plantation_estate", "industrial_land", "commercial", "other"]
 
 # Mirrors the "Service needed" options on the website callback form.
 SERVICES = [
@@ -60,7 +63,7 @@ SERVICES = [
         "name": "Bulk Registration Operations",
         "category": "Developers",
         "description": "Unit-level readiness, buyer document coordination, SRO appointments and registration tracking for projects.",
-        "property_types": ["apartment", "independent_house", "residential_plot", "commercial"],
+        "property_types": ["apartment", "villa", "independent_house", "residential_plot", "commercial"],
     },
     {
         "slug": "mutation-records-management",

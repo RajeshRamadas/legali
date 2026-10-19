@@ -7,10 +7,29 @@ Every ticket has a document repository and, once the lawyer starts it, a legal r
 1. **Customer shares documents.** On `/documents` (or from the tracking card, "Open"), with the ticket number and the phone or email they used, the customer uploads files and tags each one, e.g. `#sale-deed`. Tags are lowercase words joined by hyphens.
 2. **Lawyer writes the preliminary report** on the ticket in `/admin` ("Documents and legal report"). It has fixed sections (property details, scope, preliminary observations, what we need from you) and a checklist of documents. The checklist starts from a standard list for the property type (`backend/app/report_templates.py`); the lawyer edits, reorders, removes or adds items. Each item gets a tag (`sale-deed`, `ec`, or one made from the label, e.g. `gift-deed-from-father`) that never changes once saved.
 3. **Issue to customer.** The customer is notified and the ticket moves to "Waiting for your reply". They see the checklist with each tag, upload against an item, or retag earlier uploads to link them. An item moves to "Received" as soon as a file is filed under its tag. The preliminary report is also a printable PDF.
-4. **Public records are fetched by Homexo.** Items like the EC, khata, tax receipts, RTC, mutation, survey sketch and RERA certificate are marked "Homexo fetches" by default, so the buyer needn't chase them. They appear in `/admin/fetches`, grouped by portal (Kaveri, Bhoomi, Bhoomojini, BBMP e-Khata, Karnataka RERA) with the property identifiers to search by (survey number, PID, village... edited on the ticket under "Property identifiers"). Staff download the copy from the portal and upload it, which files it under the item's tag. These portals have no open API (captcha, OTP or paid logins), so this is a staff task; a fetcher that returns the file can be added in `backend/app/gov_sources.py` when a portal or licensed aggregator offers one.
+4. **Public records are fetched by Homexo.** Items like the EC, khata, tax receipts, RTC, mutation, survey sketch and RERA certificate are marked "Homexo fetches" by default, so the buyer needn't chase them. They appear in `/admin/fetches`, grouped by portal (Kaveri, Bhoomi, Bhoomojini, BBMP e-Khata, Karnataka RERA, e-Swathu) with the property identifiers to search by (survey number, PID, village... edited on the ticket under "Property identifiers"). Staff download the copy from the portal and upload it, which files it under the item's tag. These portals have no open API (captcha, OTP or paid logins), so this is a staff task; a fetcher that returns the file can be added in `backend/app/gov_sources.py` when a portal or licensed aggregator offers one.
 5. **Lawyer reviews each item**: Verify, Reject with a note (the customer is asked to upload again), Waive (not needed; the note is printed), or Reopen. Customers can't remove or retag files under a verified item.
 6. **Final report.** When every item is verified or waived and the opinion is written, "Generate final report PDF" makes the report: header, property and scope, a table of every document examined with its tag and files, the final sections (flow of title, encumbrances, revenue records, approvals, opinion, conditions), a disclaimer, and two signature blocks (advocate and reviewing advocate, with name, enrolment number, signature, date, place and seal) plus an initials line on every page. Changing the report afterwards sends it back to collecting documents until the PDF is generated again.
 7. **Print, sign, upload.** Staff print the PDF, the advocates sign it, and staff upload the scan ("Upload signed scan"). The customer is notified and can download the signed report; the report is then locked.
+
+## Checklists by property type
+
+The standard checklist depends on the property type on the ticket. Every type starts with the sale deed, the 30-year title chain, the EC and the owners' ID, then adds:
+
+| Type | Adds |
+| --- | --- |
+| Apartment | Khata and tax, JDA, building plan, OC, RERA, sale agreement, conversion order |
+| Villa or row house | Khata and tax or e-Swathu, JDA, layout and building approvals, OC, RERA, conversion order, agreement and association rules |
+| Independent house | Khata and tax, building plan, OC, survey sketch, conversion order |
+| Residential plot | Khata and tax or e-Swathu, conversion order, layout approval, survey sketch |
+| Agricultural land | RTC and mutations (30 years), survey sketch with tippani, grant / land reform orders, PTCL check, buyer eligibility (79A/79B), tenancy check |
+| Farmhouse or managed farmland | Agricultural land records, e-Swathu, conversion or farmhouse permission, building approval, managed farmland agreements and 11E sketch, buyer eligibility |
+| Coffee or plantation estate | Agricultural land records, e-Swathu, plantation board registration, land reforms exemption, forest / eco-sensitive zone check, estate buildings, water and tree rights |
+| Industrial land (KIADB) | Allotment letter, lease-cum-sale agreement, possession certificate, absolute sale deed, conversion order, factory plan, KSPCB consent, fire NOC, khata and tax |
+| Commercial property | Khata and tax, building plan, OC, conversion order, fire NOC, trade licence and leases |
+| Other | Khata and tax or e-Swathu, RTC, survey sketch |
+
+Where a property sits in either city or panchayat limits, both the khata and e-Swathu items are listed; the lawyer waives the one that doesn't apply.
 
 ## Storage
 

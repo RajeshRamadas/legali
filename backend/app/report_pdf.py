@@ -20,8 +20,9 @@ INK = colors.HexColor("#14213d")
 MUTED = colors.HexColor("#5b6475")
 LINE = colors.HexColor("#c9cfda")
 PROPERTY_LABELS = {
-    "apartment": "Apartment", "independent_house": "Independent house", "residential_plot": "Residential plot",
-    "agricultural_land": "Agricultural land", "commercial": "Commercial property", "other": "Other",
+    "apartment": "Apartment", "villa": "Villa / row house", "independent_house": "Independent house", "residential_plot": "Residential plot",
+    "agricultural_land": "Agricultural land", "farmhouse": "Farmhouse / managed farmland", "plantation_estate": "Coffee / plantation estate",
+    "industrial_land": "Industrial land", "commercial": "Commercial property", "other": "Other",
 }
 FINAL_DISCLAIMER = (
     "This report is based on the documents listed above as furnished to us and on records available on the date of this report. "

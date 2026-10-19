@@ -27,7 +27,10 @@ TICKET_STATUSES = (
 CLOSED_STATUSES = ("completed", "cancelled", "rejected")
 PRIORITIES = ("low", "normal", "high", "urgent")
 TICKET_SOURCES = ("website", "chat", "mobile", "phone", "whatsapp", "admin", "referral")
-PROPERTY_TYPES = ("apartment", "independent_house", "commercial", "residential_plot", "agricultural_land", "other")
+PROPERTY_TYPES = (
+    "apartment", "villa", "independent_house", "commercial", "residential_plot", "agricultural_land", "farmhouse", "plantation_estate",
+    "industrial_land", "other",
+)
 STAFF_ROLES = ("agent", "admin")
 MEETING_STATUSES = ("scheduled", "completed", "cancelled")
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
