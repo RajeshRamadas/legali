@@ -2,6 +2,7 @@ import os
 
 # Tests run on in-memory SQLite by default; set TEST_DATABASE_URL to run them against PostgreSQL.
 os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite://")
+os.environ["NOTIFY_WORKER_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient

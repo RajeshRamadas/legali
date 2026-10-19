@@ -44,7 +44,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   if (checking) return <div className="admin-loading">Loading…</div>;
   if (!user) return <SignIn onSignedIn={setUser} />;
 
-  const nav = [{ href: "/admin", label: "Ticket queue", icon: "▤" }, ...(user.role === "admin" ? [{ href: "/admin/staff", label: "Staff", icon: "☺" }] : [])];
+  const nav = [
+    { href: "/admin", label: "Ticket queue", icon: "▤" },
+    { href: "/admin/calendar", label: "Calendar", icon: "◷" },
+    ...(user.role === "admin" ? [{ href: "/admin/staff", label: "Staff", icon: "☺" }] : []),
+  ];
 
   return (
     <SessionContext.Provider value={{ user, signOut, onError }}>

@@ -10,7 +10,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Expo (React Native) app for Android and iPhone with the service list and request form.
 - Shared TypeScript package (`packages/shared`) with API types and client, used by both the website and the app.
 - FastAPI backend with the service catalogue, ticket intake and tracking, customer replies, and a staff API (sign-in, queue, status, assignment, messages, internal notes, staff management, reports).
-- Staff workspace at `/admin` for admins and agents.
+- Staff workspace at `/admin` for admins and agents, with a calendar of each lawyer's video meetings.
+- Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
 - Docker Compose for local PostgreSQL + API.
 - GitHub Actions backend checks.
@@ -93,6 +94,10 @@ Chats are saved. When a customer raises a request from the chat, or checks a tic
 
 To teach the assistant something new, edit the markdown files: every `## ` heading is one section it can retrieve, so keep each section about one topic.
 
+### Video meetings (Google Meet and WhatsApp)
+
+From a ticket, staff can book a call with the customer. With Google Calendar connected (`GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_CALENDAR_USER`) the API creates the event with a Meet link; without it, staff paste a link. With WhatsApp Business connected (`WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) the customer and lawyer get the link, reminders and changes on WhatsApp; without it, the messages wait in the queue. Setup steps and the WhatsApp templates to create are in `docs/meetings.md`.
+
 ### Run the API without Docker
 
 With PostgreSQL running locally:
@@ -148,7 +153,7 @@ Before production, implement:
 2. SLA targets and due dates on tickets.
 3. Conversational intake with validation, consent and resumable sessions. The chat assistant answers questions but still raises tickets through the form.
 4. Secure document upload/download using private object storage, file scanning and expiring URLs.
-5. A delivery worker and provider for notifications (email/SMS/WhatsApp); notifications are recorded as queued but not sent yet.
+5. Email and SMS providers for notifications; they are recorded as queued but not sent yet. WhatsApp meeting messages send once WhatsApp Business is connected (`docs/meetings.md`), but ticket status updates still go only to the SMS and email queue.
 6. Payment integration only after selecting a compliant provider; never store card data.
 7. Rate limiting for login, ticket intake and lookup (chat is limited already), abuse protection, backups, observability, privacy retention (including a clean-up of old chat transcripts) and security testing.
 8. Legal review of service descriptions and authorization requirements for accessing government records.

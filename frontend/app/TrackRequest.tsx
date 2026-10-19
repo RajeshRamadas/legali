@@ -43,6 +43,7 @@ export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: Ticket
           </li>
         ))}
       </ol>
+      {ticket.meetings?.length > 0 && <TicketMeetings meetings={ticket.meetings} />}
       {ticket.messages.length > 0 && (
         <div className="ticket-messages">
           <span className="tiny-label">Messages</span>
@@ -62,6 +63,36 @@ export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: Ticket
           <button className="btn small" disabled={sending || !reply.trim()}>{sending ? "Sending…" : "Send message"}</button>
         </form>
       )}
+    </div>
+  );
+}
+
+// Join opens 15 minutes before the start; the button turns prominent then, and the card re-checks every 20 seconds.
+function TicketMeetings({ meetings }: { meetings: TicketStatus["meetings"] }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 20000);
+    return () => clearInterval(tick);
+  }, []);
+  const open = (m: TicketStatus["meetings"][number]) => m.status === "scheduled" && !!m.meet_link && now >= new Date(m.starts_at).getTime() - 15 * 60000 && now <= new Date(m.ends_at).getTime();
+  const visible = meetings.filter((m) => m.status !== "cancelled" || new Date(m.starts_at).getTime() > now);
+
+  if (visible.length === 0) return null;
+  return (
+    <div className="ticket-meetings">
+      <span className="tiny-label">Video consultation</span>
+      {visible.map((m) => (
+        <div key={m.id} className={`ticket-meeting${open(m) ? " live" : ""}${m.status === "scheduled" ? "" : " done"}`}>
+          <div>
+            <b>{m.when}</b>
+            <small>{m.status === "scheduled" ? `With ${m.lawyer_name} on Google Meet` : m.status_label}</small>
+            {m.agenda && m.status === "scheduled" && <p>{m.agenda}</p>}
+          </div>
+          {m.status === "scheduled" && m.meet_link && (
+            <a className={`btn small${open(m) ? " gold" : " light"}`} href={m.meet_link} target="_blank" rel="noreferrer">{open(m) ? "Join now" : "Meeting link"}</a>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

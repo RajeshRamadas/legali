@@ -29,6 +29,7 @@ PRIORITIES = ("low", "normal", "high", "urgent")
 TICKET_SOURCES = ("website", "chat", "mobile", "phone", "whatsapp", "admin", "referral")
 PROPERTY_TYPES = ("apartment", "independent_house", "commercial", "residential_plot", "agricultural_land", "other")
 STAFF_ROLES = ("agent", "admin")
+MEETING_STATUSES = ("scheduled", "completed", "cancelled")
 
 class Base(DeclarativeBase):
     pass
@@ -200,6 +201,7 @@ class ServiceRequest(TimestampMixin, Base):
     assignments: Mapped[list["Assignment"]] = relationship(back_populates="service_request", order_by="Assignment.assigned_at", lazy="selectin")
     events: Mapped[list["TicketEvent"]] = relationship(order_by="TicketEvent.created_at", lazy="selectin")
     messages: Mapped[list["TicketMessage"]] = relationship(order_by="TicketMessage.created_at", lazy="selectin")
+    meetings: Mapped[list["Meeting"]] = relationship(back_populates="service_request", order_by="Meeting.starts_at", lazy="selectin")
     conversation: Mapped[Conversation | None] = relationship()
 
     @property
@@ -279,21 +281,58 @@ class Document(Base):
     access_classification: Mapped[str] = mapped_column(Text, default="confidential", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
+class Meeting(TimestampMixin, Base):
+    """A video consultation between a ticket's customer and a lawyer (a staff member), with its Google Meet link."""
+    __tablename__ = "meetings"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", MEETING_STATUSES), name="ck_meetings_status"),
+        CheckConstraint("ends_at > starts_at", name="ck_meetings_times"),
+        Index("idx_meetings_lawyer_starts", "lawyer_user_id", "starts_at"),
+        Index("idx_meetings_request", "service_request_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=False)
+    lawyer_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    agenda: Mapped[str | None] = mapped_column(Text)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="scheduled", nullable=False)
+    meet_link: Mapped[str | None] = mapped_column(Text)
+    # Set when the event lives in Google Calendar; null when staff pasted a link themselves.
+    calendar_event_id: Mapped[str | None] = mapped_column(Text)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    service_request: Mapped[ServiceRequest] = relationship(back_populates="meetings")
+    lawyer: Mapped[User] = relationship(foreign_keys=[lawyer_user_id], lazy="joined")
+
 class Notification(Base):
     __tablename__ = "notifications"
     __table_args__ = (
         CheckConstraint(_check_in("channel", ("email", "sms", "whatsapp", "in_app")), name="ck_notifications_channel"),
         CheckConstraint(_check_in("delivery_status", ("queued", "sent", "delivered", "failed", "cancelled")), name="ck_notifications_status"),
         Index("idx_notifications_request", "service_request_id"),
+        Index("idx_notifications_due", "delivery_status", "send_after"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     service_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="SET NULL"))
     customer_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customers.id", ondelete="SET NULL"))
+    # Staff recipient (a lawyer's meeting invite, reminder or daily agenda).
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    meeting_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("meetings.id", ondelete="SET NULL"))
     channel: Mapped[str] = mapped_column(Text, nullable=False)
     template_key: Mapped[str] = mapped_column(Text, nullable=False)
     recipient: Mapped[str | None] = mapped_column(Text)
     body: Mapped[str | None] = mapped_column(Text)
+    # Values for the provider's approved message template (WhatsApp needs these for business-initiated messages).
+    params: Mapped[list | None] = mapped_column(JSONType)
+    # Not sent before this time; reminders are queued ahead with their send time.
+    send_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Stops the same reminder or agenda being queued twice.
+    dedupe_key: Mapped[str | None] = mapped_column(Text, unique=True)
     delivery_status: Mapped[str] = mapped_column(Text, default="queued", nullable=False)
     provider_reference: Mapped[str | None] = mapped_column(Text)
     error_code: Mapped[str | None] = mapped_column(Text)

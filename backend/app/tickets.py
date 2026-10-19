@@ -1,13 +1,15 @@
 """Ticket lifecycle: creation, events, messages, notifications and the views customers and staff see."""
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from . import config
 from .models import (
-    CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
+    CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
 
 STATUS_LABELS = {
@@ -131,11 +133,48 @@ def needs_reply(ticket: ServiceRequest) -> bool:
     visible = [m for m in ticket.messages if m.visibility == "customer"]
     return bool(visible) and visible[-1].author_type == "customer" and ticket.status not in CLOSED_STATUSES
 
+def aware(value: datetime) -> datetime:
+    """SQLite hands back naive datetimes; every stored time is UTC."""
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
 def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    return aware(value).isoformat() if value else None
+
+def format_when(value: datetime) -> str:
+    """'Tue 21 Oct, 4:30 pm IST' in the meeting time zone, for messages."""
+    local = aware(value).astimezone(ZoneInfo(config.MEETING_TIMEZONE))
+    return f"{local:%a} {local.day} {local:%b}, {local.strftime('%I:%M %p').lstrip('0').lower()} {local.tzname()}"
+
+MEETING_STATUS_LABELS = {"scheduled": "Scheduled", "completed": "Completed", "cancelled": "Cancelled"}
+
+def meeting_view(meeting: Meeting, *, staff: bool = False) -> dict:
+    view = {
+        "id": str(meeting.id),
+        "title": meeting.title,
+        "agenda": meeting.agenda,
+        "starts_at": _iso(meeting.starts_at),
+        "ends_at": _iso(meeting.ends_at),
+        "when": format_when(meeting.starts_at),
+        "status": meeting.status,
+        "status_label": MEETING_STATUS_LABELS[meeting.status],
+        "lawyer_name": meeting.lawyer.display_name,
+        # The link only matters (and is only shared) while the meeting is on.
+        "meet_link": meeting.meet_link if meeting.status == "scheduled" else None,
+    }
+    if staff:
+        ticket = meeting.service_request
+        view |= {
+            "lawyer": _staff_ref(meeting.lawyer),
+            "ticket_number": ticket.ticket_number,
+            "service_name": ticket.service_type.name,
+            "customer_name": (ticket.structured_answers or {}).get("customer_name") or ticket.customer.full_name,
+            "customer_phone": ticket.customer.phone,
+            "calendar": "google" if meeting.calendar_event_id else "manual",
+        }
+    return view
 
 def customer_view(ticket: ServiceRequest) -> dict:
-    """What a customer may see: status history and customer-visible messages, never internal notes or staff details."""
+    """What a customer may see: status history, customer-visible messages and meetings, never internal notes or staff contact details."""
     history = [
         {"status": e.new_value["status"], "label": status_label(e.new_value["status"]), "note": e.reason or "", "at": _iso(e.created_at)}
         for e in ticket.events if e.event_type in ("created", "status_changed") and e.new_value
@@ -153,6 +192,7 @@ def customer_view(ticket: ServiceRequest) -> dict:
         "created_at": _iso(ticket.created_at),
         "history": history,
         "messages": messages,
+        "meetings": [meeting_view(m) for m in ticket.meetings],
         "can_reply": ticket.status not in CLOSED_STATUSES,
     }
 
@@ -196,12 +236,16 @@ def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> d
             {"id": str(m.id), "author_type": m.author_type, "author": _staff_ref(m.author), "visibility": m.visibility, "message": m.message, "at": _iso(m.created_at)}
             for m in ticket.messages
         ],
+        "meetings": [meeting_view(m, staff=True) for m in ticket.meetings],
         "chat_transcript": [
             {"from": m.sender_type, "message": m.body, "at": _iso(m.created_at)}
             for m in ticket.conversation.messages
         ] if ticket.conversation else [],
         "notifications": [
-            {"channel": n.channel, "template": n.template_key, "recipient": n.recipient, "status": n.delivery_status, "at": _iso(n.created_at)}
+            {
+                "channel": n.channel, "template": n.template_key, "recipient": n.recipient, "to": "staff" if n.user_id else "customer",
+                "status": n.delivery_status, "error": n.error_code, "at": _iso(n.created_at), "send_after": _iso(n.send_after),
+            }
             for n in notifications
         ],
     }
