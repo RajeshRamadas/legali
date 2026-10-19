@@ -4,6 +4,7 @@ import { formatFee, type Booking, type BookingRef, type LawyerSlot } from "@home
 import { forgetBookingRef, saveBookingRef, useBookingRefs } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
 import { Avatar, SlotPicker, ui } from "./lawyerUi";
+import { PayPanel } from "./PayPanel";
 import { api, colors } from "./theme";
 
 const upcoming = (b: Booking) => b.meeting.status === "scheduled" && new Date(b.meeting.ends_at).getTime() > Date.now();
@@ -67,6 +68,7 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
       {live && (m.meet_link
         ? <Pressable style={styles.button} onPress={() => Linking.openURL(m.meet_link!)}><Text style={styles.buttonText}>Join on Google Meet</Text></Pressable>
         : <Text style={ui.muted}>The meeting link will come on WhatsApp before it starts.</Text>)}
+      <PayPanel bookingRef={bookingRef} booking={booking} onChange={setBooking} />
       {booking.review && <Text style={ui.muted}>You rated this {"★".repeat(booking.review.rating)}</Text>}
       {error ? <Text style={ui.error}>{error}</Text> : null}
 

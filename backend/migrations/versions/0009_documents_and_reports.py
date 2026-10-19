@@ -1,7 +1,7 @@
 """customer documents with tags, legal reports and their document checklists
 
-Revision ID: 0007
-Revises: 0006
+Revision ID: 0009
+Revises: 0008_team_availability
 Create Date: 2026-10-19 12:10:00
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '0007'
-down_revision: Union[str, Sequence[str], None] = '0006'
+revision: str = '0009'
+down_revision: Union[str, Sequence[str], None] = '0008_team_availability'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

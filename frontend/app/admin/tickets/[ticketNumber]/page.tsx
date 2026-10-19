@@ -28,6 +28,10 @@ const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Rec
   report_item_reviewed: (e) => `#${e.new?.tag}: ${e.old?.status} → ${e.new?.status}`,
   final_report_generated: () => "Final report PDF generated for signature",
   report_signed: () => "Signed final report uploaded",
+  payment_received: (e) => `Fee of ₹${e.new?.amount} paid online${e.new?.method ? ` by ${String(e.new.method).toUpperCase()}` : ""}${e.new?.reference ? ` (${e.new.reference})` : ""}`,
+  payment_failed: (e) => `Online payment of ₹${e.new?.amount} failed`,
+  payment_refund_due: (e) => `Refund of ₹${e.new?.amount} due: refund it in the Razorpay dashboard${e.new?.reference ? ` (payment ${e.new.reference})` : ""}`,
+  payment_refunded: (e) => `₹${e.new?.amount} refunded`,
 };
 
 const TEMPLATE_TEXT: Record<string, string> = {
@@ -38,6 +42,7 @@ const TEMPLATE_TEXT: Record<string, string> = {
   report_issued: "preliminary report",
   document_rejected: "document asked again",
   report_signed: "signed report ready",
+  urgent_task: "urgent task alert",
 };
 
 export default function TicketPage({ params }: { params: { ticketNumber: string } }) {
@@ -251,6 +256,7 @@ function StatusCard({ ticket, meta, onSave }: { ticket: TicketDetail; meta: Meta
   const [status, setStatus] = useState(ticket.status);
   const [note, setNote] = useState("");
   const [priority, setPriority] = useState(ticket.priority);
+  const [priorityNote, setPriorityNote] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => { setStatus(ticket.status); setPriority(ticket.priority); }, [ticket.status, ticket.priority]);
 
@@ -259,8 +265,8 @@ function StatusCard({ ticket, meta, onSave }: { ticket: TicketDetail; meta: Meta
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const body = { ...(status !== ticket.status ? { status, note: note.trim() || null } : {}), ...(priority !== ticket.priority ? { priority } : {}) };
-    if (await onSave(body, "Ticket updated.")) setNote("");
+    const body = { ...(status !== ticket.status ? { status, note: note.trim() || null } : {}), ...(priority !== ticket.priority ? { priority, priority_note: priorityNote.trim() || null } : {}) };
+    if (await onSave(body, "Ticket updated.")) { setNote(""); setPriorityNote(""); }
     setBusy(false);
   }
 
@@ -282,8 +288,14 @@ function StatusCard({ ticket, meta, onSave }: { ticket: TicketDetail; meta: Meta
           {(meta?.priorities ?? [ticket.priority]).map((p) => <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>)}
         </select>
       </label>
+      {priority === "urgent" && priority !== ticket.priority && (
+        <label>Why is it urgent? (team only)
+          <textarea rows={2} maxLength={300} placeholder="e.g. Hearing tomorrow at 10 am; needs the reply notice today." value={priorityNote} onChange={(e) => setPriorityNote(e.target.value)} />
+        </label>
+      )}
       <button className="btn small" disabled={!changed || busy}>{busy ? "Saving…" : "Update ticket"}</button>
       {status !== ticket.status && <small className="admin-footnote">The customer is notified of the new stage.</small>}
+      {priority === "urgent" && priority !== ticket.priority && <small className="admin-footnote">{ticket.assignee ? `${ticket.assignee.name} gets an urgent alert on WhatsApp and sees it at the top of their queue.` : "Assign someone and they'll get an urgent alert on WhatsApp."}</small>}
     </form>
   );
 }

@@ -167,6 +167,8 @@ export type LawyerCard = {
   consultation_minutes: number;
   city: string;
   locality: string | null;
+  // Courts the lawyer practises in, e.g. "Karnataka High Court".
+  courts: string[];
   rating: number | null;
   review_count: number;
   consultations: number;
@@ -175,7 +177,8 @@ export type LawyerCard = {
 export type LawyerReview = { rating: number; comment: string; reviewer_name: string; at: string };
 export type LawyerProfile = LawyerCard & {
   bio: string;
-  courts: string[];
+  // True when the fee is paid online right after booking (Razorpay, or test mode in development).
+  pay_online: boolean;
   bar_enrolment: string | null;
   education: string | null;
   hours: { day: string; hours: string[] }[];
@@ -221,11 +224,51 @@ export type Booking = {
   can_change: boolean;
   can_review: boolean;
   review: LawyerReview | null;
+  // Null when the fee isn't paid online (the team arranges payment).
+  payment: BookingPayment | null;
 };
+// Mirrors payment_view in backend/app/payments.py. Amounts in whole rupees.
+export type BookingPayment = {
+  status: "due" | "paid" | "refund_due" | "refunded";
+  amount: number;
+  paid_at: string | null;
+  method: string | null;
+  reference: string | null;
+  // An unpaid booking is released at this time.
+  pay_by: string | null;
+  mode: "razorpay" | "test" | "off";
+  can_pay: boolean;
+  last_error: string | null;
+};
+// What the client needs to open Razorpay Checkout (kind "checkout") or the payment page (kind "link").
+export type PaymentCheckout = {
+  provider: "razorpay" | "test";
+  kind: "checkout" | "link";
+  order_id: string;
+  pay_url: string | null;
+  key_id: string | null;
+  amount_paise: number;
+  currency: string;
+  description: string;
+  prefill: { name: string; contact: string; email: string };
+};
+export type PaymentResult = { order_id: string; payment_id: string; signature: string };
 // What a customer keeps to find a booking again: the ticket number and the phone or email it was made with.
 export type BookingRef = { ticket_number: string; contact: string };
 
 export const formatFee = (rupees: number) => `₹${rupees.toLocaleString("en-IN")}`;
+
+// Test mode takes a pretend payment; this id is what the server accepts for it.
+export const testPayment = (checkout: PaymentCheckout): PaymentResult => ({
+  order_id: checkout.order_id, payment_id: `pay_test_${Date.now().toString(36)}`, signature: "",
+});
+
+export const paymentLabel = (payment: BookingPayment): string => ({
+  due: `${formatFee(payment.amount)} to pay`,
+  paid: `${formatFee(payment.amount)} paid`,
+  refund_due: `Refund of ${formatFee(payment.amount)} on its way`,
+  refunded: `${formatFee(payment.amount)} refunded`,
+})[payment.status];
 
 export type PostType = "article" | "case_study";
 
@@ -519,6 +562,15 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
     },
     reviewBooking(ref: BookingRef, rating: number, comment: string): Promise<Booking> {
       return request(baseUrl, "/api/v1/bookings/review", post({ ...ref, rating, comment }));
+    },
+    startPayment(ref: BookingRef, kind: PaymentCheckout["kind"] = "checkout"): Promise<{ booking: Booking; checkout: PaymentCheckout }> {
+      return request(baseUrl, "/api/v1/bookings/pay", post({ ...ref, kind }));
+    },
+    verifyPayment(ref: BookingRef, result: PaymentResult): Promise<Booking> {
+      return request(baseUrl, "/api/v1/bookings/pay/verify", post({ ...ref, ...result }));
+    },
+    refreshPayment(ref: BookingRef): Promise<Booking> {
+      return request(baseUrl, "/api/v1/bookings/pay/refresh", post(ref));
     },
     chat(message: string, options: ChatOptions = {}): Promise<ChatReply> {
       return request<ChatReply>(baseUrl, "/api/v1/chat", {

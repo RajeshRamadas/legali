@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatFee, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
 import { api } from "../api";
 import LawyerShell from "../lawyers/LawyerShell";
+import PayPanel from "../lawyers/PayPanel";
 import SlotPicker from "../lawyers/SlotPicker";
 import { forgetBooking, saveBooking, savedBookings } from "../lawyers/store";
 
@@ -63,6 +64,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
           ? <a className={`btn small${joinable(booking) ? " gold" : " light"}`} href={m.meet_link} target="_blank" rel="noreferrer">{joinable(booking) ? "Join now" : "Meeting link"}</a>
           : <small>Link coming on WhatsApp</small>)}
       </div>
+      <PayPanel bookingRef={ref} booking={booking} onChange={onChange} />
       {booking.review && <p className="lw-fine">You rated this {"★".repeat(booking.review.rating)}{booking.review.comment ? `: “${booking.review.comment}”` : ""}</p>}
       {error && <p className="lw-error" role="alert">{error}</p>}
 

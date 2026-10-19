@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, aliased
 from . import config, google_calendar, tickets, whatsapp
 from .db import get_db
 from .models import (
-    CLOSED_STATUSES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, Customer, Meeting, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
+    CLOSED_STATUSES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, Customer, LawyerProfile, Meeting, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
 )
 from .security import create_access_token, current_staff, hash_password, require_admin, verify_password
 
@@ -28,6 +28,7 @@ class TicketUpdate(BaseModel):
     status: Literal[TICKET_STATUSES] | None = None  # type: ignore[valid-type]
     priority: Literal[PRIORITIES] | None = None  # type: ignore[valid-type]
     note: str | None = Field(default=None, max_length=1000, description="Shown to the customer with the status change.")
+    priority_note: str | None = Field(default=None, max_length=300, description="Staff only: why it's urgent. Sent to the assignee with the urgent alert.")
 
 class AssignmentRequest(BaseModel):
     agent_id: uuid.UUID | None = Field(description="Agent to assign, or null to unassign.")
@@ -44,13 +45,33 @@ class StaffCreate(BaseModel):
     role: Literal[STAFF_ROLES]  # type: ignore[valid-type]
     phone: str | None = Field(default=None, max_length=20, description="WhatsApp number for meeting invites, reminders and the daily agenda.")
 
+class AvailabilityUpdate(BaseModel):
+    available: bool
+    note: str | None = Field(default=None, max_length=120, description="e.g. 'Till 6 pm' or 'Only urgent matters'.")
+    phone: str | None = Field(default=None, max_length=20, description="Set or change your own number. Seen by the team only.")
+
 class StaffUpdate(BaseModel):
     account_status: Literal["active", "suspended"] | None = None
     role: Literal[STAFF_ROLES] | None = None  # type: ignore[valid-type]
     phone: str | None = Field(default=None, max_length=20, description="Empty string removes the number.")
 
 def _me(user: User) -> dict:
-    return {"id": str(user.id), "name": user.display_name, "email": user.email, "phone": user.phone, "role": "admin" if user.is_admin else "agent"}
+    # Staff workspace only. Phone numbers of staff are never part of a customer-facing response or message.
+    return {
+        "id": str(user.id), "name": user.display_name, "email": user.email, "phone": user.phone, "role": "admin" if user.is_admin else "agent",
+        "available_for_calls": user.available_for_calls, "availability_note": user.availability_note,
+        "availability_updated_at": user.availability_updated_at.isoformat() if user.availability_updated_at else None,
+    }
+
+def _flag_urgent(db: Session, ticket: ServiceRequest, agent: User | None, actor: User, note: str | None) -> None:
+    """Tell the assignee on WhatsApp that a ticket of theirs is urgent (they also see it under Urgent in the workspace)."""
+    if agent is None or agent.id == actor.id or not agent.phone:
+        return
+    from .meetings import render  # meetings imports this module
+    params = [agent.display_name, f"{ticket.title or ticket.service_type.name} ({ticket.ticket_number})", note or f"Flagged by {actor.display_name}.",
+              f"{config.PUBLIC_SITE_URL}/admin/tickets/{ticket.ticket_number}"]
+    db.add(Notification(service_request_id=ticket.id, user_id=agent.id, channel="whatsapp", template_key="urgent_task", recipient=agent.phone,
+                        params=params, body=render("urgent_task", params), send_after=utcnow()))
 
 def _staff_phone(db: Session, value: str, user_id: uuid.UUID | None = None) -> str | None:
     value = value.strip()
@@ -169,8 +190,12 @@ def update_ticket(ticket_number: str, payload: TicketUpdate, user: User = Depend
         tickets.change_status(db, ticket, payload.status, user, (payload.note or "").strip() or None)
         tickets.audit(db, user, "ticket.status_changed", ticket.id, old=old, new=payload.status)
     if payload.priority and payload.priority != ticket.priority:
-        tickets.add_event(db, ticket, "priority_changed", user, old={"priority": ticket.priority}, new={"priority": payload.priority})
+        note = (payload.priority_note or "").strip() or None
+        tickets.add_event(db, ticket, "priority_changed", user, old={"priority": ticket.priority}, new={"priority": payload.priority}, reason=note)
         ticket.priority = payload.priority
+        if payload.priority == "urgent":
+            assignment = ticket.active_assignment
+            _flag_urgent(db, ticket, assignment.agent if assignment else None, user, note)
     ticket.updated_at = utcnow()
     db.commit()
     return _detail(db, ticket)
@@ -194,6 +219,8 @@ def assign_ticket(ticket_number: str, payload: AssignmentRequest, admin: User = 
         db.add(assignment)
         ticket.assignments.append(assignment)
         tickets.add_event(db, ticket, "assigned", admin, old={"agent": current.agent.display_name} if current else None, new={"agent": agent.display_name}, reason=payload.note)
+        if ticket.priority == "urgent":
+            _flag_urgent(db, ticket, agent, admin, _urgent_flag(ticket)["urgent_note"])
         # New requests move along once someone owns them.
         if ticket.status in ("submitted", "under_review", "approved_for_processing"):
             tickets.change_status(db, ticket, "assigned", admin, None)
@@ -210,6 +237,47 @@ def post_message(ticket_number: str, payload: StaffMessage, user: User = Depends
     db.commit()
     return _detail(db, ticket)
 
+def _urgent_flag(ticket: ServiceRequest) -> dict:
+    """Who marked the ticket urgent, when and why (the latest time), for the Urgent list and the WhatsApp alert."""
+    flagged = [e for e in ticket.events if e.event_type == "priority_changed" and (e.new_value or {}).get("priority") == "urgent"]
+    last = flagged[-1] if flagged else None
+    return {
+        "urgent_note": last.reason if last else None,
+        "flagged_by": last.actor.display_name if last and last.actor else None,
+        "flagged_at": tickets.aware(last.created_at).isoformat() if last else tickets.aware(ticket.created_at).isoformat(),
+    }
+
+@router.get("/admin/urgent")
+def urgent_tickets(user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    """Open urgent tickets: an agent's own, or every one for admins. Shown at the top of the queue."""
+    rows = db.scalars(
+        _visible_tickets(user).where(ServiceRequest.priority == "urgent", ServiceRequest.status.not_in(CLOSED_STATUSES)).order_by(ServiceRequest.updated_at.desc()).limit(50)
+    ).unique().all()
+    return {"items": [tickets.staff_summary(t) | _urgent_flag(t) for t in rows]}
+
+@router.put("/admin/me/availability")
+def set_availability(payload: AvailabilityUpdate, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    """A staff member says whether the team can call them now. Only the team sees this and the number."""
+    if payload.phone is not None:
+        user.phone = _staff_phone(db, payload.phone, user.id)
+    if payload.available and not user.phone:
+        raise HTTPException(status_code=422, detail="phone: Add your mobile number so the team can call you.")
+    user.available_for_calls = payload.available
+    user.availability_note = (payload.note or "").strip() or None
+    user.availability_updated_at = utcnow()
+    tickets.audit(db, user, "staff.availability", None, available=payload.available)
+    db.commit()
+    return _me(user)
+
+@router.get("/admin/team")
+def team(user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    """Who on the team can take a call now, with their numbers. Staff only."""
+    staff = db.scalars(select(User).where(User.account_status == "active", User.roles.any(Role.name.in_(("agent", "admin", "super_admin"))))).all()
+    listed = set(db.scalars(select(LawyerProfile.user_id).where(LawyerProfile.is_listed.is_(True))).all())
+    items = [_me(u) | {"lawyer": u.id in listed} for u in staff]
+    items.sort(key=lambda m: (not m["available_for_calls"], m["name"]))
+    return {"items": items}
+
 @router.get("/admin/reports/summary")
 def summary(user: User = Depends(current_staff), db: Session = Depends(get_db)):
     visible = _visible_tickets(user).subquery()
@@ -220,11 +288,13 @@ def summary(user: User = Depends(current_staff), db: Session = Depends(get_db)):
     active = (Assignment.service_request_id == visible.c.id) & Assignment.unassigned_at.is_(None)
     unassigned = db.scalar(select(func.count()).select_from(visible).where(visible.c.status.not_in(CLOSED_STATUSES), ~exists().where(active)))
     needs_reply = db.scalar(select(func.count()).select_from(_visible_tickets(user).where(_needs_reply_clause()).subquery()))
+    urgent = db.scalar(select(func.count()).select_from(visible).where(visible.c.priority == "urgent", visible.c.status.not_in(CLOSED_STATUSES)))
     return {
         "open": open_count,
         "new_today": new_today,
         "unassigned": unassigned,
         "needs_reply": needs_reply,
+        "urgent": urgent,
         "by_status": [{"status": s, "label": tickets.staff_status_label(s), "count": by_status.get(s, 0)} for s in TICKET_STATUSES if by_status.get(s)],
     }
 

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from . import admin, config, google_calendar, tickets
+from . import admin, config, google_calendar, payments, tickets
 from .db import get_db
 from .models import CLOSED_STATUSES, Meeting, Notification, ServiceRequest, User, utcnow
 from .security import current_staff
@@ -28,6 +28,7 @@ TEMPLATES = {
     "meeting_reminder": "Hi {1}, reminder: your Homexo Legal consultation on {2} with {4} starts at {3}. Tap to join: {5}",
     "meeting_cancelled": "Hi {1}, your Homexo Legal consultation on {2} at {3} with {4} has been cancelled. {5}",
     "lawyer_daily_agenda": "Good morning {1}, you have {2} Homexo Legal consultation(s) today: {3}. Your calendar: {4}",
+    "urgent_task": "Hi {1}, an urgent Homexo Legal task needs you: {2}. {3} Open it: {4}",
 }
 
 # Customer bookings made while Google Calendar isn't connected have no link until staff add one.
@@ -164,6 +165,7 @@ def cancel_meeting(db: Session, meeting: Meeting, actor: User | None, reason: st
     _cancel_queued(db, meeting)
     _queue(db, meeting, "meeting_cancelled", reason or "Your case team will contact you to find a new time.")
     tickets.add_event(db, meeting.service_request, "meeting_cancelled", actor, old={"when": tickets.format_when(meeting.starts_at)}, reason=reason)
+    payments.booking_cancelled(db, meeting.service_request)
 
 def move_meeting(db: Session, meeting: Meeting, actor: User | None, starts_at: datetime, duration: int, reason: str | None = None) -> None:
     ends_at = starts_at + timedelta(minutes=duration)

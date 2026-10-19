@@ -189,7 +189,7 @@ export default function ProfilePage() {
                 ? <button className="admin-link" disabled={busy} onClick={() => save(false)}>Hide from customers</button>
                 : <button className="admin-link" disabled={busy} onClick={() => save(false)}>Save as draft</button>}
             </div>
-            <small className="admin-footnote">Bookings arrive as tickets assigned to {mine ? "you" : profile.name}, with the meeting on the calendar and WhatsApp reminders for both sides.</small>
+            <small className="admin-footnote">Bookings arrive as tickets assigned to {mine ? "you" : profile.name}, with the meeting on the calendar and WhatsApp reminders for both sides. Customers see your name, never your mobile number.</small>
           </section>
         </div>
       </div>

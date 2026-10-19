@@ -4,7 +4,12 @@ import { DEFAULT_API_BASE_URL, type CustomerMeeting, type GovSource, type Report
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
 const TOKEN_KEY = "homexo.staff.token";
 
-export type StaffUser = { id: string; name: string; email: string | null; phone: string | null; role: "admin" | "agent"; account_status?: string };
+export type StaffUser = {
+  id: string; name: string; email: string | null; phone: string | null; role: "admin" | "agent"; account_status?: string;
+  // Whether the team can call them now. The phone number is for the team only; customers never see it.
+  available_for_calls: boolean; availability_note: string | null; availability_updated_at: string | null;
+};
+export type TeamMember = StaffUser & { lawyer: boolean };
 export type StaffRef = { id: string; name: string } | null;
 
 // Mirrors meeting_view(staff=True) in backend/app/tickets.py.
@@ -94,7 +99,9 @@ export type TicketDetail = TicketSummary & {
   chat_transcript: { from: "customer" | "assistant" | "system" | "agent"; message: string; at: string }[];
 };
 
-export type Summary = { open: number; new_today: number; unassigned: number; needs_reply: number; by_status: { status: string; label: string; count: number }[] };
+export type UrgentTicket = TicketSummary & { urgent_note: string | null; flagged_by: string | null; flagged_at: string };
+
+export type Summary = { open: number; new_today: number; unassigned: number; needs_reply: number; urgent: number; by_status: { status: string; label: string; count: number }[] };
 export type Meta = {
   statuses: { value: string; label: string }[];
   priorities: string[];

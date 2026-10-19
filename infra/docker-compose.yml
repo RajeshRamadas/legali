@@ -39,6 +39,9 @@ services:
       MEETING_TIMEZONE: ${MEETING_TIMEZONE:-Asia/Kolkata}
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
       # Optional document storage (docs/documents.md): AWS S3, or Cloudflare R2 with S3_ENDPOINT_URL and S3_REGION=auto.
       # Without S3_BUCKET, files are kept in the api_storage volume.

@@ -10,7 +10,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Expo (React Native) app for Android and iPhone with the service list and request form.
 - Shared TypeScript package (`packages/shared`) with API types and client, used by both the website and the app.
 - FastAPI backend with the service catalogue, ticket intake and tracking, customer replies, and a staff API (sign-in, queue, status, assignment, messages, internal notes, staff management, reports).
-- Find a lawyer (Practo style) on the website (`/lawyers`, `/bookings`) and in the app: search advocates by specialisation, language, fee, experience and availability, book an open slot for a video consultation, then move, cancel or rate it. Lawyers keep their profile and weekly hours under Lawyer profile in `/admin` (see `docs/lawyer-booking.md`).
+- Find a lawyer (Practo style) on the website (`/lawyers`, `/bookings`) and in the app: search advocates by specialisation, language, fee, experience and availability, book an open slot for a video consultation, pay the fee online (Razorpay), then move, cancel or rate it. Lawyers keep their profile and weekly hours under Lawyer profile in `/admin` (see `docs/lawyer-booking.md`).
 - Customer document repository and legal reports (`/documents`, and on each ticket in `/admin`): customers upload and tag documents; the lawyer issues a preliminary report with a checklist of documents, each with a tag the customer files uploads under; public records (EC, khata, RTC, tax receipts) go to a government fetch queue for the team instead of the buyer; once every item is verified or waived, a final report PDF is generated to print, sign and upload back for the customer to download. Files go to S3 or Cloudflare R2, or local disk in development (see `docs/documents.md`).
 - Karnataka RERA project check (`/rera`): search registered projects, see warning signs, a developer's delivery record, locality markets and a market report. Loads from a CSV or JSON export (see `docs/rera.md`); shows sample data until then.
 - Staff workspace at `/admin` for admins and agents, with a calendar of each lawyer's video meetings.
@@ -103,7 +103,7 @@ From a ticket, staff can book a call with the customer. With Google Calendar con
 
 ### Find a lawyer
 
-Each staff member can publish a lawyer profile with weekly hours from Lawyer profile in `/admin`. For sample lawyers in development, run `python -m app.demo_lawyers` in `backend/` (accounts without passwords; not for production). Booking rules and settings are in `docs/lawyer-booking.md`.
+Each staff member can publish a lawyer profile with weekly hours from Lawyer profile in `/admin`. For sample lawyers in development, run `python -m app.demo_lawyers` in `backend/` (accounts without passwords; not for production). Booking rules, online payment (Razorpay keys, webhook, test mode) and settings are in `docs/lawyer-booking.md`.
 
 ### Documents and legal reports
 
