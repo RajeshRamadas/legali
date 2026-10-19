@@ -65,6 +65,26 @@ CUSTOMER_CHANGE_HOURS = int(os.getenv("CUSTOMER_CHANGE_HOURS", "2"))
 # Upcoming online bookings one phone number can hold at a time, so nobody can fill a lawyer's diary.
 MAX_UPCOMING_BOOKINGS_PER_PHONE = int(os.getenv("MAX_UPCOMING_BOOKINGS_PER_PHONE", "3"))
 
+# Customer document repository. Files go to an S3-compatible bucket (AWS S3, or Cloudflare R2 with S3_ENDPOINT_URL set
+# to https://<account id>.r2.cloudflarestorage.com and S3_REGION=auto) when S3_BUCKET is set, else to LOCAL_STORAGE_DIR.
+# Keep the bucket private: downloads go through short-lived signed links. Without S3 keys, boto3's usual chain applies
+# (environment, instance role).
+S3_BUCKET = os.getenv("S3_BUCKET", "")
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "") or None
+S3_REGION = os.getenv("S3_REGION", "") or None
+S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID", "") or None
+S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY", "") or None
+S3_KEY_PREFIX = os.getenv("S3_KEY_PREFIX", "homexo/").lstrip("/")
+LOCAL_STORAGE_DIR = os.getenv("LOCAL_STORAGE_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "storage"))
+UPLOAD_MAX_MB = int(os.getenv("UPLOAD_MAX_MB", "25"))
+# Files one ticket can hold, so a ticket can't be used as free storage.
+MAX_DOCUMENTS_PER_TICKET = int(os.getenv("MAX_DOCUMENTS_PER_TICKET", "200"))
+# How long a download link stays valid.
+DOWNLOAD_LINK_MINUTES = int(os.getenv("DOWNLOAD_LINK_MINUTES", "15"))
+# Printed in the report header and on the PDF footer.
+FIRM_NAME = os.getenv("FIRM_NAME", "Homexo Legal")
+FIRM_ADDRESS = os.getenv("FIRM_ADDRESS", "Bengaluru, Karnataka")
+
 # Online payment of consultation fees through Razorpay (orders + Checkout on the website, payment links in the app).
 # Keys come from the Razorpay dashboard (Settings > API keys; use rzp_test_ keys for testing). Never commit them.
 # The webhook secret is the one set on the webhook pointing at /api/v1/payments/razorpay/webhook.

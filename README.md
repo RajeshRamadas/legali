@@ -11,6 +11,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Shared TypeScript package (`packages/shared`) with API types and client, used by both the website and the app.
 - FastAPI backend with the service catalogue, ticket intake and tracking, customer replies, and a staff API (sign-in, queue, status, assignment, messages, internal notes, staff management, reports).
 - Find a lawyer (Practo style) on the website (`/lawyers`, `/bookings`) and in the app: search advocates by specialisation, language, fee, experience and availability, book an open slot for a video consultation, pay the fee online (Razorpay), then move, cancel or rate it. Lawyers keep their profile and weekly hours under Lawyer profile in `/admin` (see `docs/lawyer-booking.md`).
+- Customer document repository and legal reports (`/documents`, and on each ticket in `/admin`): customers upload and tag documents; the lawyer issues a preliminary report with a checklist of documents, each with a tag the customer files uploads under; public records (EC, khata, RTC, tax receipts) go to a government fetch queue for the team instead of the buyer; once every item is verified or waived, a final report PDF is generated to print, sign and upload back for the customer to download. Files go to S3 or Cloudflare R2, or local disk in development (see `docs/documents.md`).
 - Karnataka RERA project check (`/rera`): search registered projects, see warning signs, a developer's delivery record, locality markets and a market report. Loads from a CSV or JSON export (see `docs/rera.md`); shows sample data until then.
 - Staff workspace at `/admin` for admins and agents, with a calendar of each lawyer's video meetings.
 - Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
@@ -104,6 +105,10 @@ From a ticket, staff can book a call with the customer. With Google Calendar con
 
 Each staff member can publish a lawyer profile with weekly hours from Lawyer profile in `/admin`. For sample lawyers in development, run `python -m app.demo_lawyers` in `backend/` (accounts without passwords; not for production). Booking rules, online payment (Razorpay keys, webhook, test mode) and settings are in `docs/lawyer-booking.md`.
 
+### Documents and legal reports
+
+Set `S3_BUCKET` (plus `S3_ENDPOINT_URL` and `S3_REGION=auto` for Cloudflare R2, and keys) to keep files in a private bucket; without it they go to `backend/storage/`. The flow, settings and the government portals are in `docs/documents.md`.
+
 ### Run the API without Docker
 
 With PostgreSQL running locally:
@@ -158,7 +163,7 @@ Before production, implement:
 1. Password reset, MFA for admins, and OTP verification for customers before showing ticket details (today a ticket number plus the phone or email used is enough).
 2. SLA targets and due dates on tickets.
 3. Conversational intake with validation, consent and resumable sessions. The chat assistant answers questions but still raises tickets through the form.
-4. Secure document upload/download using private object storage, file scanning and expiring URLs.
+4. Virus scanning of uploads (files are type-checked and stored privately with expiring links, but `scan_status` stays `pending`), and automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.
 5. Email and SMS providers for notifications; they are recorded as queued but not sent yet. WhatsApp meeting messages send once WhatsApp Business is connected (`docs/meetings.md`), but ticket status updates still go only to the SMS and email queue.
 6. Payment integration only after selecting a compliant provider; never store card data. Lawyer bookings show the fee but don't collect it yet.
 7. Rate limiting for login, ticket intake and lookup (chat is limited already), abuse protection, backups, observability, privacy retention (including a clean-up of old chat transcripts) and security testing.

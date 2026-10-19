@@ -1,4 +1,4 @@
-import { DEFAULT_API_BASE_URL, type CustomerMeeting } from "@homexo/shared";
+import { DEFAULT_API_BASE_URL, type CustomerMeeting, type GovSource, type ReportItem, type ReportSection } from "@homexo/shared";
 
 // Staff workspace API (backend/app/admin.py). Kept out of @homexo/shared because only the website uses it.
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
@@ -20,6 +20,50 @@ export type Meeting = CustomerMeeting & {
   customer_name: string;
   customer_phone: string | null;
   calendar: "google" | "manual";
+};
+
+// Mirrors document_view(staff=True) and staff_report_view in backend/app/case_files.py.
+export type StaffDocument = {
+  id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  tag: string | null;
+  note: string | null;
+  at: string;
+  download_url: string;
+  uploaded_by: "customer" | "staff" | "system";
+  checksum_sha256: string | null;
+};
+export type StaffReport = {
+  status: "draft" | "issued" | "final_generated" | "signed";
+  status_label: string;
+  issued_at: string | null;
+  lawyer: StaffRef;
+  reviewer: StaffRef;
+  sections: ReportSection[];
+  final_sections: ReportSection[];
+  items: (ReportItem & { reviewed_at: string | null })[];
+  progress: { done: number; total: number };
+  checklist_complete: boolean;
+  preliminary_pdf_url: string;
+  final_pdf_url: string | null;
+  final_generated_at: string | null;
+  signed_report_url: string | null;
+  signed_at: string | null;
+};
+export type TemplateItem = { tag: string; label: string; guidance: string; fetch_by: "customer" | "homexo"; source: string | null };
+export type ReportTemplate = { preliminary: ReportSection[]; final: ReportSection[]; items: TemplateItem[]; sources: GovSource[] };
+export type PropertyDetails = {
+  type: string; location: string | null; address_line: string | null; survey_number: string | null; subdivision_or_surnoc: string | null;
+  property_id_or_pid: string | null; village: string | null; hobli: string | null; taluk: string | null; district: string | null;
+};
+export type FetchTask = {
+  ticket_number: string;
+  customer_name: string;
+  item: { id: string; tag: string; label: string; guidance: string; status: string; note: string | null };
+  source: GovSource | null;
+  property: PropertyDetails | null;
 };
 
 export type TicketSummary = {
@@ -44,10 +88,12 @@ export type TicketSummary = {
 export type TicketDetail = TicketSummary & {
   description: string;
   customer: { id: string; name: string; phone: string | null; email: string | null };
-  property: { type: string; location: string | null } | null;
+  property: PropertyDetails | null;
   events: { type: string; old: Record<string, string> | null; new: Record<string, string> | null; note: string | null; actor: StaffRef; at: string }[];
   messages: { id: string; author_type: "customer" | "staff" | "system"; author: StaffRef; visibility: "customer" | "internal"; message: string; at: string }[];
   meetings: Meeting[];
+  documents: StaffDocument[];
+  report: StaffReport | null;
   notifications: { channel: string; template: string; recipient: string | null; to: "customer" | "staff"; status: string; error: string | null; at: string; send_after: string | null }[];
   // The website or app chat this ticket was raised from or checked in, oldest first.
   chat_transcript: { from: "customer" | "assistant" | "system" | "agent"; message: string; at: string }[];
@@ -97,6 +143,19 @@ export async function adminFetch<T>(path: string, init: RequestInit = {}): Promi
   }
   return data as T;
 }
+
+// File uploads: multipart, so the browser sets the Content-Type with its boundary.
+export async function adminUpload<T>(path: string, form: FormData): Promise<T> {
+  const token = getToken();
+  const response = await fetch(`${BASE_URL}/api/v1${path}`, { method: "POST", body: form, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) throw new UnauthorizedError("Sign in to continue.");
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Upload failed.");
+  return data as T;
+}
+
+// Download links in ticket views are short-lived paths on the API.
+export const fileHref = (path: string) => `${BASE_URL}${path}`;
 
 const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 export const formatDate = (iso: string) => dateTime.format(new Date(iso));

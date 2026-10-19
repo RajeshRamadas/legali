@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import config
+from . import case_files, config
 from .models import (
     CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
@@ -194,6 +194,9 @@ def customer_view(ticket: ServiceRequest) -> dict:
         "messages": messages,
         "meetings": [meeting_view(m) for m in ticket.meetings],
         "can_reply": ticket.status not in CLOSED_STATUSES,
+        "documents": case_files.customer_documents_view(ticket),
+        "report": case_files.customer_report_view(ticket),
+        "can_upload": ticket.status not in CLOSED_STATUSES,
     }
 
 def _staff_ref(user: User | None) -> dict | None:
@@ -221,13 +224,19 @@ def staff_summary(ticket: ServiceRequest) -> dict:
         "updated_at": _iso(ticket.updated_at),
     }
 
+PROPERTY_ID_FIELDS = ("address_line", "survey_number", "subdivision_or_surnoc", "property_id_or_pid", "village", "hobli", "taluk", "district")
+
+def property_view(prop: Property) -> dict:
+    """The property with the identifiers government portals search by."""
+    return {"type": prop.property_type, "location": prop.locality, **{field: getattr(prop, field) for field in PROPERTY_ID_FIELDS}}
+
 def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> dict:
     customer = ticket.customer
     return {
         **staff_summary(ticket),
         "description": ticket.description,
         "customer": {"id": str(customer.id), "name": customer.full_name, "phone": customer.phone, "email": customer.email},
-        "property": {"type": ticket.prop.property_type, "location": ticket.prop.locality} if ticket.prop else None,
+        "property": property_view(ticket.prop) if ticket.prop else None,
         "events": [
             {"type": e.event_type, "old": e.old_value, "new": e.new_value, "note": e.reason, "actor": _staff_ref(e.actor), "at": _iso(e.created_at)}
             for e in ticket.events
@@ -237,6 +246,8 @@ def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> d
             for m in ticket.messages
         ],
         "meetings": [meeting_view(m, staff=True) for m in ticket.meetings],
+        "documents": case_files.staff_documents_view(ticket),
+        "report": case_files.staff_report_view(ticket),
         "chat_transcript": [
             {"from": m.sender_type, "message": m.body, "at": _iso(m.created_at)}
             for m in ticket.conversation.messages
