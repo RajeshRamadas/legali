@@ -56,3 +56,11 @@ WHATSAPP_DEFAULT_COUNTRY_CODE = os.getenv("WHATSAPP_DEFAULT_COUNTRY_CODE", "91")
 # Turn off to run `python -m app.notify` from cron or a separate worker instead.
 NOTIFY_WORKER_ENABLED = os.getenv("NOTIFY_WORKER_ENABLED", "true").lower() == "true"
 NOTIFY_INTERVAL_SECONDS = int(os.getenv("NOTIFY_INTERVAL_SECONDS", "60"))
+
+# Online lawyer bookings. Customers pick from slots in each lawyer's weekly hours, starting this long from now
+# and up to BOOKING_DAYS_AHEAD days out. They can cancel or move a booking until CUSTOMER_CHANGE_HOURS before it.
+BOOKING_MIN_NOTICE_MINUTES = int(os.getenv("BOOKING_MIN_NOTICE_MINUTES", "120"))
+BOOKING_DAYS_AHEAD = int(os.getenv("BOOKING_DAYS_AHEAD", "14"))
+CUSTOMER_CHANGE_HOURS = int(os.getenv("CUSTOMER_CHANGE_HOURS", "2"))
+# Upcoming online bookings one phone number can hold at a time, so nobody can fill a lawyer's diary.
+MAX_UPCOMING_BOOKINGS_PER_PHONE = int(os.getenv("MAX_UPCOMING_BOOKINGS_PER_PHONE", "3"))
