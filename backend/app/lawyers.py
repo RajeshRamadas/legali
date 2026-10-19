@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import config, meetings, tickets
+from . import config, meetings, payments, tickets
 from .db import get_db
 from .models import (
     CLOSED_STATUSES, WEEKDAYS, Assignment, Customer, LawyerProfile, LawyerReview, Meeting, ServiceRequest, ServiceType, User, utcnow,
@@ -144,6 +144,7 @@ def _card(profile: LawyerProfile, stats: dict, next_slot: dict | None) -> dict:
         "consultation_minutes": profile.consultation_minutes,
         "city": profile.city,
         "locality": profile.locality,
+        "courts": profile.courts,
         **stats,
         "next_available": next_slot,
     }
@@ -206,7 +207,7 @@ def search_lawyers(
     if q and q.strip():
         terms = q.strip().lower().split()
         def text(p: LawyerProfile) -> str:
-            return " ".join([p.user.display_name, p.headline, p.city, p.locality or "", *p.specialisations, *p.languages]).lower()
+            return " ".join([p.user.display_name, p.headline, p.city, p.locality or "", *p.specialisations, *p.languages, *p.courts]).lower()
         profiles = [p for p in profiles if all(t in text(p) for t in terms)]
 
     now = utcnow()
@@ -241,7 +242,7 @@ def lawyer_profile(slug: str, db: Session = Depends(get_db)):
     return {
         **_card(profile, _stats(db, [profile.user_id])[profile.user_id], _next_slot(profile, busy, now)),
         "bio": profile.bio,
-        "courts": profile.courts,
+        "pay_online": payments.online(profile.consultation_fee),
         "bar_enrolment": profile.bar_enrolment,
         "education": profile.education,
         "hours": _hours_view(profile),
@@ -325,6 +326,7 @@ def booking_view(db: Session, ticket: ServiceRequest, meeting: Meeting) -> dict:
         "can_change": scheduled and tickets.aware(meeting.starts_at) - now > timedelta(hours=config.CUSTOMER_CHANGE_HOURS) and profile is not None,
         "can_review": meeting.status != "cancelled" and tickets.aware(meeting.ends_at) <= now and review is None,
         "review": _review_view(review) if review else None,
+        "payment": payments.payment_view(db, ticket, meeting),
     }
 
 @router.post("/api/v1/lawyers/{slug}/bookings", status_code=201)
@@ -348,7 +350,8 @@ def book_lawyer(slug: str, payload: BookingCreate, db: Session = Depends(get_db)
         description=payload.issue.strip(), source=payload.source,
     )
     ticket.title = f"Consultation with {lawyer.display_name}"
-    ticket.structured_answers = {**ticket.structured_answers, "lawyer": profile.slug, "fee": profile.consultation_fee, "booked_online": True}
+    ticket.structured_answers = {**ticket.structured_answers, "lawyer": profile.slug, "fee": profile.consultation_fee, "booked_online": True,
+                                 "pay_online": payments.online(profile.consultation_fee)}
     assignment = Assignment(service_request_id=ticket.id, agent_user_id=lawyer.id, assignment_note="Booked online by the customer.")
     db.add(assignment)
     ticket.assignments.append(assignment)
@@ -397,6 +400,48 @@ def reschedule_booking(payload: BookingMove, db: Session = Depends(get_db)):
     meeting.updated_at = ticket.updated_at = utcnow()
     db.commit()
     return booking_view(db, ticket, meeting)
+
+class BookingPay(BookingRef):
+    kind: Literal["checkout", "link"] = Field(default="checkout", description="checkout: Razorpay Checkout on the website. link: a Razorpay payment page, for the app.")
+
+class BookingPaid(BookingRef):
+    order_id: str = Field(max_length=80)
+    payment_id: str = Field(max_length=80)
+    signature: str = Field(default="", max_length=200)
+
+def _payment_call(action):
+    try:
+        return action()
+    except payments.PaymentError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+@router.post("/api/v1/bookings/pay")
+def pay_booking(payload: BookingPay, db: Session = Depends(get_db)):
+    """Start paying the fee: an order to open in Checkout, or a payment link to open in the browser."""
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+    meeting = _booking_meeting(ticket)
+    view = booking_view(db, ticket, meeting)
+    if not (view["payment"] or {}).get("can_pay"):
+        raise HTTPException(status_code=422, detail="There's nothing to pay on this booking.")
+    checkout = _payment_call(lambda: payments.start(db, ticket, payload.kind))
+    db.commit()
+    return {"booking": view, "checkout": checkout}
+
+@router.post("/api/v1/bookings/pay/verify")
+def verify_booking_payment(payload: BookingPaid, db: Session = Depends(get_db)):
+    """Checkout's success handler posts Razorpay's order id, payment id and signature here."""
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+    _payment_call(lambda: payments.verify(db, ticket, payload.order_id, payload.payment_id, payload.signature))
+    db.commit()
+    return booking_view(db, ticket, _booking_meeting(ticket))
+
+@router.post("/api/v1/bookings/pay/refresh")
+def refresh_booking_payment(payload: BookingRef, db: Session = Depends(get_db)):
+    """Check with Razorpay whether an open order or payment link has been paid (after the customer returns from paying)."""
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+    _payment_call(lambda: payments.refresh(db, ticket))
+    db.commit()
+    return booking_view(db, ticket, _booking_meeting(ticket))
 
 @router.post("/api/v1/bookings/review", status_code=201)
 def review_booking(payload: BookingReview, db: Session = Depends(get_db)):

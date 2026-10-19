@@ -95,6 +95,12 @@ Public endpoints for searching lawyers, booking a consultation and managing it w
 | POST | `/api/v1/bookings/reschedule` | `{"ticket_number", "contact", "starts_at"}` |
 | POST | `/api/v1/bookings/cancel` | `{"ticket_number", "contact", "reason"}` |
 | POST | `/api/v1/bookings/review` | `{"ticket_number", "contact", "rating", "comment"}` |
+| POST | `/api/v1/bookings/pay` | `{"ticket_number", "contact", "kind"}`: `checkout` returns a Razorpay order for Checkout, `link` a payment page URL (the app) |
+| POST | `/api/v1/bookings/pay/verify` | `{"ticket_number", "contact", "order_id", "payment_id", "signature"}` from Checkout's success handler |
+| POST | `/api/v1/bookings/pay/refresh` | `{"ticket_number", "contact"}`: asks Razorpay whether an open order or link was paid |
+| POST | `/api/v1/payments/razorpay/webhook` | Razorpay webhook (`X-Razorpay-Signature`): `order.paid`, `payment_link.paid`, `payment.failed`, `refund.processed` |
+
+Search cards include `courts`. A booking includes `payment` (null when the fee isn't paid online): `status` (`due`, `paid`, `refund_due`, `refunded`), `amount`, `pay_by`, `can_pay`, `mode`. Staff phone numbers never appear in any public response or customer message.
 
 ## Staff API
 
@@ -105,10 +111,13 @@ Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send 
 | GET | `/api/v1/auth/me` | staff | Current user and role |
 | GET | `/api/v1/admin/tickets` | staff | Queue. Filters: `status` (a status, comma list, `open` or `closed`), `service`, `assignee` (`me`, `unassigned` or an id), `needs_reply`, `q` (ticket, name, phone, area), `page`, `page_size` |
 | GET | `/api/v1/admin/tickets/{ticket_number}` | staff | Full ticket: customer, property, events, messages and notes, notifications, `chat_transcript` (the linked chat with the assistant) |
-| PATCH | `/api/v1/admin/tickets/{ticket_number}` | staff | `{"status", "priority", "note"}`; `note` is shown to the customer with the new status |
+| PATCH | `/api/v1/admin/tickets/{ticket_number}` | staff | `{"status", "priority", "note", "priority_note"}`; `note` is shown to the customer with the new status. Marking a ticket `urgent` sends its assignee a WhatsApp alert with `priority_note` (team only) |
+| GET | `/api/v1/admin/urgent` | staff | Open urgent tickets (an agent's own; all for admins) with `urgent_note`, `flagged_by`, `flagged_at` |
+| PUT | `/api/v1/admin/me/availability` | staff | `{"available", "note", "phone"}`: whether the team can call you now |
+| GET | `/api/v1/admin/team` | staff | Active staff with availability, note and phone (team only), available first |
 | POST | `/api/v1/admin/tickets/{ticket_number}/assignment` | admin | `{"agent_id": "..." or null, "note"}` |
 | POST | `/api/v1/admin/tickets/{ticket_number}/messages` | staff | `{"message", "visibility": "customer" or "internal"}` |
-| GET | `/api/v1/admin/reports/summary` | staff | Open, new today, unassigned, waiting on us, counts by status |
+| GET | `/api/v1/admin/reports/summary` | staff | Open, new today, unassigned, waiting on us, urgent, counts by status |
 | GET | `/api/v1/admin/meta` | staff | Status and priority options |
 | GET / POST | `/api/v1/admin/staff` | admin | List staff / add `{"display_name", "email", "password", "role", "phone"}` (`phone` is the WhatsApp number for meeting messages) |
 | PATCH | `/api/v1/admin/staff/{id}` | admin | `{"account_status": "active" or "suspended", "role", "phone"}` |

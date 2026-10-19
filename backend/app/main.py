@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import admin, chat, config, lawyers, meetings, notify, posts, public
+from . import admin, chat, config, lawyers, meetings, notify, payments, posts, public
 from .bootstrap import sync_reference_data
 from .db import SessionLocal
 
@@ -31,7 +31,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
@@ -41,3 +41,4 @@ app.include_router(admin.router)
 app.include_router(meetings.router)
 app.include_router(lawyers.router)
 app.include_router(posts.router)
+app.include_router(payments.router)

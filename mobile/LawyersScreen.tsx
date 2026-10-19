@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { formatFee, type Booking, type LawyerCard, type LawyerFilters, type LawyerProfile, type LawyerSearch, type LawyerSlot, type LawyerSort } from "@homexo/shared";
+import { formatFee, type Booking, type BookingRef, type LawyerCard, type LawyerFilters, type LawyerProfile, type LawyerSearch, type LawyerSlot, type LawyerSort } from "@homexo/shared";
 import { saveBookingRef } from "./bookingsStore";
 import { Avatar, Rating, SlotPicker, Tags, forest, ui } from "./lawyerUi";
+import { PayPanel } from "./PayPanel";
 import { api, colors } from "./theme";
 
 const SORTS: [LawyerSort, string][] = [["relevance", "Relevant"], ["soonest", "Soonest"], ["rating", "Top rated"], ["experience", "Experience"], ["fee_low", "Lowest fee"]];
@@ -80,7 +81,8 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={styles.cardTitle}>{lawyer.name}</Text>
               <Text style={styles.body}>{lawyer.headline}</Text>
-              <Text style={ui.muted}>{lawyer.experience_years} yrs · {lawyer.locality ?? lawyer.city} · {lawyer.languages.join(", ")}</Text>
+              <Text style={ui.muted}>{lawyer.experience_years} yrs experience · {lawyer.locality ?? lawyer.city} · {lawyer.languages.join(", ")}</Text>
+              {lawyer.courts.length ? <Text style={ui.muted} numberOfLines={2}>Practises at {lawyer.courts.join(" · ")}</Text> : null}
               <Rating lawyer={lawyer} />
             </View>
           </View>
@@ -107,6 +109,7 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
   const [form, setForm] = useState({ name: "", phone: "", email: "", issue: "" });
   const [busy, setBusy] = useState(false);
   const [booked, setBooked] = useState<Booking | null>(null);
+  const [bookedRef, setBookedRef] = useState<BookingRef | null>(null);
   const [slotsKey, setSlotsKey] = useState(0);
 
   useEffect(() => {
@@ -122,7 +125,9 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
         starts_at: slot.starts_at, customer_name: form.name.trim(), phone: form.phone.trim(),
         email: form.email.trim() || undefined, issue: form.issue.trim(), source: "mobile",
       });
-      saveBookingRef({ ticket_number: booking.ticket_number, contact: form.phone.trim() });
+      const ref = { ticket_number: booking.ticket_number, contact: form.phone.trim() };
+      saveBookingRef(ref);
+      setBookedRef(ref);
       setBooked(booking);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not book. Please try again.");
@@ -142,18 +147,22 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
     );
   }
 
-  if (booked) {
+  if (booked && bookedRef) {
+    const unpaid = booked.payment?.status === "due";
     return (
       <ScrollView contentContainerStyle={[styles.page, { alignItems: "center" }]}>
         <View style={styles.tick}><Text style={{ fontSize: 28, color: "#24734d" }}>✓</Text></View>
-        <Text style={[styles.title, { textAlign: "center" }]}>Consultation booked</Text>
+        <Text style={[styles.title, { textAlign: "center" }]}>{unpaid ? "Slot held. One step left" : "Consultation booked"}</Text>
         <Text style={[styles.body, { textAlign: "center" }]}>
-          {booked.meeting.when} with {booked.lawyer.name}. Details are on their way to your WhatsApp{booked.meeting.meet_link ? ", with the Google Meet link" : ", and the meeting link follows before it starts"}.
+          {unpaid
+            ? `${booked.meeting.when} with ${booked.lawyer.name} is held for you. Pay the fee to confirm it.`
+            : `${booked.meeting.when} with ${booked.lawyer.name}. Details are on their way to your WhatsApp${booked.meeting.meet_link ? ", with the Google Meet link" : ", and the meeting link follows before it starts"}.`}
         </Text>
         <View style={[styles.summary, { alignSelf: "stretch" }]}>
           <Text style={ui.muted}>Booking number</Text>
           <Text style={styles.summaryValue} selectable>{booked.ticket_number}</Text>
         </View>
+        <View style={{ alignSelf: "stretch" }}><PayPanel bookingRef={bookedRef} booking={booked} onChange={setBooked} /></View>
         {booked.meeting.meet_link && <Pressable style={styles.button} onPress={() => Linking.openURL(booked.meeting.meet_link!)}><Text style={styles.buttonText}>Open Google Meet link</Text></Pressable>}
         <Pressable style={[styles.button, { alignSelf: "stretch" }]} onPress={onBooked}><Text style={styles.buttonText}>See my bookings</Text></Pressable>
         <Pressable onPress={onBack} hitSlop={12}><Text style={styles.link}>Back to all lawyers</Text></Pressable>
@@ -193,9 +202,9 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
               <Field label="Email (optional)" value={form.email} onChangeText={(email) => setForm({ ...form, email })} keyboardType="email-address" autoComplete="email" />
               <Field label="What would you like to discuss?" value={form.issue} onChangeText={(issue) => setForm({ ...form, issue })} multiline placeholder="A few lines so the lawyer can prepare." />
               <Pressable style={[styles.button, (!ready || busy) && { opacity: 0.5 }]} disabled={!ready || busy} onPress={book}>
-                <Text style={styles.buttonText}>{busy ? "Booking…" : `Confirm booking · ${formatFee(lawyer.consultation_fee)}`}</Text>
+                <Text style={styles.buttonText}>{busy ? "Booking…" : lawyer.pay_online ? `Continue to pay ${formatFee(lawyer.consultation_fee)}` : `Confirm booking · ${formatFee(lawyer.consultation_fee)}`}</Text>
               </Pressable>
-              <Text style={styles.small}>Please don’t share Aadhaar numbers, passwords or bank details. Our team confirms the fee and how to pay before the call.</Text>
+              <Text style={styles.small}>Please don’t share Aadhaar numbers, passwords or bank details. {lawyer.pay_online ? "You pay right after booking, and get the fee back if you cancel in time." : "Our team confirms the fee and how to pay before the call."}</Text>
             </View>
           )}
         </View>

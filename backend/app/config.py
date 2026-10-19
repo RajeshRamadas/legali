@@ -64,3 +64,16 @@ BOOKING_DAYS_AHEAD = int(os.getenv("BOOKING_DAYS_AHEAD", "14"))
 CUSTOMER_CHANGE_HOURS = int(os.getenv("CUSTOMER_CHANGE_HOURS", "2"))
 # Upcoming online bookings one phone number can hold at a time, so nobody can fill a lawyer's diary.
 MAX_UPCOMING_BOOKINGS_PER_PHONE = int(os.getenv("MAX_UPCOMING_BOOKINGS_PER_PHONE", "3"))
+
+# Online payment of consultation fees through Razorpay (orders + Checkout on the website, payment links in the app).
+# Keys come from the Razorpay dashboard (Settings > API keys; use rzp_test_ keys for testing). Never commit them.
+# The webhook secret is the one set on the webhook pointing at /api/v1/payments/razorpay/webhook.
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+RAZORPAY_API_BASE = os.getenv("RAZORPAY_API_BASE", "https://api.razorpay.com/v1")
+# Without keys, test mode lets anyone "pay" with a pretend button, so it is on only in development by default.
+# With neither keys nor test mode, bookings work as before: the fee is shown and the team arranges payment.
+PAYMENTS_TEST_MODE = os.getenv("PAYMENTS_TEST_MODE", "true" if APP_ENV == "development" else "false").lower() == "true"
+# An online booking whose fee is still unpaid this many minutes after booking is cancelled and the slot freed. 0 keeps it.
+PAYMENT_HOLD_MINUTES = int(os.getenv("PAYMENT_HOLD_MINUTES", "30"))

@@ -10,7 +10,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Expo (React Native) app for Android and iPhone with the service list and request form.
 - Shared TypeScript package (`packages/shared`) with API types and client, used by both the website and the app.
 - FastAPI backend with the service catalogue, ticket intake and tracking, customer replies, and a staff API (sign-in, queue, status, assignment, messages, internal notes, staff management, reports).
-- Find a lawyer (Practo style) on the website (`/lawyers`, `/bookings`) and in the app: search advocates by specialisation, language, fee, experience and availability, book an open slot for a video consultation, then move, cancel or rate it. Lawyers keep their profile and weekly hours under Lawyer profile in `/admin` (see `docs/lawyer-booking.md`).
+- Find a lawyer (Practo style) on the website (`/lawyers`, `/bookings`) and in the app: search advocates by specialisation, language, fee, experience and availability, book an open slot for a video consultation, pay the fee online (Razorpay), then move, cancel or rate it. Lawyers keep their profile and weekly hours under Lawyer profile in `/admin` (see `docs/lawyer-booking.md`).
 - Staff workspace at `/admin` for admins and agents, with a calendar of each lawyer's video meetings.
 - Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
@@ -101,7 +101,7 @@ From a ticket, staff can book a call with the customer. With Google Calendar con
 
 ### Find a lawyer
 
-Each staff member can publish a lawyer profile with weekly hours from Lawyer profile in `/admin`. For sample lawyers in development, run `python -m app.demo_lawyers` in `backend/` (accounts without passwords; not for production). Booking rules and settings are in `docs/lawyer-booking.md`.
+Each staff member can publish a lawyer profile with weekly hours from Lawyer profile in `/admin`. For sample lawyers in development, run `python -m app.demo_lawyers` in `backend/` (accounts without passwords; not for production). Booking rules, online payment (Razorpay keys, webhook, test mode) and settings are in `docs/lawyer-booking.md`.
 
 ### Run the API without Docker
 

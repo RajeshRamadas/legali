@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatFee, type Booking, type LawyerProfile, type LawyerSlot } from "@homexo/shared";
+import { formatFee, type Booking, type BookingRef, type LawyerProfile, type LawyerSlot } from "@homexo/shared";
 import { api } from "../../api";
 import LawyerShell from "../LawyerShell";
+import PayPanel from "../PayPanel";
 import Rating from "../Rating";
 import SlotPicker from "../SlotPicker";
 import { saveBooking } from "../store";
@@ -21,6 +22,7 @@ export default function LawyerPage({ params }: { params: { slug: string } }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [booked, setBooked] = useState<Booking | null>(null);
+  const [bookedRef, setBookedRef] = useState<BookingRef | null>(null);
   const [slotsKey, setSlotsKey] = useState(0);
 
   useEffect(() => {
@@ -37,7 +39,9 @@ export default function LawyerPage({ params }: { params: { slug: string } }) {
         starts_at: slot.starts_at, customer_name: form.name.trim(), phone: form.phone.trim(),
         email: form.email.trim() || undefined, issue: form.issue.trim(), source: "website",
       });
-      saveBooking({ ticket_number: booking.ticket_number, contact: form.phone.trim() });
+      const ref = { ticket_number: booking.ticket_number, contact: form.phone.trim() };
+      saveBooking(ref);
+      setBookedRef(ref);
       setBooked(booking);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not book. Please try again.");
@@ -115,12 +119,15 @@ export default function LawyerPage({ params }: { params: { slug: string } }) {
 
         <aside className="lw-sticky">
           <section className="lw-panel" aria-live="polite">
-            {booked ? (
+            {booked && bookedRef ? (
               <div className="lw-done">
                 <div className="lw-tick" aria-hidden>✓</div>
-                <h2>Consultation booked</h2>
-                <p>{booked.meeting.when} with {booked.lawyer.name}. We have sent the details to your WhatsApp{booked.meeting.meet_link ? ", with the Google Meet link" : " and will send the meeting link before it starts"}.</p>
-                <div className="lw-summary" style={{ width: "100%" }}><span>Booking number<b>{booked.ticket_number}</b></span><span>{booked.fee !== null ? formatFee(booked.fee) : ""}</span></div>
+                <h2>{booked.payment?.status === "due" ? "Slot held. One step left" : "Consultation booked"}</h2>
+                {booked.payment?.status === "due"
+                  ? <p>{booked.meeting.when} with {booked.lawyer.name} is held for you. Pay the fee to confirm it.</p>
+                  : <p>{booked.meeting.when} with {booked.lawyer.name}. We have sent the details to your WhatsApp{booked.meeting.meet_link ? ", with the Google Meet link" : " and will send the meeting link before it starts"}.</p>}
+                <div className="lw-summary" style={{ width: "100%" }}><span>Booking number<b>{booked.ticket_number}</b></span><span>{booked.fee !== null && !booked.payment ? formatFee(booked.fee) : ""}</span></div>
+                <PayPanel bookingRef={bookedRef} booking={booked} onChange={setBooked} />
                 {booked.meeting.meet_link && <a className="btn" href={booked.meeting.meet_link} target="_blank" rel="noreferrer">Google Meet link</a>}
                 <Link className="btn light small" href="/bookings">View my bookings</Link>
                 <p className="lw-fine">Keep the booking number. With it and your phone number you can move, cancel or rate this consultation.</p>
@@ -141,8 +148,8 @@ export default function LawyerPage({ params }: { params: { slug: string } }) {
                     <label>WhatsApp number<input required type="tel" inputMode="tel" autoComplete="tel" placeholder="+91 98765 43210" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
                     <label>Email (optional, for the calendar invite)<input type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
                     <label>What would you like to discuss?<textarea required minLength={10} maxLength={2000} rows={4} placeholder="A few lines about your situation, so the lawyer can prepare." value={form.issue} onChange={(e) => setForm({ ...form, issue: e.target.value })} /></label>
-                    <button className="btn" disabled={busy}>{busy ? "Booking…" : `Confirm booking · ${formatFee(lawyer.consultation_fee)}`}</button>
-                    <p className="lw-fine">Please don’t share Aadhaar numbers, passwords or bank details here. Our team confirms the fee and how to pay before the call.</p>
+                    <button className="btn" disabled={busy}>{busy ? "Booking…" : lawyer.pay_online ? `Continue to pay ${formatFee(lawyer.consultation_fee)}` : `Confirm booking · ${formatFee(lawyer.consultation_fee)}`}</button>
+                    <p className="lw-fine">Please don’t share Aadhaar numbers, passwords or bank details here. {lawyer.pay_online ? "You pay securely right after booking, and get the fee back if you cancel in time." : "Our team confirms the fee and how to pay before the call."}</p>
                   </form>
                 )}
               </>

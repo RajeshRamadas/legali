@@ -1,4 +1,5 @@
 """Notification delivery: sends due WhatsApp messages (invites, reminders, agendas) and queues each lawyer's daily agenda.
+Each run also releases online bookings left unpaid past PAYMENT_HOLD_MINUTES (see payments.py).
 
 Runs every NOTIFY_INTERVAL_SECONDS inside the API process, or on its own with `python -m app.notify [--loop]`.
 Without WhatsApp credentials nothing is sent and messages stay queued. SMS and email have no provider yet and stay queued.
@@ -13,7 +14,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from . import config, whatsapp
+from . import config, payments, whatsapp
 from .db import SessionLocal
 from .meetings import render
 from .models import Meeting, Notification, User, utcnow
@@ -92,6 +93,7 @@ def queue_daily_agendas(db: Session, now: datetime | None = None) -> int:
 
 def run_once() -> None:
     with SessionLocal() as db:
+        payments.release_unpaid(db)
         queue_daily_agendas(db)
         deliver_due(db)
 

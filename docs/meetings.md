@@ -63,9 +63,11 @@ their phone, with Google's own reminders.
    | `meeting_reminder` | Hi {{1}}, reminder: your Homexo Legal consultation on {{2}} with {{4}} starts at {{3}}. Tap to join: {{5}} |
    | `meeting_cancelled` | Hi {{1}}, your Homexo Legal consultation on {{2}} at {{3}} with {{4}} has been cancelled. {{5}} |
    | `lawyer_daily_agenda` | Good morning {{1}}, you have {{2}} Homexo Legal consultation(s) today: {{3}}. Your calendar: {{4}} |
+   | `urgent_task` | Hi {{1}}, an urgent Homexo Legal task needs you: {{2}}. {{3}} Open it: {{4}} |
 
    {{1}} is the recipient's name, {{2}} the service and ticket number, {{3}} the time, {{4}} the other person (the
    lawyer for the customer, the customer for the lawyer), {{5}} the Meet link (or the cancellation reason).
+   `urgent_task` goes to staff only: {{2}} is the ticket, {{3}} why it's urgent, {{4}} the ticket link.
 3. Set on the API:
 
    ```
