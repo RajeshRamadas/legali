@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { type Service } from "@homexo/shared";
 import { api } from "../api";
 import { useStaff } from "./AdminShell";
-import { adminFetch, timeAgo, type Meta, type StaffUser, type Summary, type TicketSummary } from "./api";
+import { adminFetch, timeAgo, type Meta, type StaffUser, type Summary, type TicketSummary, type UrgentTicket } from "./api";
 
 type Filters = { status: string; service: string; assignee: string; q: string; needsReply: boolean; page: number };
 const PAGE_SIZE = 20;
@@ -19,11 +19,13 @@ export default function TicketQueue() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
+  const [urgent, setUrgent] = useState<UrgentTicket[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     adminFetch<Meta>("/admin/meta").then(setMeta).catch(onError);
     adminFetch<Summary>("/admin/reports/summary").then(setSummary).catch(onError);
+    adminFetch<{ items: UrgentTicket[] }>("/admin/urgent").then((r) => setUrgent(r.items)).catch(onError);
     api.listServices().then(setServices).catch(() => setServices([]));
     if (user.role === "admin") adminFetch<{ items: StaffUser[] }>("/admin/staff").then((r) => setStaff(r.items.filter((s) => s.account_status === "active"))).catch(onError);
   }, [user.role, onError]);
@@ -60,6 +62,23 @@ export default function TicketQueue() {
           <h1>Ticket queue</h1>
         </div>
       </header>
+
+      {urgent.length > 0 && (
+        <section className="admin-card admin-urgent" aria-label="Urgent tasks">
+          <h2>⚑ Urgent {user.role === "admin" ? "tasks" : "for you"} ({urgent.length})</h2>
+          <ul>
+            {urgent.map((t) => (
+              <li key={t.ticket_number}>
+                <Link href={`/admin/tickets/${t.ticket_number}`}>
+                  <b>{t.title || t.service_name} · {t.ticket_number}</b>
+                  {t.urgent_note && <p>{t.urgent_note}</p>}
+                  <small>{t.customer_name} · {t.status_label}{t.assignee && user.role === "admin" ? ` · ${t.assignee.name}` : ""} · flagged {t.flagged_by ? `by ${t.flagged_by} ` : ""}{timeAgo(t.flagged_at)}</small>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="admin-stats">
         {cards.map((card) => (

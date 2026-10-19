@@ -23,7 +23,7 @@ export default function LawyerShell({ children }: { children: React.ReactNode })
       <footer className="footer">
         <div className="wrap" style={{ fontSize: 11, color: "#a4bcb2", lineHeight: 1.7 }}>
           Consultations are with independent advocates enrolled with the Bar Council. Booking a consultation does not create a lawyer–client
-          relationship for any matter beyond that consultation. Our team confirms the fee and how to pay before the call.
+          relationship for any matter beyond that consultation. Fees are shown up front; a booking cancelled in time is refunded in full.
         </div>
       </footer>
     </>

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { adminFetch, getToken, setToken, UnauthorizedError, type StaffUser } from "./api";
 
-type Session = { user: StaffUser; signOut: () => void; onError: (error: unknown) => string };
+type Session = { user: StaffUser; setUser: (user: StaffUser) => void; signOut: () => void; onError: (error: unknown) => string };
 const SessionContext = createContext<Session | null>(null);
 
 export function useStaff(): Session {
@@ -47,12 +47,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const nav = [
     { href: "/admin", label: "Ticket queue", icon: "▤" },
     { href: "/admin/calendar", label: "Calendar", icon: "◷" },
+    { href: "/admin/team", label: "Team calls", icon: "☏" },
     { href: "/admin/profile", label: "Lawyer profile", icon: "⚖" },
     ...(user.role === "admin" ? [{ href: "/admin/blog", label: "Blog", icon: "✎" }, { href: "/admin/staff", label: "Staff", icon: "☺" }] : []),
   ];
 
   return (
-    <SessionContext.Provider value={{ user, signOut, onError }}>
+    <SessionContext.Provider value={{ user, setUser, signOut, onError }}>
       <div className="admin-app">
         <aside className="admin-side">
           <Link className="admin-brand" href="/admin"><span className="brandmark">H</span><span>homexo legal<small>Staff workspace</small></span></Link>
@@ -66,12 +67,42 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <div className="admin-me">
             <b>{user.name}</b>
             <small>{user.role === "admin" ? "Admin" : "Agent"} · {user.email}</small>
+            <AvailabilityToggle user={user} onChange={setUser} onError={onError} />
             <button className="admin-link" onClick={signOut}>Sign out</button>
           </div>
         </aside>
         <main className="admin-main">{children}</main>
       </div>
     </SessionContext.Provider>
+  );
+}
+
+// One tap to say whether the team can call you now. The note and number are set on the Team calls page.
+function AvailabilityToggle({ user, onChange, onError }: { user: StaffUser; onChange: (u: StaffUser) => void; onError: (e: unknown) => string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function toggle() {
+    setBusy(true);
+    setError("");
+    try {
+      onChange(await adminFetch<StaffUser>("/admin/me/availability", {
+        method: "PUT", body: JSON.stringify({ available: !user.available_for_calls, note: user.availability_note }),
+      }));
+    } catch (e) {
+      setError(onError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button className={`admin-availability${user.available_for_calls ? " on" : ""}`} role="switch" aria-checked={user.available_for_calls} disabled={busy} onClick={toggle}>
+        <span aria-hidden />{user.available_for_calls ? "Taking team calls" : "Not taking calls"}
+      </button>
+      {error && <small className="admin-availability-error">{error.replace(/^phone: /, "")} <Link href="/admin/team">Add it</Link></small>}
+    </>
   );
 }
 

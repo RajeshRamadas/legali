@@ -26,6 +26,7 @@ function Card({ lawyer }: { lawyer: LawyerCard }) {
         <ul className="lw-facts">
           <li><b>{lawyer.experience_years} years</b> experience</li>
           <li>{lawyer.locality ? `${lawyer.locality}, ` : ""}{lawyer.city}</li>
+          {lawyer.courts.length > 0 && <li className="lw-courts">Practises at <b>{lawyer.courts.join(" · ")}</b></li>}
           <li>Speaks {lawyer.languages.join(", ")}</li>
           {lawyer.consultations > 0 && <li>{lawyer.consultations} consultations</li>}
         </ul>

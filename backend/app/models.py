@@ -33,6 +33,9 @@ MEETING_STATUSES = ("scheduled", "completed", "cancelled")
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 POST_TYPES = ("article", "case_study")
 POST_STATUSES = ("draft", "published")
+PAYMENT_STATUSES = ("created", "paid", "refund_due", "refunded")
+PAYMENT_PROVIDERS = ("razorpay", "test")
+PAYMENT_KINDS = ("checkout", "link")
 RERA_STATUSES = ("ongoing", "completed", "lapsed", "revoked", "withdrawn")
 
 class Base(DeclarativeBase):
@@ -60,6 +63,11 @@ class User(TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(Text)
     account_status: Mapped[str] = mapped_column(Text, default="active", nullable=False)
+    # Staff only: whether the team can phone them now (e.g. a lawyer free for a quick call), with an optional note.
+    # The phone number stays inside the staff workspace; customers never see it.
+    available_for_calls: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    availability_note: Mapped[str | None] = mapped_column(Text)
+    availability_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     roles: Mapped[list["Role"]] = relationship(secondary=user_roles, lazy="selectin")
 
@@ -359,6 +367,38 @@ class LawyerReview(Base):
     # Shown as written, e.g. "Priya S."
     reviewer_name: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+class Payment(TimestampMixin, Base):
+    """An attempt to collect a booking's consultation fee: a Razorpay order (website Checkout) or payment link (app).
+
+    Card, UPI and bank details stay with Razorpay; only its ids and the outcome are kept here.
+    """
+    __tablename__ = "payments"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", PAYMENT_STATUSES), name="ck_payments_status"),
+        CheckConstraint(_check_in("provider", PAYMENT_PROVIDERS), name="ck_payments_provider"),
+        CheckConstraint(_check_in("kind", PAYMENT_KINDS), name="ck_payments_kind"),
+        CheckConstraint("amount_paise > 0", name="ck_payments_amount"),
+        Index("idx_payments_request", "service_request_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(Text, default="INR", nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="created", nullable=False)
+    # order_... for Checkout, plink_... for a payment link.
+    provider_order_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    pay_url: Mapped[str | None] = mapped_column(Text)
+    provider_payment_id: Mapped[str | None] = mapped_column(Text)
+    method: Mapped[str | None] = mapped_column(Text)
+    # The last failed attempt's reason from Razorpay, shown so the customer can try another way.
+    failure_reason: Mapped[str | None] = mapped_column(Text)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    service_request: Mapped[ServiceRequest] = relationship()
 
 class Notification(Base):
     __tablename__ = "notifications"
