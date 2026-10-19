@@ -91,7 +91,7 @@
 .hx-progress{display:flex;gap:6px}.hx-progress i{flex:1;height:6px;border-radius:3px;background:#cfdcd4}.hx-progress i.on{background:var(--forest2)}
 .hx-demo small{color:#55665f;font-size:12px}
 .hx-tiles-section{padding-top:30px}
-.hx-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.hx-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .hx-tile{display:flex;flex-direction:column;gap:9px;padding:22px;text-align:left;background:var(--paper);border:1px solid var(--line);border-radius:18px;color:var(--ink);transition:.2s}
 .hx-tile:hover{border-color:var(--forest2);transform:translateY(-2px)}
 .hx-tile b{font-size:17px}
