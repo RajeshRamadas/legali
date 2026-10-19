@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import admin, chat, config, lawyers, meetings, notify, public
+from . import admin, chat, config, lawyers, meetings, notify, posts, public
 from .bootstrap import sync_reference_data
 from .db import SessionLocal
 
@@ -23,7 +23,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Homexo Property Services API",
     version="0.2.0",
-    description="Service catalogue, ticket intake and tracking, staff ticket workspace, video consultations, lawyer search and booking, and chat assistant.",
+    description="Service catalogue, ticket intake and tracking, staff ticket workspace, video consultations, lawyer search and booking, chat assistant and blog.",
     lifespan=lifespan,
 )
 
@@ -31,7 +31,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
@@ -40,3 +40,4 @@ app.include_router(chat.router)
 app.include_router(admin.router)
 app.include_router(meetings.router)
 app.include_router(lawyers.router)
+app.include_router(posts.router)

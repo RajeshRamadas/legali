@@ -177,6 +177,33 @@ export type BookingRef = { ticket_number: string; contact: string };
 
 export const formatFee = (rupees: number) => `₹${rupees.toLocaleString("en-IN")}`;
 
+export type PostType = "article" | "case_study";
+
+export type PostSummary = {
+  id: string;
+  slug: string;
+  post_type: PostType;
+  type_label: string;
+  status: "draft" | "published";
+  title: string;
+  excerpt: string;
+  cover_image_url: string | null;
+  tags: string[];
+  author: string;
+  reading_minutes: number;
+  published_at: string | null;
+  updated_at: string;
+};
+
+export type Post = PostSummary & {
+  body: string; // Markdown
+  highlights: { label: string; value: string }[];
+};
+
+export type PublicPost = Post & { related: PostSummary[] };
+export type PostList = { items: PostSummary[]; total: number; page: number; page_size: number };
+export type PostQuery = { type?: PostType; tag?: string; q?: string; page?: number; pageSize?: number };
+
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
@@ -197,6 +224,19 @@ const post = (body: unknown): RequestInit => ({ method: "POST", headers: { "Cont
 
 export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
   return {
+    listPosts(query: PostQuery = {}): Promise<PostList> {
+      const params = new URLSearchParams();
+      if (query.type) params.set("type", query.type);
+      if (query.tag) params.set("tag", query.tag);
+      if (query.q) params.set("q", query.q);
+      if (query.page) params.set("page", String(query.page));
+      if (query.pageSize) params.set("page_size", String(query.pageSize));
+      const qs = params.toString();
+      return request<PostList>(baseUrl, `/api/v1/posts${qs ? `?${qs}` : ""}`);
+    },
+    getPost(slug: string): Promise<PublicPost> {
+      return request<PublicPost>(baseUrl, `/api/v1/posts/${encodeURIComponent(slug)}`);
+    },
     async listServices(): Promise<Service[]> {
       const data = await request<{ items: Service[] }>(baseUrl, "/api/v1/services");
       return data.items;

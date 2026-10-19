@@ -117,6 +117,10 @@ Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send 
 | GET | `/api/v1/admin/meetings` | staff | Calendar: `start`, `end`, `lawyer` (`me`, `all` or an id) |
 | GET / PUT | `/api/v1/admin/lawyer-profile` | staff (admins: any `user_id`) | Your Find a lawyer profile and weekly hours; see `docs/lawyer-booking.md` |
 | GET | `/api/v1/admin/lawyer-profiles` | staff | Staff with whether their profile is listed |
+| GET | `/api/v1/posts` | public | Published blog posts, newest first. Filters: `type` (`article` or `case_study`), `tag`, `q`, `page`, `page_size` |
+| GET | `/api/v1/posts/{slug}` | public | One published post with its Markdown `body`, `highlights` and up to 3 `related` posts of the same type |
+| GET / POST | `/api/v1/admin/posts` | admin | List all posts (filters `type`, `status`, `q`) / create `{"post_type", "title", "slug"?, "status", "excerpt", "body", "cover_image_url", "tags", "highlights"}` |
+| GET / PATCH / DELETE | `/api/v1/admin/posts/{id}` | admin | Read, edit, publish (`{"status": "published"}`), unpublish (`"draft"`) or delete a post |
 
 Status changes, assignments, sign-ins and staff changes are written to `audit_logs`; every ticket change is also a `ticket_events` row.
 
