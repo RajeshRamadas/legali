@@ -47,6 +47,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const nav = [
     { href: "/admin", label: "Ticket queue", icon: "▤" },
     { href: "/admin/calendar", label: "Calendar", icon: "◷" },
+    { href: "/admin/profile", label: "Lawyer profile", icon: "⚖" },
     ...(user.role === "admin" ? [{ href: "/admin/staff", label: "Staff", icon: "☺" }] : []),
   ];
 
