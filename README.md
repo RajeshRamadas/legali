@@ -29,7 +29,8 @@ Customer browser
   Android / iPhone app
   └── Expo app (mobile/)
         ├── Service list
-        └── Request form
+        ├── Request form
+        └── Assistant (same AI chat: answers, tracking, replies to the case team)
   Both use packages/shared (API types + client)
                  │ HTTPS / JSON
                  ▼
@@ -88,6 +89,8 @@ The frontend is configured to use `NEXT_PUBLIC_API_BASE_URL=http://localhost:800
 ### AI chat assistant
 
 Set `ANTHROPIC_API_KEY` in `infra/.env` to turn on AI answers in the chat. The assistant retrieves the most relevant sections of the knowledge base in `backend/app/knowledge/*.md` for each question and, once a customer verifies their ticket in the chat, reads that ticket's status, history and case-team messages (never internal notes). It uses the low-cost `claude-haiku-5-5` at low effort by default (`CHAT_MODEL`, `CHAT_EFFORT`). Retrieval keeps each request small (the instructions plus about five short sections), and the instructions are prompt-cached. To use a larger model such as `claude-sonnet-5-5`, set `CHAT_MODEL`; non-Haiku models also turn on Anthropic's server-side refusal fallback (`CHAT_FALLBACKS`, set it to `off` on Bedrock, Vertex AI or Foundry). Without a key, or if a call fails, the chat answers from its built-in rule-based topics.
+
+Chats are saved. When a customer raises a request from the chat, or checks a ticket in it, staff see the conversation under **Chat with the assistant** on the ticket page. The chat is limited to `CHAT_RATE_LIMIT_PER_MINUTE` messages per visitor (default 20), counted in the database so the limit holds however many API workers run. Behind a load balancer, start uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy address>` so each visitor is counted separately.
 
 To teach the assistant something new, edit the markdown files: every `## ` heading is one section it can retrieve, so keep each section about one topic.
 
@@ -152,7 +155,7 @@ Before production, implement:
 4. Secure document upload/download using private object storage, file scanning and expiring URLs.
 5. Email and SMS providers for notifications; they are recorded as queued but not sent yet. WhatsApp meeting messages send once WhatsApp Business is connected (`docs/meetings.md`), but ticket status updates still go only to the SMS and email queue.
 6. Payment integration only after selecting a compliant provider; never store card data.
-7. Rate limiting (login, ticket intake and lookup; chat has a per-process limit only), abuse protection, backups, observability, privacy retention and security testing.
+7. Rate limiting for login, ticket intake and lookup (chat is limited already), abuse protection, backups, observability, privacy retention (including a clean-up of old chat transcripts) and security testing.
 8. Legal review of service descriptions and authorization requirements for accessing government records.
 
 See `docs/requirements.md`, `docs/architecture.md`, `docs/api-contract.md`, `docs/implementation-plan.md` and `docs/security-checklist.md`.

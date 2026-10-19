@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from . import config
 from .models import (
-    CLOSED_STATUSES, AuditLog, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
+    CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
 
 STATUS_LABELS = {
@@ -96,6 +96,16 @@ def create_ticket(db: Session, *, customer_name: str, phone: str, email: str | N
     add_event(db, ticket, "created", new={"status": "submitted"}, reason=CREATED_NOTE)
     queue_notifications(db, ticket, "ticket_created", f"Homexo Legal: we received your request {ticket.ticket_number} for {service.name}. A specialist will call you to confirm scope, documents and fees.")
     return ticket
+
+def link_conversation(db: Session, ticket: ServiceRequest, conversation_id: uuid.UUID) -> None:
+    """Attach the chat a ticket was raised from, so staff can read what the customer asked first."""
+    conversation = db.get(Conversation, conversation_id)
+    if conversation is None:
+        return
+    ticket.conversation_id = conversation.id
+    conversation.customer_id = ticket.customer_id
+    conversation.state = "submitted"
+    db.add(ConversationMessage(conversation_id=conversation.id, sender_type="system", body=f"Raised ticket {ticket.ticket_number} for {ticket.service_type.name}."))
 
 def change_status(db: Session, ticket: ServiceRequest, new_status: str, actor: User | None, note: str | None) -> None:
     old_status = ticket.status
@@ -227,6 +237,10 @@ def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> d
             for m in ticket.messages
         ],
         "meetings": [meeting_view(m, staff=True) for m in ticket.meetings],
+        "chat_transcript": [
+            {"from": m.sender_type, "message": m.body, "at": _iso(m.created_at)}
+            for m in ticket.conversation.messages
+        ] if ticket.conversation else [],
         "notifications": [
             {
                 "channel": n.channel, "template": n.template_key, "recipient": n.recipient, "to": "staff" if n.user_id else "customer",

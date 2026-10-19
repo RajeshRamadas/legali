@@ -38,6 +38,8 @@ export type TicketCreate = {
   email?: string;
   package?: string;
   source?: "website" | "chat" | "mobile";
+  // The chat this request was raised from, so staff can read it on the ticket.
+  conversation_id?: string | null;
 };
 
 export type TicketCreated = {
@@ -78,7 +80,9 @@ export type TicketStatus = {
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 export type ChatTicket = { ticket_number: string; contact: string };
 export type ChatOptions = {
-  // Earlier turns of this chat, oldest first, so follow-up questions make sense.
+  // From the previous reply. Continues the saved conversation, whose transcript is then the history.
+  conversationId?: string | null;
+  // Earlier turns, oldest first. Only used to start a conversation the server has not saved yet.
   history?: ChatTurn[];
   // A ticket the customer verified in this chat; the server re-checks it on every message.
   ticket?: ChatTicket | null;
@@ -95,6 +99,7 @@ export type ChatReply = {
   mode: "ai" | "rules";
   ticket: TicketStatus | null;
   ticket_verified: boolean;
+  conversation_id: string;
 };
 
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
@@ -144,7 +149,7 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
       return request<ChatReply>(baseUrl, "/api/v1/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, history: options.history ?? [], ticket: options.ticket ?? null }),
+        body: JSON.stringify({ message, conversation_id: options.conversationId ?? null, history: options.history ?? [], ticket: options.ticket ?? null }),
       });
     },
   };

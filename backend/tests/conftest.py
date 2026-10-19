@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app import chat
 from app.bootstrap import sync_reference_data
 from app.db import SessionLocal, engine
 from app.main import app
@@ -23,7 +22,6 @@ def database():
     Base.metadata.create_all(engine)
     with SessionLocal() as db:
         sync_reference_data(db)
-    chat._recent.clear()
     yield
     engine.dispose()
 

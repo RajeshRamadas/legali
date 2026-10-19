@@ -1,18 +1,21 @@
-"""Website chat assistant. Answers with Claude grounded in the knowledge base (assistant.py) when an API key is
-configured, and from the rule-based topics below otherwise or whenever the AI call fails."""
+"""Website and app chat assistant. Answers with Claude grounded in the knowledge base (assistant.py) when an API key
+is configured, and from the rule-based topics below otherwise or whenever the AI call fails. Every chat is saved as a
+conversation so staff can read it on the ticket it leads to."""
+import hashlib
 import re
-import threading
-import time
-from collections import defaultdict, deque
+import uuid
+from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import assistant, config, tickets
 from .catalogue import SERVICES_BY_SLUG
 from .db import get_db
+from .models import Conversation, ConversationMessage, utcnow
 from .public import _find_for_customer
 
 router = APIRouter()
@@ -27,6 +30,9 @@ class ChatTicket(BaseModel):
 
 class ChatMessage(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
+    # Returned by the first reply; send it back to continue the same saved conversation.
+    conversation_id: uuid.UUID | None = None
+    # Only used when there is no saved conversation yet; otherwise the saved transcript is the history.
     history: list[ChatTurn] = Field(default_factory=list, max_length=40)
     # A ticket the customer verified earlier in this chat. Re-checked on every message.
     ticket: ChatTicket | None = None
@@ -134,36 +140,69 @@ CHAT_TOPICS = [
 ]
 TICKET_NUMBER_RE = re.compile(r"\bHX-\d{6}-[0-9A-F]{6}\b", re.IGNORECASE)
 
-_recent: dict[str, deque] = defaultdict(deque)
-_recent_lock = threading.Lock()
+RATE_LIMITED = "You're sending messages quickly. Please wait a moment and try again."
 
-def _rate_limit(request: Request) -> None:
-    """Per-client sliding one-minute window. In-process only; use a shared store when running several workers."""
-    key = request.client.host if request.client else "unknown"
-    now = time.monotonic()
-    with _recent_lock:
-        hits = _recent[key]
-        while hits and now - hits[0] > 60:
-            hits.popleft()
-        if len(hits) >= config.CHAT_RATE_LIMIT_PER_MINUTE:
-            raise HTTPException(status_code=429, detail="You're sending messages quickly. Please wait a moment and try again.")
-        hits.append(now)
+def client_key(request: Request) -> str:
+    """Salted hash of the caller's address, so the database never holds raw IPs. Behind a proxy, run uvicorn with
+    --proxy-headers and --forwarded-allow-ips so this is the visitor's address, not the proxy's."""
+    host = request.client.host if request.client else "unknown"
+    return hashlib.sha256(f"{config.JWT_SECRET}:{host}".encode()).hexdigest()[:32]
+
+def _rate_limit(db: Session, key: str) -> None:
+    """One-minute window over saved customer messages, so the limit holds across every API worker."""
+    recent = db.scalar(
+        select(func.count()).select_from(ConversationMessage).join(Conversation, Conversation.id == ConversationMessage.conversation_id)
+        .where(Conversation.client_key == key, ConversationMessage.sender_type == "customer", ConversationMessage.created_at >= utcnow() - timedelta(minutes=1))
+    )
+    if recent >= config.CHAT_RATE_LIMIT_PER_MINUTE:
+        raise HTTPException(status_code=429, detail=RATE_LIMITED)
+
+def _history(conversation: Conversation) -> list[dict]:
+    turns = [m for m in conversation.messages if m.sender_type in ("customer", "assistant")][-HISTORY_TURNS:]
+    return [{"role": "user" if m.sender_type == "customer" else "assistant", "content": m.body} for m in turns]
 
 @router.post("/api/v1/chat")
 def chat(payload: ChatMessage, request: Request, db: Session = Depends(get_db)):
-    _rate_limit(request)
-    ticket_view = None
+    key = client_key(request)
+    _rate_limit(db, key)
+    conversation = db.get(Conversation, payload.conversation_id) if payload.conversation_id else None
+    if conversation is None:
+        conversation = Conversation(client_key=key)
+        db.add(conversation)
+        db.flush()
+        history = [turn.model_dump() for turn in payload.history[-HISTORY_TURNS:]]
+    else:
+        history = _history(conversation)
+
+    ticket = None
     if payload.ticket:
         try:
-            ticket_view = tickets.customer_view(_find_for_customer(db, payload.ticket.ticket_number, payload.ticket.contact))
+            ticket = _find_for_customer(db, payload.ticket.ticket_number, payload.ticket.contact)
         except HTTPException:
-            ticket_view = None
-    history = [turn.model_dump() for turn in payload.history[-HISTORY_TURNS:]]
-    reply = assistant.answer(payload.message.strip(), history, ticket_view) or rule_based_reply(payload.message, ticket_view)
+            ticket = None
+    ticket_view = tickets.customer_view(ticket) if ticket else None
+    if ticket:
+        conversation.customer_id = ticket.customer_id
+        # Staff see the chat on the ticket it was about, unless the ticket was raised from another chat.
+        if ticket.conversation_id is None:
+            ticket.conversation_id = conversation.id
+
+    message = payload.message.strip()
+    reply = assistant.answer(message, history, ticket_view) or rule_based_reply(message, ticket_view)
+    reply = {"sources": [], "mode": "rules", **reply}
+    db.add(ConversationMessage(conversation_id=conversation.id, sender_type="customer", body=message))
+    db.add(ConversationMessage(
+        conversation_id=conversation.id, sender_type="assistant", body=reply["reply"],
+        structured_payload={
+            "action": reply["action"], "mode": reply["mode"], "ticket_number": reply["ticket_number"],
+            "service_slug": reply["service"]["slug"] if reply["service"] else None, "sources": reply["sources"],
+        },
+    ))
+    conversation.updated_at = utcnow()
+    db.commit()
     return {
-        "sources": [],
-        "mode": "rules",
         **reply,
+        "conversation_id": str(conversation.id),
         "ticket": ticket_view if reply["action"] == "status" else None,
         "ticket_verified": ticket_view is not None,
     }
