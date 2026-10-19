@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
-    JSON, BigInteger, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Table, Text, Uuid, text,
+    JSON, BigInteger, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Table, Text, UniqueConstraint, Uuid, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -33,6 +33,12 @@ MEETING_STATUSES = ("scheduled", "completed", "cancelled")
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 POST_TYPES = ("article", "case_study")
 POST_STATUSES = ("draft", "published")
+UPLOADER_TYPES = ("customer", "staff", "system")
+# draft: the lawyer is writing the preliminary report. issued: the customer sees it and uploads the documents asked for.
+# final_generated: the final PDF is made and waits to be printed and signed. signed: the signed scan is uploaded.
+REPORT_STATUSES = ("draft", "issued", "final_generated", "signed")
+# received is set when the customer files a document under the item's tag; the lawyer then verifies, rejects or waives it.
+REPORT_ITEM_STATUSES = ("pending", "received", "verified", "rejected", "waived")
 
 class Base(DeclarativeBase):
     pass
@@ -206,6 +212,8 @@ class ServiceRequest(TimestampMixin, Base):
     messages: Mapped[list["TicketMessage"]] = relationship(order_by="TicketMessage.created_at", lazy="selectin")
     meetings: Mapped[list["Meeting"]] = relationship(back_populates="service_request", order_by="Meeting.starts_at", lazy="selectin")
     conversation: Mapped[Conversation | None] = relationship()
+    documents: Mapped[list["Document"]] = relationship(order_by="Document.created_at", lazy="selectin")
+    report: Mapped["LegalReport | None"] = relationship(lazy="selectin")
 
     @property
     def active_assignment(self) -> "Assignment | None":
@@ -268,7 +276,9 @@ class Document(Base):
         CheckConstraint("byte_size >= 0", name="ck_documents_byte_size"),
         CheckConstraint(_check_in("scan_status", ("pending", "clean", "infected", "failed")), name="ck_documents_scan_status"),
         CheckConstraint(_check_in("access_classification", ("internal", "confidential", "restricted")), name="ck_documents_classification"),
+        CheckConstraint(_check_in("uploader_type", UPLOADER_TYPES), name="ck_documents_uploader_type"),
         Index("idx_documents_request", "service_request_id"),
+        Index("idx_documents_request_tag", "service_request_id", "tag"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -279,10 +289,68 @@ class Document(Base):
     byte_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     storage_key: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     checksum_sha256: Mapped[str | None] = mapped_column(Text)
+    # Set on files the system keeps for the report: "final_report" (unsigned, staff only) and "signed_report".
     document_category: Mapped[str | None] = mapped_column(Text)
+    uploader_type: Mapped[str] = mapped_column(Text, default="customer", server_default="customer", nullable=False)
+    # Files a document under a checklist item of the ticket's report (or any label the customer picks), e.g. "sale-deed".
+    tag: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
     scan_status: Mapped[str] = mapped_column(Text, default="pending", nullable=False)
     access_classification: Mapped[str] = mapped_column(Text, default="confidential", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+class LegalReport(TimestampMixin, Base):
+    """A ticket's legal report. Starts as the preliminary report: what the lawyer understands so far and a checklist of
+    documents needed, each with a tag the customer files uploads under. Once every item is verified or waived, the lawyer
+    generates the final report as a PDF to print, sign and upload back as a scan."""
+    __tablename__ = "legal_reports"
+    __table_args__ = (CheckConstraint(_check_in("status", REPORT_STATUSES), name="ck_legal_reports_status"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="draft", nullable=False)
+    # Section key to text, keys from report_templates.PRELIMINARY_SECTIONS and FINAL_SECTIONS.
+    preliminary: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    final: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    lawyer_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    # Second signature block on the final report, e.g. the reviewing advocate. Optional.
+    reviewer_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    final_document_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("documents.id", ondelete="SET NULL"))
+    final_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    signed_document_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("documents.id", ondelete="SET NULL"))
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    items: Mapped[list["ReportItem"]] = relationship(back_populates="report", order_by="ReportItem.position", cascade="all, delete-orphan", lazy="selectin")
+    lawyer: Mapped[User | None] = relationship(foreign_keys=[lawyer_user_id], lazy="joined")
+    reviewer: Mapped[User | None] = relationship(foreign_keys=[reviewer_user_id], lazy="joined")
+
+class ReportItem(Base):
+    """One document the report asks for. Its tag is unique in the report and is what customer uploads are filed under."""
+    __tablename__ = "report_items"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", REPORT_ITEM_STATUSES), name="ck_report_items_status"),
+        CheckConstraint(_check_in("fetch_by", ("customer", "homexo")), name="ck_report_items_fetch_by"),
+        UniqueConstraint("report_id", "tag", name="uq_report_items_tag"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    report_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("legal_reports.id", ondelete="CASCADE"), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    tag: Mapped[str] = mapped_column(Text, nullable=False)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    # What exactly to send, e.g. "Certified copy, last 30 years".
+    guidance: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="pending", nullable=False)
+    # Who provides it: the customer uploads it, or Homexo gets it from a government portal (gov_sources.SOURCES key in source).
+    fetch_by: Mapped[str] = mapped_column(Text, default="customer", nullable=False)
+    source: Mapped[str | None] = mapped_column(Text)
+    # The lawyer's note on a rejection (shown to the customer) or verification.
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    report: Mapped[LegalReport] = relationship(back_populates="items")
 
 class Meeting(TimestampMixin, Base):
     """A video consultation between a ticket's customer and a lawyer (a staff member), with its Google Meet link."""

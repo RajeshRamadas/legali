@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import config
+from . import case_files, config
 from .models import (
     CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
@@ -194,6 +194,9 @@ def customer_view(ticket: ServiceRequest) -> dict:
         "messages": messages,
         "meetings": [meeting_view(m) for m in ticket.meetings],
         "can_reply": ticket.status not in CLOSED_STATUSES,
+        "documents": case_files.customer_documents_view(ticket),
+        "report": case_files.customer_report_view(ticket),
+        "can_upload": ticket.status not in CLOSED_STATUSES,
     }
 
 def _staff_ref(user: User | None) -> dict | None:
@@ -237,6 +240,8 @@ def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> d
             for m in ticket.messages
         ],
         "meetings": [meeting_view(m, staff=True) for m in ticket.meetings],
+        "documents": case_files.staff_documents_view(ticket),
+        "report": case_files.staff_report_view(ticket),
         "chat_transcript": [
             {"from": m.sender_type, "message": m.body, "at": _iso(m.created_at)}
             for m in ticket.conversation.messages
