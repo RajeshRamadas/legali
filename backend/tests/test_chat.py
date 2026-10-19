@@ -65,10 +65,18 @@ def test_ai_answers_from_retrieved_knowledge(client, claude):
     assert body["sources"] == [{"title": "Buyer packages", "section": "Shield Pro (₹9,999)"}]
     params = fake.calls[0]
     assert params["model"] == config.CHAT_MODEL
-    assert params["fallbacks"] == "default" and params["betas"] == ["server-side-fallback-2026-07-01"]
+    assert params["output_config"]["effort"] == "low"
     assert params["system"][0]["cache_control"] == {"type": "ephemeral"}
     question = params["messages"][-1]["content"]
     assert "Shield Pro (₹9,999)" in question and "has not verified a ticket" in question
+
+def test_refusal_fallback_is_opt_in(client, claude, monkeypatch):
+    fake = claude(reply=_reply())
+    _chat(client, "hello")
+    assert "fallbacks" not in fake.calls[0]
+    monkeypatch.setattr(config, "CHAT_FALLBACKS", "default")
+    _chat(client, "hello again")
+    assert fake.calls[1]["fallbacks"] == "default" and fake.calls[1]["betas"] == ["server-side-fallback-2026-07-01"]
 
 def test_ai_gets_verified_ticket_but_never_internal_notes(client, claude, raise_ticket, admin_headers):
     number = raise_ticket()

@@ -86,7 +86,7 @@ The frontend is configured to use `NEXT_PUBLIC_API_BASE_URL=http://localhost:800
 
 ### AI chat assistant
 
-Set `ANTHROPIC_API_KEY` in `infra/.env` to turn on AI answers in the chat. The assistant retrieves the most relevant sections of the knowledge base in `backend/app/knowledge/*.md` for each question and, once a customer verifies their ticket in the chat, reads that ticket's status, history and case-team messages (never internal notes). It uses `claude-opus-5-5` by default (`CHAT_MODEL`, `CHAT_EFFORT`) with Anthropic's server-side refusal fallback; set `CHAT_FALLBACKS=off` when calling Claude through Bedrock, Vertex AI or Foundry. Without a key, or if a call fails, the chat answers from its built-in rule-based topics.
+Set `ANTHROPIC_API_KEY` in `infra/.env` to turn on AI answers in the chat. The assistant retrieves the most relevant sections of the knowledge base in `backend/app/knowledge/*.md` for each question and, once a customer verifies their ticket in the chat, reads that ticket's status, history and case-team messages (never internal notes). It uses the low-cost `claude-haiku-5-5` at low effort by default (`CHAT_MODEL`, `CHAT_EFFORT`). Retrieval keeps each request small (the instructions plus about five short sections), and the instructions are prompt-cached. To use a larger model such as `claude-sonnet-5-5`, set `CHAT_MODEL`; non-Haiku models also turn on Anthropic's server-side refusal fallback (`CHAT_FALLBACKS`, set it to `off` on Bedrock, Vertex AI or Foundry). Without a key, or if a call fails, the chat answers from its built-in rule-based topics.
 
 To teach the assistant something new, edit the markdown files: every `## ` heading is one section it can retrieve, so keep each section about one topic.
 

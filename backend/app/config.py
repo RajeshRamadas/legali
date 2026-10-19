@@ -19,8 +19,10 @@ BOOTSTRAP_ADMIN_NAME = os.getenv("BOOTSTRAP_ADMIN_NAME", "Homexo Admin")
 
 # AI chat assistant. Without an API key the chat answers from the rule-based topics in chat.py.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CHAT_MODEL = os.getenv("CHAT_MODEL", "claude-opus-5-5")
+# Haiku is the low-cost model and is plenty for short answers grounded in retrieved sections.
+CHAT_MODEL = os.getenv("CHAT_MODEL", "claude-haiku-5-5")
 CHAT_EFFORT = os.getenv("CHAT_EFFORT", "low")
-# Server-side refusal fallback is a Claude API feature; set to "off" on Bedrock, Vertex AI or Foundry.
-CHAT_FALLBACKS = os.getenv("CHAT_FALLBACKS", "default")
+# Server-side refusal fallback re-runs a declined request on another model. Haiku has none, and it is a
+# Claude API feature, so keep it "off" on Bedrock, Vertex AI or Foundry.
+CHAT_FALLBACKS = os.getenv("CHAT_FALLBACKS", "off" if "haiku" in CHAT_MODEL else "default")
 CHAT_RATE_LIMIT_PER_MINUTE = int(os.getenv("CHAT_RATE_LIMIT_PER_MINUTE", "20"))
