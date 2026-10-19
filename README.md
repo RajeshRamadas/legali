@@ -9,8 +9,9 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Responsive Next.js homepage for Homexo Legal (buyer packages, developer services, document desk) with a callback form that raises tickets, ticket tracking and a chat assistant.
 - Expo (React Native) app for Android and iPhone with the service list and request form.
 - Shared TypeScript package (`packages/shared`) with API types and client, used by both the website and the app.
-- FastAPI backend starter with health, service catalogue and ticket creation/listing endpoints.
-- PostgreSQL schema for customers, property profiles, conversations, service requests/tickets, assignments, messages, files, notifications and audit events.
+- FastAPI backend with the service catalogue, ticket intake and tracking, customer replies, and a staff API (sign-in, queue, status, assignment, messages, internal notes, staff management, reports).
+- Staff workspace at `/admin` for admins and agents.
+- PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
 - Docker Compose for local PostgreSQL + API.
 - GitHub Actions backend checks.
 - Requirements, architecture, API outline, implementation plan and security checklist.
@@ -22,7 +23,8 @@ Customer browser
   └── Next.js frontend (frontend/)
         ├── Homepage / service catalogue
         ├── Chat assistant (rule-based, raises and tracks tickets)
-        └── Ticket tracking (ticket number + phone/email)
+        ├── Ticket tracking and replies (ticket number + phone/email)
+        └── Staff workspace /admin (admins and agents)
   Android / iPhone app
   └── Expo app (mobile/)
         ├── Service list
@@ -34,7 +36,7 @@ Customer browser
                  ├── Service catalogue
                  ├── Customer intake / conversations (next phase)
                  ├── Ticket lifecycle
-                 ├── Admin and agent APIs (next phase)
+                 ├── Staff APIs (admins see all tickets, agents see assigned)
                  └── AI provider integration (next phase)
                  │
                  ▼
@@ -56,7 +58,7 @@ Admin dashboard and agent workspace should be added as authenticated role-based 
 1. Copy environment settings:
 
    ```bash
-   cp .env.example .env
+   cp .env.example infra/.env
    ```
 
 2. Start the API and PostgreSQL:
@@ -74,10 +76,30 @@ Admin dashboard and agent workspace should be added as authenticated role-based 
 
 4. Open:
    - Homepage: http://localhost:3000
+   - Staff workspace: http://localhost:3000/admin (sign in with `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, by default `admin@homexo.local` / `change-this-admin-password`)
    - API health: http://localhost:8000/health
    - API docs: http://localhost:8000/docs
 
+The API container runs `alembic upgrade head` before starting, so the database schema is always current. The first admin is created only when no admin exists; change its password and add agents from **Staff** in the workspace.
+
 The frontend is configured to use `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` by default.
+
+### Run the API without Docker
+
+With PostgreSQL running locally:
+
+```bash
+cd backend
+pip install -r requirements.txt
+export DATABASE_URL=postgresql://homexo_app:PASSWORD@localhost:5432/homexo
+export BOOTSTRAP_ADMIN_EMAIL=admin@homexo.local BOOTSTRAP_ADMIN_PASSWORD=choose-a-password
+alembic upgrade head
+uvicorn app.main:app --reload
+```
+
+Tests use in-memory SQLite by default (`pytest`). To run them against PostgreSQL, point `TEST_DATABASE_URL` at an empty test database; the tests drop and recreate its tables.
+
+After changing `backend/app/models.py`, create a migration with `alembic revision --autogenerate -m "describe the change"` and review it before committing.
 
 ### Run the mobile app (Android / iPhone)
 
@@ -113,15 +135,13 @@ Never commit `.env`, API keys, database passwords, customer documents, or produc
 ## Important implementation gaps
 
 Before production, implement:
-1. Authentication, password reset, MFA for admins, session management and RBAC.
-2. Database-backed repositories and migrations (the sample ticket API currently uses in-memory data).
+1. Password reset, MFA for admins, and OTP verification for customers before showing ticket details (today a ticket number plus the phone or email used is enough).
+2. SLA targets and due dates on tickets.
 3. Conversational intake with validation, consent, resumable sessions and AI provider abstraction.
-4. Admin dashboard: ticket queue, filters, assignment, status transitions, notes, SLA and audit trail.
-5. Agent workspace and customer ticket tracking.
-6. Secure document upload/download using private object storage, file scanning and expiring URLs.
-7. Notifications (email/SMS/WhatsApp) with templates and opt-in/opt-out.
-8. Payment integration only after selecting a compliant provider; never store card data.
-9. Rate limiting, abuse protection, backups, observability, privacy retention and security testing.
-10. Legal review of service descriptions and authorization requirements for accessing government records.
+4. Secure document upload/download using private object storage, file scanning and expiring URLs.
+5. A delivery worker and provider for notifications (email/SMS/WhatsApp); notifications are recorded as queued but not sent yet.
+6. Payment integration only after selecting a compliant provider; never store card data.
+7. Rate limiting (login, ticket intake, lookup and chat), abuse protection, backups, observability, privacy retention and security testing.
+8. Legal review of service descriptions and authorization requirements for accessing government records.
 
 See `docs/requirements.md`, `docs/architecture.md`, `docs/api-contract.md`, `docs/implementation-plan.md` and `docs/security-checklist.md`.

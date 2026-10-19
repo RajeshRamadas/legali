@@ -1,0 +1,263 @@
+"""Staff endpoints: sign-in, ticket queue, ticket work (status, assignment, messages, notes), staff and reports.
+
+Admins see every ticket. Agents see only tickets currently assigned to them.
+"""
+import uuid
+from datetime import datetime, time, timezone
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import exists, func, or_, select
+from sqlalchemy.orm import Session, aliased
+
+from . import tickets
+from .db import get_db
+from .models import (
+    CLOSED_STATUSES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, Customer, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
+)
+from .security import create_access_token, current_staff, hash_password, require_admin, verify_password
+
+router = APIRouter(prefix="/api/v1")
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=200)
+
+class TicketUpdate(BaseModel):
+    status: Literal[TICKET_STATUSES] | None = None  # type: ignore[valid-type]
+    priority: Literal[PRIORITIES] | None = None  # type: ignore[valid-type]
+    note: str | None = Field(default=None, max_length=1000, description="Shown to the customer with the status change.")
+
+class AssignmentRequest(BaseModel):
+    agent_id: uuid.UUID | None = Field(description="Agent to assign, or null to unassign.")
+    note: str | None = Field(default=None, max_length=1000)
+
+class StaffMessage(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    visibility: Literal["customer", "internal"]
+
+class StaffCreate(BaseModel):
+    display_name: str = Field(min_length=2, max_length=120)
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=10, max_length=200)
+    role: Literal[STAFF_ROLES]  # type: ignore[valid-type]
+
+class StaffUpdate(BaseModel):
+    account_status: Literal["active", "suspended"] | None = None
+    role: Literal[STAFF_ROLES] | None = None  # type: ignore[valid-type]
+
+def _me(user: User) -> dict:
+    return {"id": str(user.id), "name": user.display_name, "email": user.email, "role": "admin" if user.is_admin else "agent"}
+
+def _visible_tickets(user: User):
+    query = select(ServiceRequest)
+    if not user.is_admin:
+        query = query.where(exists().where(
+            Assignment.service_request_id == ServiceRequest.id, Assignment.agent_user_id == user.id, Assignment.unassigned_at.is_(None),
+        ))
+    return query
+
+def _needs_reply_clause():
+    """Open tickets whose latest customer-visible message came from the customer."""
+    later = aliased(TicketMessage)
+    customer_msg = aliased(TicketMessage)
+    return ServiceRequest.status.not_in(CLOSED_STATUSES) & exists().where(
+        customer_msg.service_request_id == ServiceRequest.id,
+        customer_msg.visibility == "customer",
+        customer_msg.author_type == "customer",
+        ~exists().where(
+            later.service_request_id == ServiceRequest.id, later.visibility == "customer",
+            later.author_type != "customer", later.created_at > customer_msg.created_at,
+        ),
+    )
+
+def _get_ticket(db: Session, user: User, ticket_number: str) -> ServiceRequest:
+    ticket = db.scalars(_visible_tickets(user).where(ServiceRequest.ticket_number == ticket_number.upper())).first()
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return ticket
+
+def _detail(db: Session, ticket: ServiceRequest) -> dict:
+    notifications = db.scalars(select(Notification).where(Notification.service_request_id == ticket.id).order_by(Notification.created_at)).all()
+    return tickets.staff_detail(ticket, list(notifications))
+
+@router.post("/auth/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.scalars(select(User).where(func.lower(User.email) == payload.email.strip().lower())).first()
+    if user is None or not verify_password(payload.password, user.password_hash) or user.account_status != "active" or not (user.role_names & {"agent", "admin", "super_admin"}):
+        raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+    tickets.audit(db, user, "staff.login", None)
+    db.commit()
+    return {"access_token": create_access_token(user), "token_type": "bearer", "user": _me(user)}
+
+@router.get("/auth/me")
+def me(user: User = Depends(current_staff)):
+    return _me(user)
+
+@router.get("/admin/tickets")
+def list_tickets(
+    status: str | None = Query(None, description="A status, a comma-separated list, or 'open' / 'closed'."),
+    service: str | None = None,
+    assignee: str | None = Query(None, description="'me', 'unassigned' or an agent id."),
+    q: str | None = Query(None, max_length=100),
+    needs_reply: bool = False,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    user: User = Depends(current_staff),
+    db: Session = Depends(get_db),
+):
+    query = _visible_tickets(user)
+    if status == "open":
+        query = query.where(ServiceRequest.status.not_in(CLOSED_STATUSES))
+    elif status == "closed":
+        query = query.where(ServiceRequest.status.in_(CLOSED_STATUSES))
+    elif status:
+        query = query.where(ServiceRequest.status.in_(status.split(",")))
+    if service:
+        query = query.where(ServiceRequest.service_type.has(ServiceType.slug == service))
+    active = (Assignment.service_request_id == ServiceRequest.id) & Assignment.unassigned_at.is_(None)
+    if assignee == "unassigned":
+        query = query.where(~exists().where(active))
+    elif assignee:
+        try:
+            agent_id = user.id if assignee == "me" else uuid.UUID(assignee)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="assignee must be 'me', 'unassigned' or an agent id")
+        query = query.where(exists().where(active, Assignment.agent_user_id == agent_id))
+    if needs_reply:
+        query = query.where(_needs_reply_clause())
+    if q:
+        term = f"%{q.strip().lower()}%"
+        digits = tickets.normalize_phone(q)
+        conditions = [
+            func.lower(ServiceRequest.ticket_number).like(term),
+            ServiceRequest.customer.has(func.lower(Customer.full_name).like(term)),
+            ServiceRequest.prop.has(func.lower(Property.locality).like(term)),
+        ]
+        if len(digits) >= 4:
+            conditions.append(ServiceRequest.customer.has(Customer.phone_normalized.like(f"%{digits}%")))
+        query = query.where(or_(*conditions))
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = db.scalars(query.order_by(ServiceRequest.created_at.desc()).offset((page - 1) * page_size).limit(page_size)).unique().all()
+    return {"items": [tickets.staff_summary(t) for t in rows], "total": total, "page": page, "page_size": page_size}
+
+@router.get("/admin/tickets/{ticket_number}")
+def get_ticket(ticket_number: str, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    return _detail(db, _get_ticket(db, user, ticket_number))
+
+@router.patch("/admin/tickets/{ticket_number}")
+def update_ticket(ticket_number: str, payload: TicketUpdate, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    ticket = _get_ticket(db, user, ticket_number)
+    if payload.status:
+        old = ticket.status
+        tickets.change_status(db, ticket, payload.status, user, (payload.note or "").strip() or None)
+        tickets.audit(db, user, "ticket.status_changed", ticket.id, old=old, new=payload.status)
+    if payload.priority and payload.priority != ticket.priority:
+        tickets.add_event(db, ticket, "priority_changed", user, old={"priority": ticket.priority}, new={"priority": payload.priority})
+        ticket.priority = payload.priority
+    ticket.updated_at = utcnow()
+    db.commit()
+    return _detail(db, ticket)
+
+@router.post("/admin/tickets/{ticket_number}/assignment")
+def assign_ticket(ticket_number: str, payload: AssignmentRequest, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    ticket = _get_ticket(db, admin, ticket_number)
+    current = ticket.active_assignment
+    if payload.agent_id is not None:
+        agent = db.get(User, payload.agent_id)
+        if agent is None or agent.account_status != "active" or not (agent.role_names & {"agent", "admin"}):
+            raise HTTPException(status_code=422, detail="Choose an active staff member.")
+        if current and current.agent_user_id == agent.id:
+            return _detail(db, ticket)
+    if current:
+        current.unassigned_at = utcnow()
+    if payload.agent_id is None:
+        tickets.add_event(db, ticket, "unassigned", admin, old={"agent": current.agent.display_name} if current else None, reason=payload.note)
+    else:
+        assignment = Assignment(service_request_id=ticket.id, agent_user_id=agent.id, assigned_by_user_id=admin.id, assignment_note=payload.note)
+        db.add(assignment)
+        ticket.assignments.append(assignment)
+        tickets.add_event(db, ticket, "assigned", admin, old={"agent": current.agent.display_name} if current else None, new={"agent": agent.display_name}, reason=payload.note)
+        # New requests move along once someone owns them.
+        if ticket.status in ("submitted", "under_review", "approved_for_processing"):
+            tickets.change_status(db, ticket, "assigned", admin, None)
+    tickets.audit(db, admin, "ticket.assigned", ticket.id, agent_id=str(payload.agent_id) if payload.agent_id else None)
+    ticket.updated_at = utcnow()
+    db.commit()
+    db.refresh(ticket)
+    return _detail(db, ticket)
+
+@router.post("/admin/tickets/{ticket_number}/messages", status_code=201)
+def post_message(ticket_number: str, payload: StaffMessage, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    ticket = _get_ticket(db, user, ticket_number)
+    tickets.add_message(db, ticket, payload.message.strip(), author_type="staff", visibility=payload.visibility, author=user)
+    db.commit()
+    return _detail(db, ticket)
+
+@router.get("/admin/reports/summary")
+def summary(user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    visible = _visible_tickets(user).subquery()
+    by_status = dict(db.execute(select(visible.c.status, func.count()).group_by(visible.c.status)).all())
+    open_count = sum(n for s, n in by_status.items() if s not in CLOSED_STATUSES)
+    today = datetime.combine(utcnow().date(), time.min, tzinfo=timezone.utc)
+    new_today = db.scalar(select(func.count()).select_from(visible).where(visible.c.created_at >= today))
+    active = (Assignment.service_request_id == visible.c.id) & Assignment.unassigned_at.is_(None)
+    unassigned = db.scalar(select(func.count()).select_from(visible).where(visible.c.status.not_in(CLOSED_STATUSES), ~exists().where(active)))
+    needs_reply = db.scalar(select(func.count()).select_from(_visible_tickets(user).where(_needs_reply_clause()).subquery()))
+    return {
+        "open": open_count,
+        "new_today": new_today,
+        "unassigned": unassigned,
+        "needs_reply": needs_reply,
+        "by_status": [{"status": s, "label": tickets.staff_status_label(s), "count": by_status.get(s, 0)} for s in TICKET_STATUSES if by_status.get(s)],
+    }
+
+@router.get("/admin/meta")
+def meta(user: User = Depends(current_staff)):
+    """Status and priority options for the staff workspace."""
+    return {
+        "statuses": [{"value": s, "label": tickets.staff_status_label(s)} for s in TICKET_STATUSES if s != "draft"],
+        "priorities": list(PRIORITIES),
+    }
+
+@router.get("/admin/staff")
+def list_staff(user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    if not user.is_admin:
+        return {"items": [_me(user) | {"account_status": user.account_status}]}
+    staff = db.scalars(select(User).where(User.roles.any(Role.name.in_(("agent", "admin", "super_admin")))).order_by(User.display_name)).all()
+    return {"items": [_me(u) | {"account_status": u.account_status} for u in staff]}
+
+def _role(db: Session, name: str) -> Role:
+    role = db.scalars(select(Role).where(Role.name == name)).first()
+    if role is None:
+        role = Role(name=name)
+        db.add(role)
+    return role
+
+@router.post("/admin/staff", status_code=201)
+def create_staff(payload: StaffCreate, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
+    if db.scalars(select(User).where(func.lower(User.email) == email)).first():
+        raise HTTPException(status_code=409, detail="A user with this email already exists.")
+    user = User(display_name=payload.display_name.strip(), email=email, password_hash=hash_password(payload.password), roles=[_role(db, payload.role)])
+    db.add(user)
+    db.flush()
+    tickets.audit(db, admin, "staff.created", None, user_id=str(user.id), role=payload.role)
+    db.commit()
+    return _me(user) | {"account_status": user.account_status}
+
+@router.patch("/admin/staff/{user_id}")
+def update_staff(user_id: uuid.UUID, payload: StaffUpdate, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+    if user.id == admin.id and (payload.account_status == "suspended" or payload.role == "agent"):
+        raise HTTPException(status_code=422, detail="You can't remove your own admin access.")
+    if payload.account_status:
+        user.account_status = payload.account_status
+    if payload.role:
+        user.roles = [r for r in user.roles if r.name not in STAFF_ROLES] + [_role(db, payload.role)]
+    tickets.audit(db, admin, "staff.updated", None, user_id=str(user.id), **payload.model_dump(exclude_none=True))
+    db.commit()
+    return _me(user) | {"account_status": user.account_status}

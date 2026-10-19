@@ -2,12 +2,12 @@
 
 ## Components
 
-- **Frontend:** Next.js App Router + TypeScript. Public homepage and service discovery are in the starter; chatbot and customer/admin workspaces are planned modules.
-- **Backend:** FastAPI REST API. Pydantic schemas validate input. Current starter endpoints are intentionally small.
-- **Database:** PostgreSQL. `database/schema.sql` is an initial relational model; use Alembic migrations before production.
+- **Frontend:** Next.js App Router + TypeScript. Public homepage with the callback form, ticket tracking and chat assistant; staff workspace under `/admin`.
+- **Backend:** FastAPI REST API (`backend/app`). Pydantic schemas validate input; SQLAlchemy models in `models.py`; ticket lifecycle in `tickets.py`; staff endpoints in `admin.py` with bearer-token sign-in and admin/agent roles.
+- **Database:** PostgreSQL. The schema is defined by the models and applied with Alembic migrations (`backend/migrations`).
 - **AI orchestration (future):** provider adapter + service-specific intake state machine. The model may propose questions or summaries, but server-side rules determine required fields, permissions and status transitions.
 - **File storage (future):** private S3-compatible object storage with malware scanning and short-lived signed URLs.
-- **Notifications (future):** provider adapter for email/SMS/WhatsApp, with consent and delivery logs.
+- **Notifications:** ticket events queue rows in `notifications` (SMS and email). A provider adapter and delivery worker are still to be added.
 - **Deployment:** GitHub for source and CI; frontend and API deployed separately; managed PostgreSQL and object storage.
 
 ## Core design principles

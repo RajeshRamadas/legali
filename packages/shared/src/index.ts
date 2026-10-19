@@ -18,7 +18,7 @@ export const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-// Mirrors SERVICES in backend/app/main.py.
+// Mirrors SERVICES in backend/app/catalogue.py.
 export type Service = {
   slug: string;
   name: string;
@@ -27,7 +27,7 @@ export type Service = {
   property_types: PropertyType[];
 };
 
-// Mirrors TicketCreate in backend/app/main.py.
+// Mirrors TicketCreate in backend/app/public.py.
 export type TicketCreate = {
   customer_name: string;
   contact: string;
@@ -46,7 +46,7 @@ export type TicketCreated = {
   message: string;
 };
 
-// Mirrors _public_ticket in backend/app/main.py.
+// Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
   ticket_number: string;
   service_name: string;
@@ -55,9 +55,11 @@ export type TicketStatus = {
   status_label: string;
   created_at: string;
   history: { status: string; label: string; note: string; at: string }[];
+  messages: { from: "you" | "homexo"; message: string; at: string }[];
+  can_reply: boolean;
 };
 
-// Mirrors the chat endpoint in backend/app/main.py.
+// Mirrors the chat endpoint in backend/app/chat.py.
 export type ChatReply = {
   reply: string;
   action: "request" | "track" | null;
@@ -100,6 +102,13 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticket_number: ticketNumber, contact }),
+      });
+    },
+    replyToTicket(ticketNumber: string, contact: string, message: string): Promise<TicketStatus> {
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket_number: ticketNumber, contact, message }),
       });
     },
     chat(message: string): Promise<ChatReply> {
