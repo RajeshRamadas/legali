@@ -10,7 +10,7 @@ import {
 } from "./content";
 
 const NAV = [
-  ["/lawyers", "Find a lawyer"], ["#packages", "Packages"], ["#developers", "For developers"], ["#how-it-works", "How it works"], ["#services", "What we verify"],
+  ["/lawyers", "Find a lawyer"], ["/rera", "RERA check"], ["#packages", "Packages"], ["#developers", "For developers"], ["#how-it-works", "How it works"], ["#services", "What we verify"],
   ["#document-desk", "Document delivery"], ["#track", "Track request"], ["#faq", "FAQs"], ["/blog", "Insights"],
 ];
 
@@ -382,7 +382,7 @@ export default function HomePage() {
         <div className="wrap">
           <div className="footer-grid">
             <div><a className="brand" href="#home"><span className="brandmark">H</span><span>homexo legal<small style={{ color: "#a4bcb2" }}>Property clarity, end to end</small></span></a><p>Property legal verification, acquisition due diligence, registration coordination and post-registration support for buyers and developers in Bangalore.</p></div>
-            <div><h4>Explore</h4><a href="/lawyers">Find a lawyer</a><a href="/bookings">My bookings</a><a href="#packages">Buyer packages</a><a href="#developers">Developer services</a><a href="#developer-bundles">Developer bundles</a><a href="#how-it-works">How it works</a><a href="#services">What we verify</a><a href="#consultation">Advocate consultation</a></div>
+            <div><h4>Explore</h4><a href="/lawyers">Find a lawyer</a><a href="/rera">RERA project check</a><a href="/bookings">My bookings</a><a href="#packages">Buyer packages</a><a href="#developers">Developer services</a><a href="#developer-bundles">Developer bundles</a><a href="#how-it-works">How it works</a><a href="#services">What we verify</a><a href="#consultation">Advocate consultation</a></div>
             <div><h4>Property services</h4><a href="#services">Title &amp; EC</a><a href="#services">Sale deed / agreement</a><a href="#services">Registration</a><a href="#services">Khata &amp; tax</a><a href="#document-desk">Document retrieval &amp; courier</a></div>
             <div><h4>Important</h4><a href="/blog">Insights &amp; case studies</a><a href="#track">Track a request</a><a href="#faq">FAQs</a><a href="#callback">Contact</a><a href="#faq">Scope &amp; limitations</a></div>
           </div>

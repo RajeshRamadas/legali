@@ -64,3 +64,7 @@ BOOKING_DAYS_AHEAD = int(os.getenv("BOOKING_DAYS_AHEAD", "14"))
 CUSTOMER_CHANGE_HOURS = int(os.getenv("CUSTOMER_CHANGE_HOURS", "2"))
 # Upcoming online bookings one phone number can hold at a time, so nobody can fill a lawyer's diary.
 MAX_UPCOMING_BOOKINGS_PER_PHONE = int(os.getenv("MAX_UPCOMING_BOOKINGS_PER_PHONE", "3"))
+
+# Karnataka RERA project pages. Until real data is imported (python -m app.rera_import), the API loads made-up
+# sample projects on startup when the table is empty, so the pages have something to show. Set to false in production.
+RERA_SAMPLE_WHEN_EMPTY = os.getenv("RERA_SAMPLE_WHEN_EMPTY", "true").lower() == "true"
