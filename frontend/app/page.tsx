@@ -30,7 +30,7 @@ async function load() {
 const STEPS = [
   { title: "Tell us what you need", badge: "2 minutes", text: "Ask the assistant in plain words, or pick a service. It explains your options and points you to the right lawyer or package." },
   { title: "Book a time and pay", badge: "One tap", text: "Pick a verified advocate and a slot that suits you, and pay the fixed fee online. You get a request number straight away." },
-  { title: "Meet, track, receive", badge: "From home", text: "Join your call on Google Meet, follow each stage as the team updates it, and get every document and report from us." },
+  { title: "Meet, track, receive", badge: "From home", text: "Join your call on Google Meet, follow each stage as the team updates it, and share papers and download your signed report from your case documents." },
 ];
 
 const ICONS = {
@@ -44,6 +44,7 @@ const ICONS = {
   card: <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></>,
   video: <><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3" /></>,
   check: <path d="M5 12l5 5L20 7" />,
+  folder: <path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />,
 };
 
 function Icon({ name, size = 20 }: { name: keyof typeof ICONS; size?: number }) {
@@ -56,6 +57,7 @@ const TILES: { icon: keyof typeof ICONS; title: string; text: string; href: stri
   { icon: "shield", title: "Verify a property", text: "Title, EC, RERA and approvals checked, ending in a plain-English verdict.", href: "#packages", cta: "See packages" },
   { icon: "pen", title: "Make an affidavit", text: "Name change, address proof, gap or loss affidavits, drafted by an advocate and ready to sign.", href: "/?service=affidavit-drafting#callback", cta: "Start an affidavit" },
   { icon: "file", title: "Get a document", text: "EC, RTC, certified copies, deeds and POA, with courier delivery where available.", href: "/services#documents", cta: "Request a document" },
+  { icon: "folder", title: "Your case documents", text: "Upload and tag papers for your lawyer, see what the report still needs, and download the signed final report.", href: "/documents", cta: "Open your documents" },
   { icon: "chat", title: "Ask the assistant", text: "Plain-English answers any time, with a hand-off to a person when you need one.", href: "", cta: "Start a chat", ask: true },
   { icon: "card", title: "Pay online", text: "UPI, cards or netbanking when you book a consultation. Government fees stay at actuals.", href: "/lawyers", cta: "Book and pay" },
   { icon: "pulse", title: "Track your request", text: "Enter your request number and phone to see the latest stage and reply to the team.", href: "#track", cta: "Track now" },
@@ -89,7 +91,7 @@ export default async function HomePage() {
                   <li className="now"><span className="dot"><Icon name="video" size={14} /></span><div className="split"><div><b>Call with your advocate</b><small>Today, 4:00 pm · Google Meet</small></div><span className="btn small" aria-hidden="true">Join call</span></div></li>
                   <li><span className="dot" /><div><b>Title review &amp; verdict</b><small>EC and title chain in progress</small></div></li>
                 </ol>
-                <div className="hx-journey-foot"><span className="hx-icon sm"><Icon name="file" size={18} /></span><div><b>Reports and documents</b><small>Sale agreement draft, EC, Khata extract</small></div></div>
+                <div className="hx-journey-foot"><span className="hx-icon sm"><Icon name="file" size={18} /></span><div><b>Case documents</b><small>Sale deed and EC uploaded · 1 item still needed</small></div></div>
               </div>
               <div className="floating-note"><strong>One place for everything</strong>Chat, payment, calls, documents and status.</div>
             </div>
