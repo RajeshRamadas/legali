@@ -1,11 +1,21 @@
-import { DEFAULT_API_BASE_URL } from "@homexo/shared";
+import { DEFAULT_API_BASE_URL, type CustomerMeeting } from "@homexo/shared";
 
 // Staff workspace API (backend/app/admin.py). Kept out of @homexo/shared because only the website uses it.
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
 const TOKEN_KEY = "homexo.staff.token";
 
-export type StaffUser = { id: string; name: string; email: string | null; role: "admin" | "agent"; account_status?: string };
+export type StaffUser = { id: string; name: string; email: string | null; phone: string | null; role: "admin" | "agent"; account_status?: string };
 export type StaffRef = { id: string; name: string } | null;
+
+// Mirrors meeting_view(staff=True) in backend/app/tickets.py.
+export type Meeting = CustomerMeeting & {
+  lawyer: { id: string; name: string };
+  ticket_number: string;
+  service_name: string;
+  customer_name: string;
+  customer_phone: string | null;
+  calendar: "google" | "manual";
+};
 
 export type TicketSummary = {
   ticket_number: string;
@@ -32,11 +42,16 @@ export type TicketDetail = TicketSummary & {
   property: { type: string; location: string | null } | null;
   events: { type: string; old: Record<string, string> | null; new: Record<string, string> | null; note: string | null; actor: StaffRef; at: string }[];
   messages: { id: string; author_type: "customer" | "staff" | "system"; author: StaffRef; visibility: "customer" | "internal"; message: string; at: string }[];
-  notifications: { channel: string; template: string; recipient: string | null; status: string; at: string }[];
+  meetings: Meeting[];
+  notifications: { channel: string; template: string; recipient: string | null; to: "customer" | "staff"; status: string; error: string | null; at: string; send_after: string | null }[];
 };
 
 export type Summary = { open: number; new_today: number; unassigned: number; needs_reply: number; by_status: { status: string; label: string; count: number }[] };
-export type Meta = { statuses: { value: string; label: string }[]; priorities: string[] };
+export type Meta = {
+  statuses: { value: string; label: string }[];
+  priorities: string[];
+  meetings: { google_calendar: boolean; whatsapp: boolean; timezone: string; reminder_minutes: number[] };
+};
 
 export class UnauthorizedError extends Error {}
 
@@ -76,6 +91,19 @@ export async function adminFetch<T>(path: string, init: RequestInit = {}): Promi
 
 const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 export const formatDate = (iso: string) => dateTime.format(new Date(iso));
+const clock = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit" });
+export const formatTime = (iso: string) => clock.format(new Date(iso));
+
+// Value for <input type="datetime-local"> in the browser's time zone.
+export function toLocalInput(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Join opens from 15 minutes before the start until the end.
+export function joinable(meeting: { status: string; starts_at: string; ends_at: string; meet_link: string | null }, now = Date.now()): boolean {
+  return meeting.status === "scheduled" && !!meeting.meet_link && now >= new Date(meeting.starts_at).getTime() - 15 * 60000 && now <= new Date(meeting.ends_at).getTime();
+}
 
 export function timeAgo(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);

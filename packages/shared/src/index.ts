@@ -46,6 +46,20 @@ export type TicketCreated = {
   message: string;
 };
 
+// Mirrors meeting_view in backend/app/tickets.py. meet_link is null once a meeting is cancelled or completed.
+export type CustomerMeeting = {
+  id: string;
+  title: string;
+  agenda: string | null;
+  starts_at: string;
+  ends_at: string;
+  when: string;
+  status: "scheduled" | "completed" | "cancelled";
+  status_label: string;
+  lawyer_name: string;
+  meet_link: string | null;
+};
+
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
   ticket_number: string;
@@ -56,6 +70,7 @@ export type TicketStatus = {
   created_at: string;
   history: { status: string; label: string; note: string; at: string }[];
   messages: { from: "you" | "homexo"; message: string; at: string }[];
+  meetings: CustomerMeeting[];
   can_reply: boolean;
 };
 

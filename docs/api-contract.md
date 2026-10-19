@@ -82,7 +82,7 @@ Response: `{"reply": "...", "action": "request" | "track" | "status" | null, "ti
 
 ## Staff API
 
-Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send the returned `access_token` as `Authorization: Bearer <token>`. Admins see and act on every ticket; agents only on tickets currently assigned to them (others return 404).
+Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send the returned `access_token` as `Authorization: Bearer <token>`. Admins see and act on every ticket; agents only on tickets currently assigned to them or where they take a meeting (others return 404).
 
 | Method | Path | Who | What |
 | --- | --- | --- | --- |
@@ -94,8 +94,11 @@ Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send 
 | POST | `/api/v1/admin/tickets/{ticket_number}/messages` | staff | `{"message", "visibility": "customer" or "internal"}` |
 | GET | `/api/v1/admin/reports/summary` | staff | Open, new today, unassigned, waiting on us, counts by status |
 | GET | `/api/v1/admin/meta` | staff | Status and priority options |
-| GET / POST | `/api/v1/admin/staff` | admin | List staff / add `{"display_name", "email", "password", "role"}` |
-| PATCH | `/api/v1/admin/staff/{id}` | admin | `{"account_status": "active" or "suspended", "role"}` |
+| GET / POST | `/api/v1/admin/staff` | admin | List staff / add `{"display_name", "email", "password", "role", "phone"}` (`phone` is the WhatsApp number for meeting messages) |
+| PATCH | `/api/v1/admin/staff/{id}` | admin | `{"account_status": "active" or "suspended", "role", "phone"}` |
+| POST | `/api/v1/admin/tickets/{ticket_number}/meetings` | staff | Book a video meeting; see `docs/meetings.md` |
+| PATCH | `/api/v1/admin/meetings/{id}` | admin or the meeting's lawyer | Reschedule, cancel or mark done |
+| GET | `/api/v1/admin/meetings` | staff | Calendar: `start`, `end`, `lawyer` (`me`, `all` or an id) |
 
 Status changes, assignments, sign-ins and staff changes are written to `audit_logs`; every ticket change is also a `ticket_events` row.
 

@@ -32,6 +32,14 @@ services:
       # Optional: turns on the AI chat assistant. Leave empty for rule-based answers.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CHAT_MODEL: ${CHAT_MODEL:-claude-haiku-5-5}
+      # Optional video meetings (docs/meetings.md): Google Calendar + Meet links, WhatsApp invites and reminders.
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
+      GOOGLE_CALENDAR_USER: ${GOOGLE_CALENDAR_USER:-}
+      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
+      MEETING_TIMEZONE: ${MEETING_TIMEZONE:-Asia/Kolkata}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
     ports:
       - "8000:8000"
     depends_on:
