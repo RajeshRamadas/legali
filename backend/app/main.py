@@ -3,16 +3,21 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
-from . import admin, chat, config, lawyers, meetings, notify, posts, public
+from . import admin, chat, config, lawyers, meetings, notify, posts, public, rera
 from .bootstrap import sync_reference_data
 from .db import SessionLocal
+from .models import ReraProject
+from .rera_sample import load_sample
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Tables come from Alembic migrations (`alembic upgrade head`); this only syncs reference data.
     with SessionLocal() as db:
         sync_reference_data(db)
+        if config.RERA_SAMPLE_WHEN_EMPTY and db.scalars(select(ReraProject.id).limit(1)).first() is None:
+            load_sample(db)
     worker = asyncio.create_task(notify.worker_loop()) if config.NOTIFY_WORKER_ENABLED else None
     yield
     if worker:
@@ -23,7 +28,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Homexo Property Services API",
     version="0.2.0",
-    description="Service catalogue, ticket intake and tracking, staff ticket workspace, video consultations, lawyer search and booking, chat assistant and blog.",
+    description="Service catalogue, ticket intake and tracking, staff ticket workspace, video consultations, lawyer search and booking, chat assistant, blog and Karnataka RERA project check.",
     lifespan=lifespan,
 )
 
@@ -41,3 +46,4 @@ app.include_router(admin.router)
 app.include_router(meetings.router)
 app.include_router(lawyers.router)
 app.include_router(posts.router)
+app.include_router(rera.router)

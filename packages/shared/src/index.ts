@@ -204,6 +204,135 @@ export type PublicPost = Post & { related: PostSummary[] };
 export type PostList = { items: PostSummary[]; total: number; page: number; page_size: number };
 export type PostQuery = { type?: PostType; tag?: string; q?: string; page?: number; pageSize?: number };
 
+// Mirrors the views in backend/app/rera.py.
+export type ReraRiskLevel = "green" | "amber" | "red";
+export type ReraStatus = "ongoing" | "completed" | "lapsed" | "revoked" | "withdrawn";
+export type ReraDataInfo = { projects: number; sample: boolean; updated_at: string | null };
+export type ReraProjectCard = {
+  registration_no: string;
+  slug: string;
+  name: string;
+  promoter: { name: string; slug: string };
+  locality: { name: string; slug: string };
+  district: string;
+  project_type: string;
+  type_label: string;
+  status: ReraStatus;
+  status_label: string;
+  deadline: string | null;
+  completed_on: string | null;
+  total_units: number | null;
+  booked_units: number | null;
+  booked_pct: number | null;
+  price_per_sqft: number | null;
+  delay_months: number | null;
+  risk: { level: ReraRiskLevel; label: string; headline: string | null };
+  sample: boolean;
+};
+export type ReraFlag = { level: "amber" | "red"; title: string; detail: string };
+export type ReraTrackRecord = {
+  projects: number;
+  ongoing: number;
+  completed: number;
+  lapsed_or_revoked: number;
+  units: number;
+  on_time_pct: number | null;
+  avg_delay_months: number | null;
+  running_late: number;
+  complaints: number;
+  verdict: "strong" | "mixed" | "weak" | "new";
+  verdict_label: string;
+};
+export type ReraMarket = {
+  projects: number;
+  ongoing: number;
+  units: number;
+  booked_pct: number | null;
+  median_price_per_sqft: number | null;
+  price_range: [number, number] | null;
+  late_pct: number | null;
+};
+export type ReraSupplyYear = { label: string; projects: number; units: number };
+export type ReraRiskCount = { level: ReraRiskLevel; label: string; projects: number };
+export type ReraUnitMix = { type: string; units: number }[];
+export type ReraProject = Omit<ReraProjectCard, "risk"> & {
+  taluk: string | null;
+  address: string | null;
+  pincode: string | null;
+  registered_on: string | null;
+  registration_valid_until: string | null;
+  proposed_completion: string | null;
+  revised_completion: string | null;
+  extensions: number;
+  unit_mix: ReraUnitMix;
+  land_area_sqm: number | null;
+  complaints: number;
+  source_url: string | null;
+  risk: { level: ReraRiskLevel; label: string; flags: ReraFlag[]; good: string[] };
+  developer: ReraTrackRecord & { name: string; slug: string };
+  locality_market: ReraMarket & { name: string; slug: string };
+  developer_projects: ReraProjectCard[];
+  nearby: ReraProjectCard[];
+  data: ReraDataInfo;
+};
+export type ReraSummary = {
+  data: ReraDataInfo;
+  district: string | null;
+  as_of: string;
+  market: ReraMarket;
+  delivery: ReraTrackRecord;
+  statuses: { status: ReraStatus; label: string; projects: number }[];
+  risk: ReraRiskCount[];
+  supply_by_year: ReraSupplyYear[];
+  launches_by_year: { year: number; projects: number; units: number }[];
+  unit_mix: ReraUnitMix;
+  localities: (ReraMarket & { name: string; slug: string; district: string })[];
+  developers: (ReraTrackRecord & { name: string; slug: string })[];
+};
+export type ReraDeveloper = {
+  name: string;
+  slug: string;
+  record: ReraTrackRecord;
+  localities: { name: string; slug: string; projects: number }[];
+  projects: ReraProjectCard[];
+  data: ReraDataInfo;
+};
+export type ReraLocality = {
+  name: string;
+  slug: string;
+  district: string;
+  taluk: string | null;
+  market: ReraMarket;
+  delivery: ReraTrackRecord;
+  risk: ReraRiskCount[];
+  supply_by_year: ReraSupplyYear[];
+  unit_mix: ReraUnitMix;
+  developers: { name: string; slug: string; projects: number; on_time_pct: number | null; verdict: ReraTrackRecord["verdict"]; verdict_label: string }[];
+  projects: ReraProjectCard[];
+  data: ReraDataInfo;
+};
+export type ReraFilters = {
+  districts: { name: string; projects: number }[];
+  localities: { name: string; slug: string; district: string; projects: number }[];
+  statuses: { value: ReraStatus; label: string }[];
+  types: { value: string; label: string; projects: number }[];
+  risk: { value: ReraRiskLevel; label: string }[];
+};
+export type ReraSort = "name" | "deadline" | "newest" | "units" | "risk" | "price_low";
+export type ReraSearch = {
+  q?: string;
+  district?: string;
+  locality?: string;
+  promoter?: string;
+  status?: ReraStatus;
+  type?: string;
+  risk?: ReraRiskLevel;
+  sort?: ReraSort;
+  page?: number;
+  page_size?: number;
+};
+export type ReraSearchResult = { items: ReraProjectCard[]; total: number; page: number; page_size: number; data: ReraDataInfo };
+
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
@@ -236,6 +365,27 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
     },
     getPost(slug: string): Promise<PublicPost> {
       return request<PublicPost>(baseUrl, `/api/v1/posts/${encodeURIComponent(slug)}`);
+    },
+    reraSummary(district?: string): Promise<ReraSummary> {
+      return request(baseUrl, `/api/v1/rera/summary${district ? `?district=${encodeURIComponent(district)}` : ""}`);
+    },
+    reraFilters(): Promise<ReraFilters> {
+      return request(baseUrl, "/api/v1/rera/filters");
+    },
+    searchReraProjects(search: ReraSearch = {}): Promise<ReraSearchResult> {
+      const params = new URLSearchParams();
+      Object.entries(search).forEach(([key, value]) => value !== undefined && value !== "" && params.set(key, String(value)));
+      const qs = params.toString();
+      return request(baseUrl, `/api/v1/rera/projects${qs ? `?${qs}` : ""}`);
+    },
+    getReraProject(slug: string): Promise<ReraProject> {
+      return request(baseUrl, `/api/v1/rera/projects/${encodeURIComponent(slug)}`);
+    },
+    getReraDeveloper(slug: string): Promise<ReraDeveloper> {
+      return request(baseUrl, `/api/v1/rera/developers/${encodeURIComponent(slug)}`);
+    },
+    getReraLocality(slug: string): Promise<ReraLocality> {
+      return request(baseUrl, `/api/v1/rera/localities/${encodeURIComponent(slug)}`);
     },
     async listServices(): Promise<Service[]> {
       const data = await request<{ items: Service[] }>(baseUrl, "/api/v1/services");
