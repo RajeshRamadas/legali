@@ -499,10 +499,6 @@ def fetch_queue(user: User = Depends(current_staff), db: Session = Depends(get_d
             "customer_name": (ticket.structured_answers or {}).get("customer_name") or ticket.customer.full_name,
             "item": {"id": str(item.id), "tag": item.tag, "label": item.label, "guidance": item.guidance, "status": item.status, "note": item.review_note},
             "source": gov_sources.source_view(item.source),
-            "property": {
-                "type": prop.property_type, "location": prop.locality, "address_line": prop.address_line, "survey_number": prop.survey_number,
-                "subdivision_or_surnoc": prop.subdivision_or_surnoc, "property_id_or_pid": prop.property_id_or_pid,
-                "village": prop.village, "hobli": prop.hobli, "taluk": prop.taluk, "district": prop.district,
-            } if prop else None,
+            "property": tickets.property_view(prop) if prop else None,
         })
     return {"items": items, "sources": [gov_sources.source_view(key) for key in gov_sources.SOURCES]}

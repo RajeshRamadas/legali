@@ -62,6 +62,53 @@ export type CustomerMeeting = {
   meet_link: string | null;
 };
 
+// Mirrors document_view in backend/app/case_files.py. download_url is a short-lived path on the API; open it with fileUrl().
+export type CustomerDocument = {
+  id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  tag: string | null;
+  note: string | null;
+  at: string;
+  download_url: string;
+  uploaded_by: "you" | "homexo";
+  can_delete: boolean;
+};
+
+export type GovSource = { key: string; name: string; url: string; search_by: string; automatic: boolean };
+
+export type ReportItemStatus = "pending" | "received" | "verified" | "rejected" | "waived";
+// One document the preliminary report asks for. Files tagged with `tag` are linked to it.
+export type ReportItem = {
+  id: string;
+  tag: string;
+  label: string;
+  guidance: string;
+  status: ReportItemStatus;
+  status_label: string;
+  note: string | null;
+  documents: string[];
+  // "homexo": a public record the case team gets from a government portal, so the customer needn't upload it.
+  fetch_by: "customer" | "homexo";
+  source: GovSource | null;
+};
+export type ReportSection = { key: string; heading: string; hint: string; text: string };
+
+// Mirrors customer_report_view in backend/app/case_files.py. Null until the lawyer issues the preliminary report.
+export type CustomerReport = {
+  status: "issued" | "final_generated" | "signed";
+  status_label: string;
+  issued_at: string | null;
+  lawyer_name: string | null;
+  sections: ReportSection[];
+  items: ReportItem[];
+  progress: { done: number; total: number };
+  preliminary_pdf_url: string;
+  signed_report_url: string | null;
+  signed_at: string | null;
+};
+
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
   ticket_number: string;
@@ -74,6 +121,9 @@ export type TicketStatus = {
   messages: { from: "you" | "homexo"; message: string; at: string }[];
   meetings: CustomerMeeting[];
   can_reply: boolean;
+  documents: CustomerDocument[];
+  report: CustomerReport | null;
+  can_upload: boolean;
 };
 
 // Mirrors the chat endpoint in backend/app/chat.py.
@@ -222,8 +272,35 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
 
 const post = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
+// Tags are lowercase words joined by hyphens, e.g. "sale-deed". Mirrors normalize_tag in backend/app/report_templates.py.
+export const normalizeTag = (value: string) => value.toLowerCase().replace(/^#/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
+
+export const formatBytes = (bytes: number) =>
+  bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
 export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
   return {
+    // Download and report links in ticket views are paths on the API.
+    fileUrl(path: string): string {
+      return `${baseUrl}${path}`;
+    },
+    // `file` is a browser File/Blob, or React Native's { uri, name, type }.
+    uploadDocument(ref: { ticket_number: string; contact: string }, file: Blob | { uri: string; name: string; type: string }, options: { tag?: string; note?: string; filename?: string } = {}): Promise<TicketStatus> {
+      const form = new FormData();
+      form.append("ticket_number", ref.ticket_number);
+      form.append("contact", ref.contact);
+      form.append("tag", options.tag ?? "");
+      form.append("note", options.note ?? "");
+      if (options.filename) form.append("file", file as Blob, options.filename);
+      else form.append("file", file as Blob);
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/documents", { method: "POST", body: form });
+    },
+    tagDocument(ref: { ticket_number: string; contact: string }, documentId: string, tag: string): Promise<TicketStatus> {
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/documents/tag", post({ ...ref, document_id: documentId, tag }));
+    },
+    deleteDocument(ref: { ticket_number: string; contact: string }, documentId: string): Promise<TicketStatus> {
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/documents/delete", post({ ...ref, document_id: documentId }));
+    },
     listPosts(query: PostQuery = {}): Promise<PostList> {
       const params = new URLSearchParams();
       if (query.type) params.set("type", query.type);

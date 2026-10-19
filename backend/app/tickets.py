@@ -224,13 +224,19 @@ def staff_summary(ticket: ServiceRequest) -> dict:
         "updated_at": _iso(ticket.updated_at),
     }
 
+PROPERTY_ID_FIELDS = ("address_line", "survey_number", "subdivision_or_surnoc", "property_id_or_pid", "village", "hobli", "taluk", "district")
+
+def property_view(prop: Property) -> dict:
+    """The property with the identifiers government portals search by."""
+    return {"type": prop.property_type, "location": prop.locality, **{field: getattr(prop, field) for field in PROPERTY_ID_FIELDS}}
+
 def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> dict:
     customer = ticket.customer
     return {
         **staff_summary(ticket),
         "description": ticket.description,
         "customer": {"id": str(customer.id), "name": customer.full_name, "phone": customer.phone, "email": customer.email},
-        "property": {"type": ticket.prop.property_type, "location": ticket.prop.locality} if ticket.prop else None,
+        "property": property_view(ticket.prop) if ticket.prop else None,
         "events": [
             {"type": e.event_type, "old": e.old_value, "new": e.new_value, "note": e.reason, "actor": _staff_ref(e.actor), "at": _iso(e.created_at)}
             for e in ticket.events

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PROPERTY_TYPES } from "@homexo/shared";
 import { useStaff } from "../../AdminShell";
+import CaseFile from "../../CaseFile";
 import { adminFetch, formatDate, joinable, toLocalInput, type Meeting, type Meta, type StaffUser, type TicketDetail } from "../../api";
 
 const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Record<string, string>) => string> = {
@@ -19,6 +20,14 @@ const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Rec
   meeting_rescheduled: (e) => `Meeting moved from ${e.old?.when} to ${e.new?.when}`,
   meeting_cancelled: (e) => `Meeting on ${e.old?.when} cancelled`,
   meeting_completed: (e) => `Meeting on ${e.old?.when} marked done`,
+  document_uploaded: (e) => `${e.new?.by === "customer" ? "Customer" : "Staff"} uploaded ${e.new?.filename}${e.new?.tag ? ` under #${e.new.tag}` : ""}`,
+  document_removed: (e) => `${e.old?.by === "customer" ? "Customer" : "Staff"} removed ${e.old?.filename}`,
+  report_started: () => "Preliminary report started",
+  report_issued: () => "Preliminary report issued to the customer",
+  report_updated: () => "Customer told about checklist changes",
+  report_item_reviewed: (e) => `#${e.new?.tag}: ${e.old?.status} → ${e.new?.status}`,
+  final_report_generated: () => "Final report PDF generated for signature",
+  report_signed: () => "Signed final report uploaded",
 };
 
 const TEMPLATE_TEXT: Record<string, string> = {
@@ -26,6 +35,9 @@ const TEMPLATE_TEXT: Record<string, string> = {
   meeting_rescheduled: "meeting moved",
   meeting_reminder: "meeting reminder",
   meeting_cancelled: "meeting cancelled",
+  report_issued: "preliminary report",
+  document_rejected: "document asked again",
+  report_signed: "signed report ready",
 };
 
 export default function TicketPage({ params }: { params: { ticketNumber: string } }) {
@@ -108,6 +120,8 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
         <div className="ticket-main">
           <Conversation ticket={ticket} onSend={(message, visibility) => act("/messages", "POST", { message, visibility }, visibility === "internal" ? "Internal note added." : "Message sent to the customer.")} />
 
+          <CaseFile ticket={ticket} staff={user.role === "admin" ? staff : [user]} onTicket={setTicket} onError={onError} />
+
           <MeetingsCard
             ticket={ticket} meta={meta} staff={user.role === "admin" ? staff : [user]} defaultLawyer={user.role === "admin" ? ticket.assignee?.id ?? user.id : user.id}
             onSchedule={(body) => act("/meetings", "POST", body, "Meeting booked. The customer and lawyer get the link on WhatsApp, with reminders before it starts.")}
@@ -134,7 +148,7 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
                 <li key={i}>
                   <b>{(EVENT_TEXT[e.type] ?? (() => e.type))(e, labels)}</b>
                   {e.note && <p>“{e.note}”</p>}
-                  <small>{e.actor ? e.actor.name : e.type === "customer_replied" || e.type === "created" ? "Customer" : "System"} · {formatDate(e.at)}</small>
+                  <small>{e.actor ? e.actor.name : ["customer_replied", "created", "document_uploaded", "document_removed"].includes(e.type) ? "Customer" : "System"} · {formatDate(e.at)}</small>
                 </li>
               ))}
             </ol>

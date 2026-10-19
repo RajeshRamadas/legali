@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import type { TicketStatus } from "@homexo/shared";
+import Link from "next/link";
 import { api } from "./api";
+import { openDocuments } from "./documents/ref";
 
 const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -44,6 +46,7 @@ export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: Ticket
         ))}
       </ol>
       {ticket.meetings?.length > 0 && <TicketMeetings meetings={ticket.meetings} />}
+      {contact && <DocumentsSummary ticket={ticket} contact={contact} />}
       {ticket.messages.length > 0 && (
         <div className="ticket-messages">
           <span className="tiny-label">Messages</span>
@@ -63,6 +66,20 @@ export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: Ticket
           <button className="btn small" disabled={sending || !reply.trim()}>{sending ? "Sending…" : "Send message"}</button>
         </form>
       )}
+    </div>
+  );
+}
+
+function DocumentsSummary({ ticket, contact }: { ticket: TicketStatus; contact: string }) {
+  const report = ticket.report;
+  const waiting = report?.items.filter((i) => i.fetch_by === "customer" && (i.status === "pending" || i.status === "rejected")).length ?? 0;
+  const line = report?.signed_report_url ? "Your signed legal report is ready to download."
+    : report ? `${report.progress.done} of ${report.progress.total} checklist items done${waiting ? ` · ${waiting} need${waiting === 1 ? "s" : ""} your upload` : ""}.`
+    : ticket.documents.length ? `${ticket.documents.length} document${ticket.documents.length === 1 ? "" : "s"} shared.` : "Share documents for this request and tag them.";
+  return (
+    <div className={`ticket-meeting${waiting ? " live" : ""}`} style={{ marginTop: 12 }}>
+      <div><b>{report ? "Preliminary report and documents" : "Your documents"}</b><small>{line}</small></div>
+      <Link className={`btn small${waiting ? " gold" : " light"}`} href="/documents" onClick={() => openDocuments({ ticket_number: ticket.ticket_number, contact })}>Open</Link>
     </div>
   );
 }
