@@ -77,3 +77,7 @@ RAZORPAY_API_BASE = os.getenv("RAZORPAY_API_BASE", "https://api.razorpay.com/v1"
 PAYMENTS_TEST_MODE = os.getenv("PAYMENTS_TEST_MODE", "true" if APP_ENV == "development" else "false").lower() == "true"
 # An online booking whose fee is still unpaid this many minutes after booking is cancelled and the slot freed. 0 keeps it.
 PAYMENT_HOLD_MINUTES = int(os.getenv("PAYMENT_HOLD_MINUTES", "30"))
+
+# Karnataka RERA project pages. Until real data is imported (python -m app.rera_import), the API loads made-up
+# sample projects on startup when the table is empty, so the pages have something to show. Set to false in production.
+RERA_SAMPLE_WHEN_EMPTY = os.getenv("RERA_SAMPLE_WHEN_EMPTY", "true").lower() == "true"

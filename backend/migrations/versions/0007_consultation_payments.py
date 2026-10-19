@@ -1,7 +1,7 @@
 """consultation payments
 
-Revision ID: 0006_consultation_payments
-Revises: 0005
+Revision ID: 0007_consultation_payments
+Revises: 0006
 Create Date: 2026-10-19 12:00:00
 
 Online payment of booking fees through Razorpay: one row per order or payment link, with its outcome.
@@ -13,8 +13,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = '0006_consultation_payments'
-down_revision: Union[str, Sequence[str], None] = '0005'
+revision: str = '0007_consultation_payments'
+down_revision: Union[str, Sequence[str], None] = '0006'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
