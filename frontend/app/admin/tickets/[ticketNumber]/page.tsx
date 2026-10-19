@@ -391,9 +391,10 @@ function MeetingsCard({ ticket, meta, staff, defaultLawyer, onSchedule, onChange
 }
 
 function MeetingItem({ meeting, onChange }: { meeting: Meeting; onChange: (meeting: Meeting, body: object, done: string) => Promise<boolean> }) {
-  const [mode, setMode] = useState<"" | "move" | "cancel">("");
+  const [mode, setMode] = useState<"" | "move" | "cancel" | "link">("");
   const [when, setWhen] = useState(toLocalInput(new Date(meeting.starts_at)));
   const [reason, setReason] = useState("");
+  const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const scheduled = meeting.status === "scheduled";
   const started = Date.now() >= new Date(meeting.starts_at).getTime();
@@ -418,6 +419,7 @@ function MeetingItem({ meeting, onChange }: { meeting: Meeting; onChange: (meeti
       {meeting.agenda && <p className="meeting-agenda">{meeting.agenda}</p>}
       {scheduled && mode === "" && (
         <div className="staff-actions">
+          {!meeting.meet_link && <button className="admin-link" onClick={() => setMode("link")}>Add meeting link</button>}
           <button className="admin-link" onClick={() => setMode("move")}>Reschedule</button>
           <button className="admin-link" onClick={() => setMode("cancel")}>Cancel meeting</button>
           {started && <button className="admin-link" disabled={busy} onClick={() => run({ status: "completed" }, "Meeting marked done.")}>Mark done</button>}
@@ -427,6 +429,13 @@ function MeetingItem({ meeting, onChange }: { meeting: Meeting; onChange: (meeti
         <form className="meeting-inline" onSubmit={(e) => { e.preventDefault(); run({ starts_at: new Date(when).toISOString() }, "Meeting moved. Both sides get the new time on WhatsApp."); }}>
           <input type="datetime-local" required value={when} min={toLocalInput(new Date())} onChange={(e) => setWhen(e.target.value)} aria-label="New date and time" />
           <button className="btn small" disabled={busy}>Move</button>
+          <button type="button" className="admin-link" onClick={() => setMode("")}>Back</button>
+        </form>
+      )}
+      {mode === "link" && (
+        <form className="meeting-inline" onSubmit={(e) => { e.preventDefault(); run({ meet_link: link.trim() }, "Link added. The customer and lawyer get it on WhatsApp."); }}>
+          <input type="url" required pattern="https://.*" placeholder="https://meet.google.com/..." value={link} onChange={(e) => setLink(e.target.value)} aria-label="Meeting link" />
+          <button className="btn small" disabled={busy}>Send link</button>
           <button type="button" className="admin-link" onClick={() => setMode("")}>Back</button>
         </form>
       )}

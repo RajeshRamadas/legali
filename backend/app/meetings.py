@@ -30,6 +30,9 @@ TEMPLATES = {
     "lawyer_daily_agenda": "Good morning {1}, you have {2} Homexo Legal consultation(s) today: {3}. Your calendar: {4}",
 }
 
+# Customer bookings made while Google Calendar isn't connected have no link until staff add one.
+LINK_TO_FOLLOW = "we will send the meeting link before it starts."
+
 def render(template_key: str, params: list[str]) -> str:
     text = TEMPLATES[template_key]
     for index, value in enumerate(params, start=1):
@@ -48,6 +51,7 @@ class MeetingUpdate(BaseModel):
     duration_minutes: int | None = Field(default=None, ge=15, le=240)
     status: Literal["completed", "cancelled"] | None = None
     reason: str | None = Field(default=None, max_length=500, description="Sent to both parties when a meeting is cancelled.")
+    meet_link: str | None = Field(default=None, max_length=500, pattern=r"^https://\S+$", description="Add or replace the join link; both parties are sent it.")
 
 def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
@@ -80,7 +84,7 @@ def _queue(db: Session, meeting: Meeting, template_key: str, last_param: str | N
     for party in _parties(meeting):
         if party["kind"] not in kinds:
             continue
-        params = [party["name"], f"{ticket.service_type.name} ({ticket.ticket_number})", tickets.format_when(meeting.starts_at), party["other"], last_param or meeting.meet_link or ""]
+        params = [party["name"], f"{ticket.service_type.name} ({ticket.ticket_number})", tickets.format_when(meeting.starts_at), party["other"], last_param or meeting.meet_link or LINK_TO_FOLLOW]
         db.add(Notification(
             service_request_id=ticket.id, customer_id=party.get("customer_id"), user_id=party.get("user_id"), meeting_id=meeting.id,
             channel="whatsapp", template_key=template_key, recipient=party["phone"], params=params, body=render(template_key, params),
@@ -117,46 +121,79 @@ def _get_meeting(db: Session, user: User, meeting_id: uuid.UUID) -> Meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
     return meeting
 
-@router.post("/tickets/{ticket_number}/meetings", status_code=201)
-def schedule_meeting(ticket_number: str, payload: MeetingCreate, user: User = Depends(current_staff), db: Session = Depends(get_db)):
-    ticket = admin._get_ticket(db, user, ticket_number)
-    if ticket.status in CLOSED_STATUSES:
-        raise HTTPException(status_code=422, detail="Reopen the ticket before booking a meeting.")
-    lawyer = user
-    if payload.lawyer_id and payload.lawyer_id != user.id:
-        if not user.is_admin:
-            raise HTTPException(status_code=403, detail="Agents can book meetings only for themselves.")
-        lawyer = db.get(User, payload.lawyer_id)
-        if lawyer is None or lawyer.account_status != "active" or not (lawyer.role_names & {"agent", "admin", "super_admin"}):
-            raise HTTPException(status_code=422, detail="Choose an active staff member.")
-    starts_at = _as_utc(payload.starts_at)
-    ends_at = starts_at + timedelta(minutes=payload.duration_minutes)
-    _check_times(db, lawyer, starts_at, ends_at)
+def lock_lawyer(db: Session, lawyer_id: uuid.UUID) -> User | None:
+    """Load the lawyer with a row lock, so two bookings for the same time can't both pass the clash check."""
+    return db.get(User, lawyer_id, with_for_update=True)
 
-    agenda = (payload.agenda or "").strip() or None
+def create_meeting(db: Session, ticket: ServiceRequest, lawyer: User, starts_at: datetime, ends_at: datetime, *, actor: User | None,
+                   agenda: str | None = None, meet_link: str | None = None, require_link: bool = True) -> Meeting:
+    """Book a meeting: checks the lawyer is free, creates the Google Meet event, records it and queues WhatsApp messages.
+
+    actor is None when the customer booked it themselves. The caller commits.
+    """
+    _check_times(db, lawyer, starts_at, ends_at)
     title = f"Homexo Legal consultation · {ticket.ticket_number}"
     event_id = None
-    if payload.meet_link:
-        link = payload.meet_link
-    elif google_calendar.enabled():
+    link = meet_link
+    if not link and google_calendar.enabled():
         attendees = [e for e in (ticket.customer.email, lawyer.email) if e]
         event_id, link = _calendar_call(google_calendar.create_event, title=title, description=_description(ticket, agenda), starts_at=starts_at, ends_at=ends_at, attendees=attendees)
-    else:
+    elif not link and require_link:
         raise HTTPException(status_code=422, detail="Google Calendar isn't connected yet, so paste a meeting link.")
 
     meeting = Meeting(
-        service_request_id=ticket.id, lawyer_user_id=lawyer.id, created_by_user_id=user.id, title=title, agenda=agenda,
+        service_request_id=ticket.id, lawyer_user_id=lawyer.id, created_by_user_id=actor.id if actor else None, title=title, agenda=agenda,
         starts_at=starts_at, ends_at=ends_at, meet_link=link, calendar_event_id=event_id,
     )
     db.add(meeting)
     ticket.meetings.append(meeting)
     db.flush()
     db.refresh(meeting)
-    tickets.add_event(db, ticket, "meeting_scheduled", user, new={"when": tickets.format_when(starts_at), "lawyer": lawyer.display_name})
+    tickets.add_event(db, ticket, "meeting_scheduled", actor, new={"when": tickets.format_when(starts_at), "lawyer": lawyer.display_name})
     _queue(db, meeting, "meeting_scheduled")
     _queue_reminders(db, meeting)
-    tickets.audit(db, user, "meeting.scheduled", ticket.id, meeting_id=str(meeting.id), lawyer_id=str(lawyer.id))
+    tickets.audit(db, actor, "meeting.scheduled", ticket.id, meeting_id=str(meeting.id), lawyer_id=str(lawyer.id))
     ticket.updated_at = utcnow()
+    return meeting
+
+def cancel_meeting(db: Session, meeting: Meeting, actor: User | None, reason: str | None) -> None:
+    if meeting.calendar_event_id:
+        _calendar_call(google_calendar.cancel_event, meeting.calendar_event_id)
+    meeting.status = "cancelled"
+    meeting.cancelled_at = utcnow()
+    _cancel_queued(db, meeting)
+    _queue(db, meeting, "meeting_cancelled", reason or "Your case team will contact you to find a new time.")
+    tickets.add_event(db, meeting.service_request, "meeting_cancelled", actor, old={"when": tickets.format_when(meeting.starts_at)}, reason=reason)
+
+def move_meeting(db: Session, meeting: Meeting, actor: User | None, starts_at: datetime, duration: int, reason: str | None = None) -> None:
+    ends_at = starts_at + timedelta(minutes=duration)
+    _check_times(db, meeting.lawyer, starts_at, ends_at, ignore=meeting.id)
+    if meeting.calendar_event_id:
+        _calendar_call(google_calendar.update_event, meeting.calendar_event_id, starts_at=starts_at, ends_at=ends_at)
+    old_when = tickets.format_when(meeting.starts_at)
+    moved = starts_at != tickets.aware(meeting.starts_at)
+    meeting.starts_at, meeting.ends_at = starts_at, ends_at
+    if moved:
+        _cancel_queued(db, meeting)
+        _queue(db, meeting, "meeting_rescheduled")
+        _queue_reminders(db, meeting)
+    tickets.add_event(db, meeting.service_request, "meeting_rescheduled", actor, old={"when": old_when}, new={"when": tickets.format_when(starts_at), "minutes": duration}, reason=reason)
+
+@router.post("/tickets/{ticket_number}/meetings", status_code=201)
+def schedule_meeting(ticket_number: str, payload: MeetingCreate, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    ticket = admin._get_ticket(db, user, ticket_number)
+    if ticket.status in CLOSED_STATUSES:
+        raise HTTPException(status_code=422, detail="Reopen the ticket before booking a meeting.")
+    lawyer = lock_lawyer(db, user.id)
+    if payload.lawyer_id and payload.lawyer_id != user.id:
+        if not user.is_admin:
+            raise HTTPException(status_code=403, detail="Agents can book meetings only for themselves.")
+        lawyer = lock_lawyer(db, payload.lawyer_id)
+        if lawyer is None or lawyer.account_status != "active" or not (lawyer.role_names & {"agent", "admin", "super_admin"}):
+            raise HTTPException(status_code=422, detail="Choose an active staff member.")
+    starts_at = _as_utc(payload.starts_at)
+    ends_at = starts_at + timedelta(minutes=payload.duration_minutes)
+    create_meeting(db, ticket, lawyer, starts_at, ends_at, actor=user, agenda=(payload.agenda or "").strip() or None, meet_link=payload.meet_link)
     db.commit()
     return admin._detail(db, ticket)
 
@@ -169,32 +206,27 @@ def update_meeting(meeting_id: uuid.UUID, payload: MeetingUpdate, user: User = D
     reason = (payload.reason or "").strip() or None
 
     if payload.status == "cancelled":
-        if meeting.calendar_event_id:
-            _calendar_call(google_calendar.cancel_event, meeting.calendar_event_id)
-        meeting.status = "cancelled"
-        meeting.cancelled_at = utcnow()
-        _cancel_queued(db, meeting)
-        _queue(db, meeting, "meeting_cancelled", reason or "Your case team will contact you to find a new time.")
-        tickets.add_event(db, ticket, "meeting_cancelled", user, old={"when": tickets.format_when(meeting.starts_at)}, reason=reason)
+        cancel_meeting(db, meeting, user, reason)
     elif payload.status == "completed":
         meeting.status = "completed"
         _cancel_queued(db, meeting)
         tickets.add_event(db, ticket, "meeting_completed", user, old={"when": tickets.format_when(meeting.starts_at)})
     elif payload.starts_at or payload.duration_minutes:
+        lock_lawyer(db, meeting.lawyer_user_id)
         starts_at = _as_utc(payload.starts_at) if payload.starts_at else tickets.aware(meeting.starts_at)
         duration = payload.duration_minutes or int((tickets.aware(meeting.ends_at) - tickets.aware(meeting.starts_at)).total_seconds() // 60)
-        ends_at = starts_at + timedelta(minutes=duration)
-        _check_times(db, meeting.lawyer, starts_at, ends_at, ignore=meeting.id)
-        if meeting.calendar_event_id:
-            _calendar_call(google_calendar.update_event, meeting.calendar_event_id, starts_at=starts_at, ends_at=ends_at)
-        old_when = tickets.format_when(meeting.starts_at)
-        moved = starts_at != tickets.aware(meeting.starts_at)
-        meeting.starts_at, meeting.ends_at = starts_at, ends_at
-        if moved:
-            _cancel_queued(db, meeting)
-            _queue(db, meeting, "meeting_rescheduled")
-            _queue_reminders(db, meeting)
-        tickets.add_event(db, ticket, "meeting_rescheduled", user, old={"when": old_when}, new={"when": tickets.format_when(starts_at), "minutes": duration}, reason=reason)
+        move_meeting(db, meeting, user, starts_at, duration, reason)
+    elif payload.meet_link:
+        # A customer booking made without Google Calendar gets its link here; both sides are sent it.
+        meeting.meet_link = payload.meet_link
+        for queued in db.scalars(select(Notification).where(Notification.meeting_id == meeting.id, Notification.delivery_status == "queued")).all():
+            if queued.template_key == "meeting_reminder":
+                queued.params = [*queued.params[:4], meeting.meet_link]
+                queued.body = render(queued.template_key, queued.params)
+            else:
+                queued.delivery_status, queued.error_code = "cancelled", "superseded"
+        _queue(db, meeting, "meeting_scheduled")
+        tickets.add_event(db, ticket, "meeting_link_added", user)
     else:
         raise HTTPException(status_code=422, detail="Nothing to change.")
     tickets.audit(db, user, "meeting.updated", ticket.id, meeting_id=str(meeting.id), **payload.model_dump(mode="json", exclude_none=True))

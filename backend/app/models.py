@@ -30,6 +30,7 @@ TICKET_SOURCES = ("website", "chat", "mobile", "phone", "whatsapp", "admin", "re
 PROPERTY_TYPES = ("apartment", "independent_house", "commercial", "residential_plot", "agricultural_land", "other")
 STAFF_ROLES = ("agent", "admin")
 MEETING_STATUSES = ("scheduled", "completed", "cancelled")
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
 class Base(DeclarativeBase):
     pass
@@ -307,6 +308,54 @@ class Meeting(TimestampMixin, Base):
 
     service_request: Mapped[ServiceRequest] = relationship(back_populates="meetings")
     lawyer: Mapped[User] = relationship(foreign_keys=[lawyer_user_id], lazy="joined")
+
+class LawyerProfile(TimestampMixin, Base):
+    """A lawyer's public listing: what customers search, compare and book. One per staff member."""
+    __tablename__ = "lawyer_profiles"
+    __table_args__ = (
+        CheckConstraint("experience_years >= 0", name="ck_lawyer_profiles_experience"),
+        CheckConstraint("consultation_fee >= 0", name="ck_lawyer_profiles_fee"),
+        CheckConstraint("consultation_minutes BETWEEN 15 AND 120", name="ck_lawyer_profiles_minutes"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    headline: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    bio: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    specialisations: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    languages: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    courts: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    experience_years: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Whole rupees for one video consultation.
+    consultation_fee: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    consultation_minutes: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    city: Mapped[str] = mapped_column(Text, default="Bengaluru", nullable=False)
+    locality: Mapped[str | None] = mapped_column(Text)
+    bar_enrolment: Mapped[str | None] = mapped_column(Text)
+    education: Mapped[str | None] = mapped_column(Text)
+    # Bookable hours by weekday in MEETING_TIMEZONE, e.g. {"mon": [["10:00", "13:00"], ["15:00", "18:00"]]}.
+    weekly_hours: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    # Customers only see and book listed profiles.
+    is_listed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+class LawyerReview(Base):
+    """A customer's rating of a consultation they had. One per meeting."""
+    __tablename__ = "lawyer_reviews"
+    __table_args__ = (
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_lawyer_reviews_rating"),
+        Index("idx_lawyer_reviews_lawyer_created", "lawyer_user_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lawyer_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    meeting_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("meetings.id", ondelete="CASCADE"), unique=True, nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # Shown as written, e.g. "Priya S."
+    reviewer_name: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class Notification(Base):
     __tablename__ = "notifications"

@@ -18,17 +18,41 @@ import {
   type Service,
 } from "@homexo/shared";
 
+import { BookingsScreen } from "./BookingsScreen";
 import { ChatScreen } from "./ChatScreen";
+import { LawyersScreen } from "./LawyersScreen";
 import { api, colors } from "./theme";
+
+type Tab = "lawyers" | "bookings" | "services";
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: "lawyers", label: "Find a lawyer", icon: "⚖" },
+  { key: "bookings", label: "My bookings", icon: "◷" },
+  { key: "services", label: "Property services", icon: "⌂" },
+];
 
 const emptyForm = { name: "", contact: "", propertyType: "apartment" as PropertyType, location: "", description: "" };
 
 export default function App() {
+  const [tab, setTab] = useState<Tab>("lawyers");
+  // Every tab stays mounted so switching keeps searches, forms and the chat as they were.
+  const screens: Record<Tab, React.ReactNode> = {
+    lawyers: <LawyersScreen onBooked={() => setTab("bookings")} />,
+    bookings: <BookingsScreen onFindLawyer={() => setTab("lawyers")} />,
+    services: <HomeScreen />,
+  };
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
         <StatusBar style="dark" />
-        <HomeScreen />
+        {TABS.map((t) => <View key={t.key} style={[{ flex: 1 }, tab !== t.key && { display: "none" }]}>{screens[t.key]}</View>)}
+        <View style={styles.tabBar} accessibilityRole="tablist">
+          {TABS.map((t) => (
+            <Pressable key={t.key} style={styles.tab} onPress={() => setTab(t.key)} accessibilityRole="tab" accessibilityState={{ selected: tab === t.key }}>
+              <Text style={[styles.tabIcon, tab === t.key && { color: colors.green }]}>{t.icon}</Text>
+              <Text style={[styles.tabLabel, tab === t.key && { color: colors.green, fontWeight: "800" }]}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </View>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -182,6 +206,10 @@ function Field(props: { label: string; value: string; onChangeText: (v: string) 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.cream },
+  tabBar: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
+  tab: { flex: 1, alignItems: "center", paddingVertical: 8, gap: 2 },
+  tabIcon: { fontSize: 18, color: colors.muted },
+  tabLabel: { fontSize: 11, color: colors.muted },
   page: { padding: 20, gap: 14, paddingBottom: 48 },
   brand: { fontSize: 24, fontWeight: "800", color: colors.ink, letterSpacing: -1 },
   title: { fontSize: 30, fontWeight: "700", color: colors.ink, letterSpacing: -1, lineHeight: 36 },

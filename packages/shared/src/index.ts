@@ -102,6 +102,81 @@ export type ChatReply = {
   conversation_id: string;
 };
 
+// Mirrors the card views in backend/app/lawyers.py.
+export type LawyerSlot = { starts_at: string; label: string };
+export type LawyerCard = {
+  slug: string;
+  name: string;
+  initials: string;
+  headline: string;
+  specialisations: string[];
+  languages: string[];
+  experience_years: number;
+  // Whole rupees for one consultation.
+  consultation_fee: number;
+  consultation_minutes: number;
+  city: string;
+  locality: string | null;
+  rating: number | null;
+  review_count: number;
+  consultations: number;
+  next_available: (LawyerSlot & { day: string }) | null;
+};
+export type LawyerReview = { rating: number; comment: string; reviewer_name: string; at: string };
+export type LawyerProfile = LawyerCard & {
+  bio: string;
+  courts: string[];
+  bar_enrolment: string | null;
+  education: string | null;
+  hours: { day: string; hours: string[] }[];
+  reviews: LawyerReview[];
+};
+export type LawyerSort = "relevance" | "experience" | "fee_low" | "fee_high" | "rating" | "soonest";
+export type LawyerSearch = {
+  q?: string;
+  specialisation?: string;
+  language?: string;
+  city?: string;
+  max_fee?: number;
+  min_experience?: number;
+  available?: "today" | "3days";
+  sort?: LawyerSort;
+};
+export type LawyerFilters = {
+  specialisations: { value: string; count: number }[];
+  languages: { value: string; count: number }[];
+  cities: { value: string; count: number }[];
+  fee_range: [number, number];
+  total: number;
+};
+export type SlotDay = { date: string; label: string; slots: LawyerSlot[] };
+export type BookingCreate = {
+  starts_at: string;
+  customer_name: string;
+  phone: string;
+  email?: string;
+  issue: string;
+  source?: "website" | "mobile";
+};
+// Mirrors booking_view in backend/app/lawyers.py.
+export type Booking = {
+  ticket_number: string;
+  status: string;
+  status_label: string;
+  issue: string;
+  lawyer: { slug: string | null; name: string; initials: string; headline: string };
+  fee: number | null;
+  meeting: CustomerMeeting;
+  // Moving or cancelling online closes a few hours before the start.
+  can_change: boolean;
+  can_review: boolean;
+  review: LawyerReview | null;
+};
+// What a customer keeps to find a booking again: the ticket number and the phone or email it was made with.
+export type BookingRef = { ticket_number: string; contact: string };
+
+export const formatFee = (rupees: number) => `₹${rupees.toLocaleString("en-IN")}`;
+
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
@@ -117,6 +192,8 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
   }
   return data as T;
 }
+
+const post = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
   return {
@@ -144,6 +221,37 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticket_number: ticketNumber, contact, message }),
       });
+    },
+    searchLawyers(search: LawyerSearch = {}): Promise<{ items: LawyerCard[]; total: number }> {
+      const params = Object.entries(search)
+        .filter(([, value]) => value !== undefined && value !== "")
+        .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+        .join("&");
+      return request(baseUrl, `/api/v1/lawyers${params ? `?${params}` : ""}`);
+    },
+    lawyerFilters(): Promise<LawyerFilters> {
+      return request(baseUrl, "/api/v1/lawyers/filters");
+    },
+    getLawyer(slug: string): Promise<LawyerProfile> {
+      return request(baseUrl, `/api/v1/lawyers/${encodeURIComponent(slug)}`);
+    },
+    lawyerSlots(slug: string, days = 7): Promise<{ days: SlotDay[]; minutes: number; timezone: string }> {
+      return request(baseUrl, `/api/v1/lawyers/${encodeURIComponent(slug)}/slots?days=${days}`);
+    },
+    bookLawyer(slug: string, payload: BookingCreate): Promise<Booking> {
+      return request(baseUrl, `/api/v1/lawyers/${encodeURIComponent(slug)}/bookings`, post(payload));
+    },
+    lookupBooking(ref: BookingRef): Promise<Booking> {
+      return request(baseUrl, "/api/v1/bookings/lookup", post(ref));
+    },
+    cancelBooking(ref: BookingRef, reason?: string): Promise<Booking> {
+      return request(baseUrl, "/api/v1/bookings/cancel", post({ ...ref, reason: reason || null }));
+    },
+    rescheduleBooking(ref: BookingRef, startsAt: string): Promise<Booking> {
+      return request(baseUrl, "/api/v1/bookings/reschedule", post({ ...ref, starts_at: startsAt }));
+    },
+    reviewBooking(ref: BookingRef, rating: number, comment: string): Promise<Booking> {
+      return request(baseUrl, "/api/v1/bookings/review", post({ ...ref, rating, comment }));
     },
     chat(message: string, options: ChatOptions = {}): Promise<ChatReply> {
       return request<ChatReply>(baseUrl, "/api/v1/chat", {
