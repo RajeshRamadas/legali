@@ -3,11 +3,11 @@
 Types are kept portable (JSON becomes JSONB on PostgreSQL) so tests can also run on SQLite.
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
-    JSON, BigInteger, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Table, Text, UniqueConstraint, Uuid, text,
+    JSON, BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Table, Text, UniqueConstraint, Uuid, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -39,6 +39,7 @@ UPLOADER_TYPES = ("customer", "staff", "system")
 REPORT_STATUSES = ("draft", "issued", "final_generated", "signed")
 # received is set when the customer files a document under the item's tag; the lawyer then verifies, rejects or waives it.
 REPORT_ITEM_STATUSES = ("pending", "received", "verified", "rejected", "waived")
+RERA_STATUSES = ("ongoing", "completed", "lapsed", "revoked", "withdrawn")
 
 class Base(DeclarativeBase):
     pass
@@ -509,3 +510,45 @@ class Post(TimestampMixin, Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     author: Mapped[User | None] = relationship(lazy="joined")
+
+class ReraProject(TimestampMixin, Base):
+    """A project registered with Karnataka RERA, loaded by app.rera_import (or app.rera_sample in development).
+    The public RERA pages and market figures are computed from these rows; nothing here is entered by staff."""
+    __tablename__ = "rera_projects"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", RERA_STATUSES), name="ck_rera_projects_status"),
+        Index("idx_rera_projects_promoter", "promoter_slug"),
+        Index("idx_rera_projects_locality", "locality_slug"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    registration_no: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    # The registration number with "/" and spaces turned into "-", for URLs.
+    slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    promoter_name: Mapped[str] = mapped_column(Text, nullable=False)
+    promoter_slug: Mapped[str] = mapped_column(Text, nullable=False)
+    project_type: Mapped[str] = mapped_column(Text, default="residential", nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="ongoing", nullable=False)
+    district: Mapped[str] = mapped_column(Text, nullable=False)
+    taluk: Mapped[str | None] = mapped_column(Text)
+    locality: Mapped[str] = mapped_column(Text, nullable=False)
+    locality_slug: Mapped[str] = mapped_column(Text, nullable=False)
+    address: Mapped[str | None] = mapped_column(Text)
+    pincode: Mapped[str | None] = mapped_column(Text)
+    registered_on: Mapped[date | None] = mapped_column(Date)
+    registration_valid_until: Mapped[date | None] = mapped_column(Date)
+    proposed_completion: Mapped[date | None] = mapped_column(Date)
+    revised_completion: Mapped[date | None] = mapped_column(Date)
+    completed_on: Mapped[date | None] = mapped_column(Date)
+    extensions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_units: Mapped[int | None] = mapped_column(Integer)
+    booked_units: Mapped[int | None] = mapped_column(Integer)
+    # Units by type, e.g. {"2 BHK": 120, "3 BHK": 60}.
+    unit_mix: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    land_area_sqm: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    price_per_sqft: Mapped[int | None] = mapped_column(Integer)
+    complaints: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text)
+    # Made-up rows from app.rera_sample, shown with a "sample data" notice. Importing real data removes them.
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

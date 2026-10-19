@@ -84,3 +84,7 @@ DOWNLOAD_LINK_MINUTES = int(os.getenv("DOWNLOAD_LINK_MINUTES", "15"))
 # Printed in the report header and on the PDF footer.
 FIRM_NAME = os.getenv("FIRM_NAME", "Homexo Legal")
 FIRM_ADDRESS = os.getenv("FIRM_ADDRESS", "Bengaluru, Karnataka")
+
+# Karnataka RERA project pages. Until real data is imported (python -m app.rera_import), the API loads made-up
+# sample projects on startup when the table is empty, so the pages have something to show. Set to false in production.
+RERA_SAMPLE_WHEN_EMPTY = os.getenv("RERA_SAMPLE_WHEN_EMPTY", "true").lower() == "true"
