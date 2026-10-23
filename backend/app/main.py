@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from . import admin, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera
+from . import accounts, admin, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera
 from .bootstrap import sync_reference_data
 from .db import SessionLocal
 from .models import ReraProject
@@ -28,7 +28,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="Homexo Property Services API",
     version="0.2.0",
-    description="Service catalogue, ticket intake and tracking, staff ticket workspace, video consultations, lawyer search and booking, customer documents and legal reports, chat assistant, blog and Karnataka RERA project check.",
+    description="Service catalogue, ticket intake and tracking, staff ticket workspace, video consultations, lawyer search and booking, customer accounts with phone sign-in, customer documents and legal reports, chat assistant, blog and Karnataka RERA project check.",
     lifespan=lifespan,
 )
 
@@ -49,3 +49,4 @@ app.include_router(posts.router)
 app.include_router(documents.router)
 app.include_router(payments.router)
 app.include_router(rera.router)
+app.include_router(accounts.router)

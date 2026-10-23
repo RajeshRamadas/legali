@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { formatFee, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
+import { ApiError, formatFee, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
+import { readSession, signOut } from "../account/session";
 import { api } from "../api";
 import LawyerShell from "../lawyers/LawyerShell";
 import PayPanel from "../lawyers/PayPanel";
@@ -120,7 +121,17 @@ export default function BookingsPage() {
   const [findError, setFindError] = useState("");
   const [finding, setFinding] = useState(false);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
+    // Signed in: the account's consultations join the ones this browser remembers.
+    const session = readSession();
+    if (session) {
+      try {
+        const account = await api.getAccount(session.token);
+        [...account.bookings].reverse().forEach((b) => saveBooking({ ticket_number: b.ticket_number, contact: account.profile.contact }));
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) signOut();
+      }
+    }
     const refs = savedBookings();
     setEntries(refs.map((ref) => ({ ref, booking: null })));
     refs.forEach((ref) => {
@@ -129,7 +140,7 @@ export default function BookingsPage() {
         .catch((err) => setEntries((prev) => prev?.map((e) => (e.ref.ticket_number === ref.ticket_number ? { ref, booking: null, error: err instanceof Error ? err.message : "Not found" } : e)) ?? null));
     });
   }, []);
-  useEffect(load, [load]);
+  useEffect(() => { load(); }, [load]);
 
   async function findBooking(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -162,7 +173,7 @@ export default function BookingsPage() {
         <div className="wrap">
           <div className="eyebrow">Your consultations</div>
           <h1>My bookings</h1>
-          <p>Join, move, cancel or rate your consultations. Bookings made on this browser show here; find others with the booking number and your phone or email.</p>
+          <p>Join, move, cancel or rate your consultations. Bookings made on this browser, or on your account when you sign in, show here. Find others with the booking number and your phone or email.</p>
         </div>
       </section>
       <div className="wrap lw-bookings">

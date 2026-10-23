@@ -34,8 +34,14 @@ def _param(value: str) -> str:
     # Template parameters can't hold newlines, tabs or long runs of spaces.
     return re.sub(r"\s+", " ", str(value)).strip()[:1000] or "-"
 
-def send_template(phone: str, template: str, params: list[str]) -> str:
-    """Send a template message. Returns the WhatsApp message id."""
+def send_template(phone: str, template: str, params: list[str], *, button_param: str | None = None) -> str:
+    """Send a template message. Returns the WhatsApp message id.
+
+    button_param fills the first button's parameter, which authentication templates with a copy-code button need.
+    """
+    components = [{"type": "body", "parameters": [{"type": "text", "text": _param(p)} for p in params]}] if params else []
+    if button_param is not None:
+        components.append({"type": "button", "sub_type": "url", "index": "0", "parameters": [{"type": "text", "text": button_param}]})
     payload = {
         "messaging_product": "whatsapp",
         "to": to_wa_number(phone),
@@ -43,7 +49,7 @@ def send_template(phone: str, template: str, params: list[str]) -> str:
         "template": {
             "name": template,
             "language": {"code": config.WHATSAPP_TEMPLATE_LANGUAGE},
-            "components": [{"type": "body", "parameters": [{"type": "text", "text": _param(p)} for p in params]}] if params else [],
+            "components": components,
         },
     }
     try:

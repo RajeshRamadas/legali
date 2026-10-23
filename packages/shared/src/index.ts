@@ -256,6 +256,40 @@ export type PaymentResult = { order_id: string; payment_id: string; signature: s
 // What a customer keeps to find a booking again: the ticket number and the phone or email it was made with.
 export type BookingRef = { ticket_number: string; contact: string };
 
+// Customer accounts (backend/app/accounts.py). Customers sign in with a code sent to their phone; the account shows
+// everything raised with that number. `contact` is what the ticket, document and booking calls take for these requests.
+export type AccountProfile = { name: string | null; phone: string; email: string | null; contact: string };
+export type LoginCodeSent = { phone: string; channel: "whatsapp" | "dev"; expires_in: number; resend_after: number; dev_code?: string };
+export type AccountSession = { access_token: string; token_type: "bearer"; account: AccountProfile };
+export type AccountRequest = {
+  ticket_number: string;
+  title: string;
+  service_name: string;
+  package: string | null;
+  kind: "consultation" | "request";
+  status: string;
+  status_label: string;
+  created_at: string;
+  updated_at: string;
+  documents: number;
+  report: { status_label: string; progress: { done: number; total: number }; signed: boolean } | null;
+  next_meeting: CustomerMeeting | null;
+  // A short line when the customer has something to do, e.g. "Documents to upload".
+  needs_you: string | null;
+};
+export type AccountPayment = Pick<BookingPayment, "status" | "amount" | "paid_at" | "method" | "reference" | "can_pay"> & {
+  ticket_number: string;
+  description: string;
+  when: string;
+};
+export type AccountOverview = {
+  profile: AccountProfile;
+  requests: AccountRequest[];
+  bookings: Booking[];
+  payments: AccountPayment[];
+  payments_mode: BookingPayment["mode"];
+};
+
 export const formatFee = (rupees: number) => `₹${rupees.toLocaleString("en-IN")}`;
 
 // Test mode takes a pretend payment; this id is what the server accepts for it.
@@ -263,7 +297,7 @@ export const testPayment = (checkout: PaymentCheckout): PaymentResult => ({
   order_id: checkout.order_id, payment_id: `pay_test_${Date.now().toString(36)}`, signature: "",
 });
 
-export const paymentLabel = (payment: BookingPayment): string => ({
+export const paymentLabel = (payment: Pick<BookingPayment, "status" | "amount">): string => ({
   due: `${formatFee(payment.amount)} to pay`,
   paid: `${formatFee(payment.amount)} paid`,
   refund_due: `Refund of ${formatFee(payment.amount)} on its way`,
@@ -428,6 +462,15 @@ export type ReraSearchResult = { items: ReraProjectCard[]; total: number; page: 
 
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
+// Thrown for any failed API call. status 401 on an account call means the session ended: sign in again.
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, init);
   const data = await response.json().catch(() => ({}));
@@ -437,10 +480,12 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
       typeof data.detail === "string" ? data.detail
       : Array.isArray(data.detail) && data.detail[0]?.msg ? `${data.detail[0].loc?.at(-1) ?? "Field"}: ${data.detail[0].msg}`
       : "Request failed.";
-    throw new Error(detail);
+    throw new ApiError(detail, response.status);
   }
   return data as T;
 }
+
+const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 const post = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -571,6 +616,24 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
     },
     refreshPayment(ref: BookingRef): Promise<Booking> {
       return request(baseUrl, "/api/v1/bookings/pay/refresh", post(ref));
+    },
+    startLogin(phone: string): Promise<LoginCodeSent> {
+      return request(baseUrl, "/api/v1/account/login/start", post({ phone }));
+    },
+    verifyLogin(phone: string, code: string): Promise<AccountSession> {
+      return request(baseUrl, "/api/v1/account/login/verify", post({ phone, code }));
+    },
+    getAccount(token: string): Promise<AccountOverview> {
+      return request(baseUrl, "/api/v1/account", { headers: bearer(token) });
+    },
+    getAccountRequest(token: string, ticketNumber: string): Promise<TicketStatus> {
+      return request(baseUrl, `/api/v1/account/requests/${encodeURIComponent(ticketNumber)}`, { headers: bearer(token) });
+    },
+    updateAccount(token: string, changes: { full_name?: string; email?: string }): Promise<AccountProfile> {
+      return request(baseUrl, "/api/v1/account", { method: "PATCH", headers: { ...bearer(token), "Content-Type": "application/json" }, body: JSON.stringify(changes) });
+    },
+    signOutEverywhere(token: string): Promise<{ ok: boolean }> {
+      return request(baseUrl, "/api/v1/account/logout-all", { method: "POST", headers: bearer(token) });
     },
     chat(message: string, options: ChatOptions = {}): Promise<ChatReply> {
       return request<ChatReply>(baseUrl, "/api/v1/chat", {

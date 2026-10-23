@@ -101,3 +101,17 @@ PAYMENT_HOLD_MINUTES = int(os.getenv("PAYMENT_HOLD_MINUTES", "30"))
 # Karnataka RERA project pages. Until real data is imported (python -m app.rera_import), the API loads made-up
 # sample projects on startup when the table is empty, so the pages have something to show. Set to false in production.
 RERA_SAMPLE_WHEN_EMPTY = os.getenv("RERA_SAMPLE_WHEN_EMPTY", "true").lower() == "true"
+
+# Customer sign-in with a one-time code sent to their phone on WhatsApp (the login_code authentication template,
+# see docs/customer-accounts.md). Without WhatsApp credentials, dev mode puts the code in the API response and the log
+# instead; it is on only in development by default, and sign-in is unavailable when neither is set.
+LOGIN_CODE_DEV_MODE = os.getenv("LOGIN_CODE_DEV_MODE", "true" if APP_ENV == "development" else "false").lower() == "true"
+LOGIN_CODE_TEMPLATE = os.getenv("LOGIN_CODE_TEMPLATE", "login_code")
+LOGIN_CODE_MINUTES = int(os.getenv("LOGIN_CODE_MINUTES", "10"))
+LOGIN_CODE_MAX_ATTEMPTS = int(os.getenv("LOGIN_CODE_MAX_ATTEMPTS", "5"))
+LOGIN_CODE_RESEND_SECONDS = int(os.getenv("LOGIN_CODE_RESEND_SECONDS", "30"))
+# Codes one phone number, and one address, can ask for in an hour, so nobody can flood a number or run up the bill.
+LOGIN_CODES_PER_PHONE_PER_HOUR = int(os.getenv("LOGIN_CODES_PER_PHONE_PER_HOUR", "5"))
+LOGIN_CODES_PER_CLIENT_PER_HOUR = int(os.getenv("LOGIN_CODES_PER_CLIENT_PER_HOUR", "20"))
+# How long a customer stays signed in on a device.
+CUSTOMER_SESSION_DAYS = int(os.getenv("CUSTOMER_SESSION_DAYS", "30"))

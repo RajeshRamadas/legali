@@ -18,16 +18,19 @@ import {
   type Service,
 } from "@homexo/shared";
 
+import { AccountScreen } from "./AccountScreen";
+import { useSession } from "./accountStore";
 import { BookingsScreen } from "./BookingsScreen";
 import { ChatScreen } from "./ChatScreen";
 import { LawyersScreen } from "./LawyersScreen";
 import { api, colors } from "./theme";
 
-type Tab = "lawyers" | "bookings" | "services";
+type Tab = "lawyers" | "bookings" | "services" | "account";
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "lawyers", label: "Find a lawyer", icon: "⚖" },
   { key: "bookings", label: "My bookings", icon: "◷" },
   { key: "services", label: "Property services", icon: "⌂" },
+  { key: "account", label: "Account", icon: "◉" },
 ];
 
 const emptyForm = { name: "", contact: "", propertyType: "apartment" as PropertyType, location: "", description: "" };
@@ -39,6 +42,7 @@ export default function App() {
     lawyers: <LawyersScreen onBooked={() => setTab("bookings")} />,
     bookings: <BookingsScreen onFindLawyer={() => setTab("lawyers")} />,
     services: <HomeScreen />,
+    account: <AccountScreen onOpenBookings={() => setTab("bookings")} />,
   };
   return (
     <SafeAreaProvider>
@@ -113,8 +117,12 @@ function HomeScreen() {
 }
 
 function RequestScreen({ service, conversationId, onBack }: { service: Service; conversationId?: string | null; onBack: () => void }) {
+  const session = useSession();
+  // Signed in: start from the account's name and verified phone.
+  const known = { name: session?.profile.name ?? "", contact: session?.profile.contact ?? "" };
   const [form, setForm] = useState({
     ...emptyForm,
+    ...known,
     propertyType: service.property_types[0] ?? emptyForm.propertyType,
   });
   const [notice, setNotice] = useState("");
@@ -136,8 +144,8 @@ function RequestScreen({ service, conversationId, onBack }: { service: Service; 
         source: "mobile",
         conversation_id: conversationId,
       });
-      setNotice(`Request received. Your ticket number is ${data.ticket_number}. Save it to track your request in the assistant.`);
-      setForm({ ...form, name: "", contact: "", location: "", description: "" });
+      setNotice(`Request received. Your ticket number is ${data.ticket_number}. ${session ? "It's on your account too." : "Save it to track your request in the assistant, or sign in under Account."}`);
+      setForm({ ...form, ...known, location: "", description: "" });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not connect to Homexo. Please try again.");
     } finally {
