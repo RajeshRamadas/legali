@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { formatBytes, normalizeTag, type CustomerDocument, type ReportItem, type TicketStatus } from "@homexo/shared";
+import { ApiError, formatBytes, normalizeTag, type AccountRequest, type CustomerDocument, type ReportItem, type TicketStatus } from "@homexo/shared";
 import { api } from "../api";
 import "./documents.css";
+import CustomerNav from "../account/CustomerNav";
+import { signOut, useSession, type Session } from "../account/session";
 import { openDocuments, readRef, type Ref } from "./ref";
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx";
@@ -16,6 +18,7 @@ export default function DocumentsPage() {
   const [form, setForm] = useState<Ref>({ ticket_number: "", contact: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const session = useSession();
 
   async function open(next: Ref) {
     setError("");
@@ -39,15 +42,7 @@ export default function DocumentsPage() {
 
   return (
     <>
-      <header className="header">
-        <div className="wrap navrow">
-          <Link className="brand" href="/" aria-label="Homexo Legal home"><span className="brandmark">H</span><span>homexo legal<small>Property clarity, end to end</small></span></Link>
-          <nav className="dc-nav" aria-label="Customer">
-            <Link href="/#track">Track a request</Link>
-            <Link href="/documents" className="active">My documents</Link>
-          </nav>
-        </div>
-      </header>
+      <CustomerNav />
       <main>
         <section className="dc-band">
           <div className="wrap">
@@ -58,12 +53,14 @@ export default function DocumentsPage() {
         </section>
         <div className="wrap dc-body">
           {!ticket || !ref ? (
+            session ? <AccountRequests session={session} loading={loading} error={error} onOpen={open} /> :
             <form className="dc-card dc-signin" onSubmit={(e) => { e.preventDefault(); open({ ticket_number: form.ticket_number.trim(), contact: form.contact.trim() }); }}>
               <h2>Open your request</h2>
               <label>Ticket number<input required placeholder="HX-261018-ABC123" value={form.ticket_number} onChange={(e) => setForm({ ...form, ticket_number: e.target.value })} /></label>
               <label>Phone or email<input required placeholder="Used when you raised it" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></label>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="btn" disabled={loading}>{loading ? "Opening…" : "Open documents"}</button>
+              <p className="dc-muted" style={{ margin: 0 }}>Or <Link href="/account" style={{ color: "var(--forest2)", fontWeight: 800 }}>sign in with your phone</Link> to see all your requests.</p>
             </form>
           ) : (
             <Repository ticket={ticket} reference={ref} onChange={setTicket} />
@@ -76,6 +73,34 @@ export default function DocumentsPage() {
         </div>
       </footer>
     </>
+  );
+}
+
+// Signed in: pick one of the account's requests instead of typing the ticket number.
+function AccountRequests({ session, loading, error, onOpen }: { session: Session; loading: boolean; error: string; onOpen: (ref: Ref) => void }) {
+  const [requests, setRequests] = useState<AccountRequest[] | null>(null);
+  const [loadError, setLoadError] = useState("");
+  useEffect(() => {
+    api.getAccount(session.token)
+      .then((account) => setRequests(account.requests.filter((r) => r.kind === "request")))
+      .catch((e) => (e instanceof ApiError && e.status === 401 ? signOut() : setLoadError(e instanceof Error ? e.message : "We couldn't load your requests.")));
+  }, [session.token]);
+  return (
+    <section className="dc-card" style={{ maxWidth: 640 }}>
+      <h2>Choose a request</h2>
+      <p className="dc-muted">Requests raised with {session.profile.phone}.</p>
+      {(error || loadError) && <p className="dc-error" role="alert">{error || loadError}</p>}
+      {requests === null && !loadError && <p className="dc-muted">Loading…</p>}
+      {requests?.length === 0 && <p className="dc-muted">No property requests on this number yet. <Link href="/#callback" style={{ color: "var(--forest2)", fontWeight: 800 }}>Request a callback</Link> to start one.</p>}
+      <ul className="dc-files">
+        {requests?.map((r) => (
+          <li key={r.ticket_number}>
+            <div className="dc-file-main"><b>{r.service_name}</b><small>{r.ticket_number} · {r.status_label}{r.needs_you ? ` · ${r.needs_you}` : ""}</small></div>
+            <button className="btn small light" disabled={loading} onClick={() => onOpen({ ticket_number: r.ticket_number, contact: session.profile.contact })}>Open</button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
