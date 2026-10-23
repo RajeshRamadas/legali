@@ -33,6 +33,12 @@ SOURCES: dict[str, dict] = {
         "provides": ("khata", "tax-receipts"),
         "search_by": "BBMP PID / e-Khata number, or ward and owner name",
     },
+    "eswathu": {
+        "name": "e-Swathu (panchayat property records)",
+        "url": "https://eswathu.karnataka.gov.in",
+        "provides": ("eswathu",),
+        "search_by": "District, taluk, gram panchayat, village and property / survey number",
+    },
     "rera": {
         "name": "Karnataka RERA",
         "url": "https://rera.karnataka.gov.in",
@@ -42,7 +48,7 @@ SOURCES: dict[str, dict] = {
 }
 # Public records the team fetches by default. Deeds can also come from Kaveri as certified copies, but the seller usually
 # has them, so they start with the customer and the lawyer can switch them to Homexo.
-FETCH_BY_DEFAULT = {"ec", "rtc", "mutation", "survey-sketch", "khata", "tax-receipts", "rera"}
+FETCH_BY_DEFAULT = {"ec", "rtc", "mutation", "survey-sketch", "khata", "tax-receipts", "rera", "eswathu"}
 TAG_SOURCES = {tag: key for key, source in SOURCES.items() for tag in source["provides"]}
 
 # Automatic fetchers by source key: (ticket, item) -> (filename, content_type, bytes). None configured yet.

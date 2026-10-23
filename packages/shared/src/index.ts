@@ -3,17 +3,25 @@
 
 export type PropertyType =
   | "apartment"
+  | "villa"
   | "independent_house"
   | "residential_plot"
   | "agricultural_land"
+  | "farmhouse"
+  | "plantation_estate"
+  | "industrial_land"
   | "commercial"
   | "other";
 
 export const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "apartment", label: "Apartment" },
+  { value: "villa", label: "Villa or row house" },
   { value: "independent_house", label: "Independent house" },
   { value: "residential_plot", label: "Residential plot" },
   { value: "agricultural_land", label: "Agricultural land" },
+  { value: "farmhouse", label: "Farmhouse or managed farmland" },
+  { value: "plantation_estate", label: "Coffee or plantation estate" },
+  { value: "industrial_land", label: "Industrial land (KIADB)" },
   { value: "commercial", label: "Commercial property" },
   { value: "other", label: "Other" },
 ];

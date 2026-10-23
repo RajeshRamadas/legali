@@ -140,3 +140,17 @@ def test_s3_storage(client, raise_ticket, monkeypatch):
         redirect = client.get(doc["download_url"], follow_redirects=False)
         assert redirect.status_code == 302 and "X-Amz-Signature" in redirect.headers["location"]
         storage._s3.cache_clear()
+
+@pytest.mark.parametrize("property_type", ["villa", "farmhouse", "plantation_estate", "industrial_land", "agricultural_land", "residential_plot"])
+def test_every_kind_of_property_gets_its_checklist(client, raise_ticket, admin_headers, property_type):
+    ticket = raise_ticket(property_type=property_type, service_slug="title-verification")
+    items = _template(client, admin_headers, ticket)["items"]
+    tags = [i["tag"] for i in items]
+    assert len(tags) == len(set(tags)) and {"sale-deed", "ec"} <= set(tags)
+    expected = {"villa": "rera", "farmhouse": "farm-agreement", "plantation_estate": "plantation-registration", "industrial_land": "kiadb-allotment",
+                "agricultural_land": "rtc", "residential_plot": "layout-approval"}[property_type]
+    assert expected in tags
+    # Public records on the list go to the team to fetch, e.g. RTC from Bhoomi or Form 9/11 from e-Swathu.
+    assert all(i["fetch_by"] == "homexo" for i in items if i["tag"] in ("rtc", "eswathu", "ec"))
+    report = _report(client, admin_headers, ticket, items=items)
+    assert len(report["items"]) == len(items)
