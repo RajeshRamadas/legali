@@ -95,6 +95,9 @@ def view(ticket):
     if official: prompt += f" The case team has {len(official)} official-record tasks to complete."
     if ticket.status in CLOSED_STATUSES:
         prompt = "This request is closed. Contact the case team if documents or property details need to change."
-    return {"origin": origin, "intake": answers, "items": rows, "missing_count": len(missing), "official_count": len(official),
-            "questions": questions, "prompt": prompt if rows else "The case team will confirm documents for this service.",
-            "note": "This is a provisional document request, not an issued legal opinion. Applicability and any additional documents are confirmed by the advocate."}
+    result = {"origin": origin, "intake": answers, "items": rows, "missing_count": len(missing), "official_count": len(official),
+              "questions": questions, "prompt": prompt if rows else "The case team will confirm documents for this service.",
+              "note": "This is a provisional document request, not an issued legal opinion. Applicability and any additional documents are confirmed by the advocate."}
+    from . import document_journey
+    result["journey"] = document_journey.journey(ticket, result)
+    return result

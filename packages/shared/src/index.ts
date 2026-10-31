@@ -123,6 +123,8 @@ export type ReportItem = {
   // "homexo": a public record the case team gets from a government portal, so the customer needn't upload it.
   fetch_by: "customer" | "homexo";
   source: GovSource | null;
+  // Which verification question the document answers (DocumentJourney groups). Only on document_request items.
+  group?: string;
 };
 export type ReportSection = { key: string; heading: string; hint: string; text: string };
 
@@ -134,10 +136,26 @@ export type PropertyIntake = {
   granted_land: "yes" | "no" | "unknown";
   survey_number: string; property_id_or_pid: string; village: string; taluk: string; district: string;
 };
+// Mirrors backend/app/document_journey.py: where the case stands, how the documents relate, and which checks are done.
+export type JourneyStage = { key: string; label: string; status: "done" | "current" | "upcoming"; detail: string; at?: string };
+export type CheckStatus = "passed" | "in_review" | "waiting" | "problem";
+export type JourneyCheck = { key: string; label: string; question: string; explains: string; status: CheckStatus; detail: string; accepted: number; total: number; tags: string[];
+  // Problems the automatic upload check noticed in this check's files. Advice only.
+  flags: string[] };
+export type JourneyGroup = { key: string; label: string; explains: string; status: CheckStatus; tags: string[]; flagged: boolean };
+export type DocumentJourney = {
+  stages: JourneyStage[];
+  groups: JourneyGroup[];
+  links: { from: string; to: string }[];
+  checks: JourneyCheck[];
+  // The id of the item to ask the customer for next: a rejected upload first, then the first one still needed.
+  next_upload: string | null;
+};
 export type DocumentRequest = {
   origin: "automatic_intake" | "advocate_checklist" | "not_applicable";
   intake: PropertyIntake; items: ReportItem[]; missing_count: number; official_count: number;
   questions: string[]; prompt: string; note: string;
+  journey?: DocumentJourney;
 };
 
 // Mirrors customer_report_view in backend/app/case_files.py. Null until the lawyer issues the preliminary report.
