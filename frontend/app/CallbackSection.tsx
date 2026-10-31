@@ -6,6 +6,9 @@ import { api } from "./api";
 import TrackRequest from "./TrackRequest";
 import { SERVICE_OPTIONS, serviceLabel } from "./content";
 import { SERVICE_EVENT, type ServiceRequest } from "./homeEvents";
+import PropertyIntakeFields, { EMPTY_INTAKE } from "./PropertyIntakeFields";
+import Link from "next/link";
+import { openDocuments } from "./documents/ref";
 
 const emptyForm = { name: "", phone: "", email: "", propertyType: "apartment" as PropertyType, location: "", description: "" };
 
@@ -15,6 +18,7 @@ export default function CallbackSection() {
   const [service, setService] = useState("general-guidance");
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [intake, setIntake] = useState(EMPTY_INTAKE);
   const [sending, setSending] = useState(false);
   const [formError, setFormError] = useState("");
   const [created, setCreated] = useState<{ ticket: string; contact: string; name: string; message: string } | null>(null);
@@ -61,6 +65,7 @@ export default function CallbackSection() {
     setSending(true);
     try {
       const data = await api.createTicket({
+        property_intake: intake,
         customer_name: form.name.trim(),
         contact: form.phone.trim(),
         email: form.email.trim() || undefined,
@@ -114,6 +119,7 @@ export default function CallbackSection() {
             </div>
             <div className="field"><label htmlFor="location">Property location</label><input id="location" placeholder="Area, city" required minLength={2} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
             <div className="field wide"><label htmlFor="description">Anything we should know? (optional)</label><textarea id="description" rows={2} placeholder="e.g. Resale 2BHK, registration planned next month" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+            <details className="wide"><summary>Tailor the document checklist to your property</summary><p>These answers help us request the right documents automatically. Choose unknown whenever you are unsure.</p><PropertyIntakeFields value={intake} onChange={setIntake} /></details>
             <button className="btn" type="submit" disabled={sending}>{sending ? "Sending…" : "Request free callback ↗"}</button>
             {formError ? <div className="form-note form-error" role="alert">{formError}</div> : <div className="form-note">Your details are used only to respond to this request.</div>}
           </form>
@@ -132,6 +138,7 @@ export default function CallbackSection() {
             <h2 id="modalTitle">Thanks, {created.name.split(" ")[0]}.</h2>
             <div className="ticket-chip"><span>Your ticket number</span><b>{created.ticket}</b></div>
             <p>{created.message} Save this number to track your request.</p>
+            <p><Link className="btn light" href="/documents" onClick={() => openDocuments({ ticket_number: created.ticket, contact: created.contact })}>See requested documents and upload</Link></p>
             <div className="modal-actions"><button className="btn" onClick={trackCreated} autoFocus>Track this request</button><button className="btn light" onClick={() => setCreated(null)}>Continue browsing</button></div>
           </div>
         )}

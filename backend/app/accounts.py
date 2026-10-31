@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, payments, tickets, whatsapp
+from . import case_files, config, payments, tickets, whatsapp, document_requirements
 from .chat import client_key
 from .db import get_db
 from .lawyers import booking_view
@@ -170,6 +170,8 @@ def _needs_you(ticket: ServiceRequest) -> str | None:
             return "A document needs uploading again"
         if any(i.status == "pending" and i.fetch_by == "customer" for i in report.items):
             return "Documents to upload"
+    if document_requirements.view(ticket)["missing_count"]:
+        return "Documents to upload"
     return None
 
 def _request_summary(ticket: ServiceRequest) -> dict:

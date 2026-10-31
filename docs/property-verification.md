@@ -64,3 +64,29 @@ npm run build --workspace frontend
 - No automated EC, sub-registrar, court, lender, revenue, acquisition or live RERA verification is claimed. Existing sample RERA records do not establish verification.
 - Runs retain extracted text and evidence in the case database. Apply the same access, backup and retention controls as original case documents. Legal verdicts are internal staff work product until the advocate completes the existing signed-report process.
 - Runs are synchronous and may take several minutes for scans. A PostgreSQL row lock serializes runs on a case, and a one-minute interval limits repeated analysis. Deploy with suitable request timeouts; a durable worker queue and broader abuse/retention policies are follow-up production work.
+
+## Intake-driven Karnataka workflow
+
+Verification services (`title-verification`, `legal-due-diligence`, `developer-land-screening`, `acquisition-due-diligence`) now create a provisional document request as soon as a ticket is raised. No LLM key and no issued lawyer report is needed for this request. The response, customer Documents page and tracking card include the current request. A customer-visible system message and queued SMS/email notifications announce it; delivery still depends on the repository's notification-provider integrations.
+
+Customers answer structured questions about state, transaction type, seller authority, development stage and granted-land history, and can provide survey/PID/village/taluk/district details. Unknown answers remain explicit questions. Inheritance adds death and succession records; a POA holder adds authority documents; a company adds signatory authority; gifts/partitions and new developments add their corresponding instruments. These are provisional requirements, not determinations of legal applicability. Unrelated services such as affidavit drafting do not receive a full title-verification checklist.
+
+The request distinguishes customer uploads from case-team official-record tasks. Uploading under a tag changes that item to received and removes it from the current missing-upload prompt; deleting the file restores the request. Received never means verified. The government fetch queue now includes intake tasks before a preliminary report exists, including litigation/acquisition search records. Karnataka portal links are supplied only when Karnataka is explicitly selected. Captchas, official searches, court coverage and legal conclusions remain work for the team. Customers cannot rewrite an advocate-issued checklist; staff can correct intake, add newly applicable requirements and preserve existing review decisions. Those changes invalidate affected agent outputs.
+
+The agent produces a candidate title-chain view grouped by quoted document facts. Where one valid ISO execution date is available per document, it shows a candidate chronological order and exact-name continuity checks. Ambiguous parties, dates and missing intervening transfers remain unresolved. Matching names do not verify identity or ownership.
+
+After a successful Karnataka LLM run, staff can use **Prepare advocate report draft**. It copies the evidence-backed findings, legal references, chain facts, limitations and open checks into the existing editable legal report. It does not issue, approve or sign it. Existing advocate-written final sections are protected from silent overwrite. Review the report, issue its checklist and resolve each item through the case file.
+
+**Record advocate approval** requires a staff advocate profile with a recorded bar enrolment, every checklist item verified/waived, explanations for waivers, official HTTPS source references and review notes. The advocate explicitly attests to checking current law/amendments/applicability/judgments and the independent record checks. The app records the reviewer, timestamp, sources and notes; it does not claim the LLM independently researched current legislation or verified the advocate's enrolment. Final PDF generation for an agent-drafted report is blocked until this review is recorded. Evidence, intake, report or checklist changes invalidate the relevant approval. The existing final PDF and signed-upload workflow completes the case.
+
+API additions:
+
+- `POST /api/v1/tickets`: optional `property_intake`; returns `document_request`.
+- `POST /api/v1/tickets/property-intake`: ticket/contact plus `intake`; returns the updated customer ticket.
+- `PATCH /api/v1/admin/tickets/{ticket}/property-intake`: staff correction and checklist reconciliation.
+- `POST /api/v1/admin/tickets/{ticket}/verification/report-draft`: `run_id` of a current successful Karnataka analysis.
+- `POST /api/v1/admin/tickets/{ticket}/verification/approve`: `sources`, `notes`, `current_law_and_applicability_confirmed`, `official_checks_reviewed`.
+
+Intake and approval metadata use the existing ticket JSON storage; no additional database migration is required beyond `0011_verification`.
+
+Before approval, the advocate must replace the `AUTOMATED DRAFT` opinion with their own reasoned opinion and resolve all outstanding intake questions. Waivers need substantive reasons; a verified item needs an attached record or substantive verification notes. The draft's conditions include the applicable curated Act/section principles and official reference links, even when the model returns no adverse findings. This supports a documented review; it does not automate legal research or guarantee title.

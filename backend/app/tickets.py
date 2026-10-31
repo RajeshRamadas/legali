@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config
+from . import case_files, config, document_requirements
 from .models import (
     CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
@@ -70,7 +70,7 @@ def queue_notifications(db: Session, ticket: ServiceRequest, template_key: str, 
         db.add(Notification(service_request_id=ticket.id, customer_id=customer.id, channel=channel, template_key=template_key, recipient=recipient, body=body))
 
 def create_ticket(db: Session, *, customer_name: str, phone: str, email: str | None, property_type: str, service: ServiceType,
-                  package: str | None, location: str, description: str, source: str) -> ServiceRequest:
+                  package: str | None, location: str, description: str, source: str, property_intake: dict | None = None) -> ServiceRequest:
     phone_normalized = normalize_phone(phone)
     # Returning customers are matched on phone so their tickets stay together.
     customer = db.scalars(select(Customer).where(Customer.phone_normalized == phone_normalized).order_by(Customer.created_at)).first() if phone_normalized else None
@@ -81,6 +81,9 @@ def create_ticket(db: Session, *, customer_name: str, phone: str, email: str | N
         customer.email = email
     db.flush()
     prop = Property(customer_id=customer.id, property_type=property_type, locality=location)
+    for field in ("survey_number", "property_id_or_pid", "village", "taluk", "district"):
+        if (property_intake or {}).get(field):
+            setattr(prop, field, property_intake[field].strip() or None)
     db.add(prop)
     db.flush()
     now = utcnow()
@@ -88,13 +91,17 @@ def create_ticket(db: Session, *, customer_name: str, phone: str, email: str | N
         ticket_number=_new_ticket_number(now), customer_id=customer.id, property_id=prop.id, service_type_id=service.id,
         title=f"{service.name} · {location}", description=description, package=package, source=source, submitted_at=now,
         # Captured as typed on this request, since the customer record may be shared across requests.
-        structured_answers={"customer_name": customer_name, "contact": phone, "email": email},
+        structured_answers={"customer_name": customer_name, "contact": phone, "email": email, "property_intake": property_intake or {}},
     )
     db.add(ticket)
     db.flush()
     db.refresh(ticket)
     add_event(db, ticket, "created", new={"status": "submitted"}, reason=CREATED_NOTE)
     queue_notifications(db, ticket, "ticket_created", f"Homexo Legal: we received your request {ticket.ticket_number} for {service.name}. A specialist will call you to confirm scope, documents and fees.")
+    request = document_requirements.view(ticket)
+    if request["items"]:
+        ticket.messages.append(TicketMessage(service_request_id=ticket.id, author_type="system", visibility="customer", message=request["prompt"] + " Open Documents to see your checklist and upload each file under its tag."))
+        queue_notifications(db, ticket, "documents_requested", f"{ticket.ticket_number}: {request['prompt']} Open your request's Documents page.")
     return ticket
 
 def link_conversation(db: Session, ticket: ServiceRequest, conversation_id: uuid.UUID) -> None:
@@ -196,6 +203,7 @@ def customer_view(ticket: ServiceRequest) -> dict:
         "can_reply": ticket.status not in CLOSED_STATUSES,
         "documents": case_files.customer_documents_view(ticket),
         "report": case_files.customer_report_view(ticket),
+        "document_request": document_requirements.view(ticket),
         "can_upload": ticket.status not in CLOSED_STATUSES,
     }
 
@@ -248,10 +256,12 @@ def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> d
         "meetings": [meeting_view(m, staff=True) for m in ticket.meetings],
         "documents": case_files.staff_documents_view(ticket),
         "report": case_files.staff_report_view(ticket),
+        "document_request": document_requirements.view(ticket),
         "chat_transcript": [
             {"from": m.sender_type, "message": m.body, "at": _iso(m.created_at)}
             for m in ticket.conversation.messages
         ] if ticket.conversation else [],
+        "verification_workflow": (ticket.structured_answers or {}).get("agent_report"),
         "notifications": [
             {
                 "channel": n.channel, "template": n.template_key, "recipient": n.recipient, "to": "staff" if n.user_id else "customer",

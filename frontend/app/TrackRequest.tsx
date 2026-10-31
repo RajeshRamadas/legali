@@ -72,10 +72,10 @@ export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: Ticket
 
 function DocumentsSummary({ ticket, contact }: { ticket: TicketStatus; contact: string }) {
   const report = ticket.report;
-  const waiting = report?.items.filter((i) => i.fetch_by === "customer" && (i.status === "pending" || i.status === "rejected")).length ?? 0;
+  const waiting = report?.items.filter((i) => i.fetch_by === "customer" && (i.status === "pending" || i.status === "rejected")).length ?? ticket.document_request?.missing_count ?? 0;
   const line = report?.signed_report_url ? "Your signed legal report is ready to download."
     : report ? `${report.progress.done} of ${report.progress.total} checklist items done${waiting ? ` · ${waiting} need${waiting === 1 ? "s" : ""} your upload` : ""}.`
-    : ticket.documents.length ? `${ticket.documents.length} document${ticket.documents.length === 1 ? "" : "s"} shared.` : "Share documents for this request and tag them.";
+    : ticket.document_request?.items.length ? ticket.document_request.prompt : ticket.documents.length ? `${ticket.documents.length} document${ticket.documents.length === 1 ? "" : "s"} shared.` : "Share documents for this request and tag them.";
   return (
     <div className={`ticket-meeting${waiting ? " live" : ""}`} style={{ marginTop: 12 }}>
       <div><b>{report ? "Preliminary report and documents" : "Your documents"}</b><small>{line}</small></div>

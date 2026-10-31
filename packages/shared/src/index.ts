@@ -29,6 +29,7 @@ export type Service = {
 
 // Mirrors TicketCreate in backend/app/public.py.
 export type TicketCreate = {
+  property_intake?: PropertyIntake;
   customer_name: string;
   contact: string;
   property_type: PropertyType;
@@ -43,6 +44,7 @@ export type TicketCreate = {
 };
 
 export type TicketCreated = {
+  document_request?: DocumentRequest;
   ticket_number: string;
   status: string;
   message: string;
@@ -95,6 +97,20 @@ export type ReportItem = {
 };
 export type ReportSection = { key: string; heading: string; hint: string; text: string };
 
+export type PropertyIntake = {
+  state: "Karnataka" | "Other" | "Unknown";
+  transaction: "purchase" | "inheritance" | "gift" | "partition" | "other" | "unknown";
+  seller_capacity: "owner" | "power_of_attorney" | "legal_heir" | "company" | "unknown";
+  development: "new" | "resale" | "land" | "unknown";
+  granted_land: "yes" | "no" | "unknown";
+  survey_number: string; property_id_or_pid: string; village: string; taluk: string; district: string;
+};
+export type DocumentRequest = {
+  origin: "automatic_intake" | "advocate_checklist" | "not_applicable";
+  intake: PropertyIntake; items: ReportItem[]; missing_count: number; official_count: number;
+  questions: string[]; prompt: string; note: string;
+};
+
 // Mirrors customer_report_view in backend/app/case_files.py. Null until the lawyer issues the preliminary report.
 export type CustomerReport = {
   status: "issued" | "final_generated" | "signed";
@@ -111,6 +127,7 @@ export type CustomerReport = {
 
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
+  document_request?: DocumentRequest;
   ticket_number: string;
   service_name: string;
   package: string | null;
@@ -514,6 +531,9 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
     },
     tagDocument(ref: { ticket_number: string; contact: string }, documentId: string, tag: string): Promise<TicketStatus> {
       return request<TicketStatus>(baseUrl, "/api/v1/tickets/documents/tag", post({ ...ref, document_id: documentId, tag }));
+    },
+    updatePropertyIntake(ref: { ticket_number: string; contact: string }, intake: PropertyIntake): Promise<TicketStatus> {
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/property-intake", post({ ...ref, intake }));
     },
     deleteDocument(ref: { ticket_number: string; contact: string }, documentId: string): Promise<TicketStatus> {
       return request<TicketStatus>(baseUrl, "/api/v1/tickets/documents/delete", post({ ...ref, document_id: documentId }));

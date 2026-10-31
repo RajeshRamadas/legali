@@ -6,7 +6,8 @@ fact/finding is anchored to a literal quote and page from this run's inputs.
 import hashlib
 import json
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
+import re
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -16,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, document_reader, property_law, storage, tickets
+from . import case_files, config, document_reader, property_law, storage, tickets, document_requirements
 from .admin import _get_ticket
 from .db import get_db
 from .models import User, VerificationRun, utcnow
@@ -107,7 +108,10 @@ def valid_evidence(evidence: Evidence, documents: list[dict]):
 def snapshot(ticket):
     return {"documents": sorted([{"id": str(d.id), "sha256": d.checksum_sha256, "tag": d.tag} for d in case_files.case_documents(ticket)], key=lambda d: d["id"]),
             "property": tickets.property_view(ticket.prop) if ticket.prop else None,
-            "checklist": sorted([{"id": str(i.id), "status": i.status, "tag": i.tag} for i in ticket.report.items], key=lambda i: i["id"]) if ticket.report else []}
+            "intake": document_requirements.intake(ticket),
+            "checklist": sorted([{"id": str(i.id), "status": i.status, "tag": i.tag, "label": i.label,
+                "guidance": i.guidance, "fetch_by": i.fetch_by, "source": i.source, "note": i.review_note,
+                "reviewed_by": str(i.reviewed_by_user_id) if i.reviewed_by_user_id else None} for i in ticket.report.items], key=lambda i: i["id"]) if ticket.report else []}
 
 
 def fingerprint(value):
@@ -127,6 +131,9 @@ def run_agent(ticket, request: RunRequest):
     state = request.state.strip()
     if not state:
         raise HTTPException(422, "Choose the property's state or union territory.")
+    declared = document_requirements.intake(ticket)["state"]
+    if (declared == "Karnataka" and state.lower() != "karnataka") or (declared == "Other" and state.lower() == "karnataka"):
+        raise HTTPException(422, "The analysis state conflicts with the property intake. Correct the intake before analysis.")
     scope = snapshot(ticket)
     documents = []
     remaining_text = 90000
@@ -152,7 +159,7 @@ def run_agent(ticket, request: RunRequest):
     llm_status = "not_requested"
     if request.use_llm:
         try:
-            extracted = model_call("Extract property identifiers, parties, document types, dates, area, registration and encumbrance statements with literal page quotes. Do not infer missing values.",
+            extracted = model_call("Extract property identifiers, parties, document types, dates, area, registration and encumbrance statements with literal page quotes. For unambiguous execution dates, use ISO YYYY-MM-DD values and quote the original date. Do not infer missing values or merge different historical transfers mentioned in one document.",
                                    {"documents": documents, "state": state}, Facts)
             if not all(valid_evidence(f.evidence, documents) for f in extracted.facts):
                 raise ValueError("Unsupported fact citation")
@@ -187,8 +194,10 @@ def run_agent(ticket, request: RunRequest):
     checklist = []
     if ticket.report:
         checklist = [{"tag": i.tag, "label": i.label, "status": i.status, "files": sum(d.tag == i.tag for d in docs)} for i in ticket.report.items]
+    else:
+        checklist = [{"tag": i["tag"], "label": i["label"], "status": i["status"], "files": len(i["documents"])} for i in document_requirements.view(ticket)["items"]]
     missing = [i for i in checklist if i["status"] not in ("verified", "waived")]
-    incomplete = any(d["warnings"] for d in documents) or not checklist or bool(missing) or llm_status != "completed"
+    incomplete = any(d["warnings"] for d in documents) or not checklist or bool(missing) or llm_status != "completed" or bool(document_requirements.view(ticket)["questions"])
     if any(f["severity"] in ("critical", "high") for f in findings):
         verdict = "high_risk"
         reason = "Material risks were identified in the supplied evidence. Pause the transaction pending advocate investigation and resolution of the cited issues."
@@ -204,6 +213,8 @@ def run_agent(ticket, request: RunRequest):
             "llm_status": llm_status, "provider": provider_status()["provider"] if request.use_llm else None,
             "model": provider_status()["model"] if request.use_llm else None,
             "documents": documents, "facts": facts, "findings": findings, "open_checks": open_checks,
+            "document_request": document_requirements.view(ticket),
+            "title_chain": title_chain(facts, documents),
             "checklist": checklist, "laws": applicable_laws(state), "trace": trace,
             "limitations": ["This is an automated screening verdict, not a signed legal opinion or certification of ownership, authenticity or absence of fraud.",
                             "OCR and LLM interpretation can be wrong. Compare quoted text against the original pages, especially names, numbers, seals and signatures.",
@@ -212,6 +223,39 @@ def run_agent(ticket, request: RunRequest):
 
 def applicable_laws(state):
     return [law for law in property_law.LAWS if state.lower() == "karnataka" or not law["id"].startswith("karnataka-")]
+
+
+def title_chain(facts, documents):
+    """Show evidence-backed candidate transfers; do not invent sequence or connect names heuristically."""
+    transfers = []
+    for document in documents:
+        entries = [f for f in facts if f["evidence"]["document_id"] == document["id"]]
+        if not entries:
+            continue
+        fields = {key: [f for f in entries if f["field"] == key] for key in ("seller", "buyer", "execution_date", "registration", "property_identifier", "document_type")}
+        transfers.append({"document_id": document["id"], "filename": document["filename"], "fields": fields,
+                          "gaps": [f"No quoted {key.replace('_', ' ')} identified" for key in ("seller", "buyer", "execution_date", "registration", "property_identifier") if not fields[key]]})
+    dated, undated = [], []
+    for transfer in transfers:
+        dates = transfer["fields"]["execution_date"]
+        try:
+            if len(dates) != 1:
+                raise ValueError("Ambiguous date")
+            parsed = date.fromisoformat(dates[0]["value"])
+            dated.append((parsed, transfer))
+        except ValueError:
+            undated.append(transfer["document_id"])
+    dated.sort(key=lambda entry: (entry[0], entry[1]["document_id"]))
+    links = []
+    for (previous_date, previous), (next_date, following) in zip(dated, dated[1:]):
+        buyers, sellers = previous["fields"]["buyer"], following["fields"]["seller"]
+        normal = lambda value: re.sub(r"\s+", " ", value.strip()).casefold()
+        matched = previous_date != next_date and len(buyers) == len(sellers) == 1 and normal(buyers[0]["value"]) == normal(sellers[0]["value"])
+        links.append({"from_document": previous["document_id"], "to_document": following["document_id"],
+            "status": "name_match_only" if matched else "unresolved",
+            "reason": "Previous buyer and next seller have the same extracted name. Verify identity, property continuity and intervening interests independently." if matched else "Dates or parties do not establish an unambiguous link. Obtain the intervening conveyances and reconcile the chain with the advocate."})
+    return {"transfers": transfers, "status": "candidate_transfers_only", "chronology": [t["document_id"] for _, t in dated], "undated": undated, "links": links,
+            "note": "Candidate transfers are grouped by document and ordered only when exactly one valid ISO execution date was extracted. Same-name links are not identity or title verification. Multiple parties, duplicate dates, undated instruments and every intervening transfer require advocate reconciliation; absence of a quoted fact is not proof it is missing from the original."}
 
 
 def view(run, ticket):

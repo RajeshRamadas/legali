@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from . import accounts, admin, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera, verification
+from . import accounts, admin, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera, verification, verification_workflow
 from .bootstrap import sync_reference_data
 from .db import SessionLocal
 from .models import ReraProject
@@ -51,3 +51,4 @@ app.include_router(payments.router)
 app.include_router(rera.router)
 app.include_router(accounts.router)
 app.include_router(verification.router)
+app.include_router(verification_workflow.router)

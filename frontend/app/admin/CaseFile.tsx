@@ -67,6 +67,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
         {report && <a className="btn small light" href={fileHref(report.preliminary_pdf_url)} target="_blank" rel="noreferrer">Preliminary PDF</a>}
       </div>
       {(error || notice) && <p className={error ? "admin-error" : "admin-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
+      {!report && ticket.document_request?.items.length ? <div className="casefile-empty"><h3>Automatic document request</h3><p>{ticket.document_request.prompt}</p><small>Intake: {ticket.document_request.intake.state} · {ticket.document_request.intake.transaction} · {ticket.document_request.intake.seller_capacity.replaceAll("_", " ")}</small><ul>{ticket.document_request.items.map(item => <li key={item.id}>{item.label} · {item.status_label} · {item.fetch_by === "homexo" ? "official-record task" : "customer upload"}</li>)}</ul></div> : null}
 
       {!report && !editing && (
         <div className="casefile-empty">

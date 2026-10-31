@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, formatBytes, normalizeTag, type AccountRequest, type CustomerDocument, type ReportItem, type TicketStatus } from "@homexo/shared";
+import PropertyIntakeFields, { EMPTY_INTAKE } from "../PropertyIntakeFields";
 import { api } from "../api";
 import "./documents.css";
 import CustomerNav from "../account/CustomerNav";
@@ -48,7 +49,7 @@ export default function DocumentsPage() {
           <div className="wrap">
             <div className="eyebrow">Document repository</div>
             <h1>Your case documents</h1>
-            <p>Share documents with your lawyer and tag each one. When the preliminary report arrives, it lists what is needed with a tag for each; file your uploads under those tags. Public records like the EC, khata and RTC we get from the government portals for you.</p>
+            <p>Your property details create a document checklist automatically. Upload each document under its requested tag. Your case team obtains official records and the advocate confirms what applies to your case.</p>
           </div>
         </section>
         <div className="wrap dc-body">
@@ -109,8 +110,10 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const report = ticket.report;
+  const request = ticket.document_request;
+  const [intake, setIntake] = useState(request?.intake ?? EMPTY_INTAKE);
   const docs = new Map(ticket.documents.map((d) => [d.id, d]));
-  const reportTags = report?.items.map((i) => i.tag) ?? [];
+  const reportTags = (report?.items ?? request?.items ?? []).map((i) => i.tag);
 
   async function run(key: string, action: () => Promise<TicketStatus>, done: string) {
     setBusy(key);
@@ -136,6 +139,18 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
         <span className={`status-pill status-${ticket.status}`}>{ticket.status_label}</span>
       </div>
       {(error || notice) && <p className={error ? "dc-error" : "dc-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
+      {request && request.origin !== "not_applicable" && <section className="dc-card" style={{ marginBottom: 20 }}>
+        <h2>{request.missing_count ? "Documents we need from you" : "Your document request"}</h2>
+        <p role="status">{request.prompt}</p>
+        {request.questions.length > 0 && <p className="dc-muted">Complete the property details below so we can tailor the request. Unknown answers remain questions for the advocate.</p>}
+        {ticket.can_upload && !report && <details open={request.questions.length > 0}><summary>Property details and automatic checklist</summary>
+          <form onSubmit={e => { e.preventDefault(); run("intake", () => api.updatePropertyIntake(reference, intake), "Property details saved. Your document checklist has been updated."); }}>
+            <PropertyIntakeFields value={intake} onChange={setIntake} identifiers />
+            <button className="btn small" style={{ marginTop: 12 }} disabled={busy === "intake"}>{busy === "intake" ? "Updating…" : "Update required documents"}</button>
+          </form>
+        </details>}
+        <small className="dc-muted">{request.note}</small>
+      </section>}
 
       <div className="dc-layout">
         <section className="dc-card">
@@ -174,8 +189,10 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
             </>
           ) : (
             <>
-              <h2>Preliminary report</h2>
-              <p className="dc-muted">Your lawyer will send a preliminary report listing the documents needed, each with a tag. Until then you can upload what you have and tag it; you can link it to the report's tags later.</p>
+              <h2>Automatically requested documents</h2>
+              <p className="dc-muted">Upload the documents below to start verification. Received means uploaded, not legally verified. The advocate may add or waive requirements after reviewing your case.</p>
+              <ol className="dc-checklist">{request?.items.map(item => <ChecklistItem key={item.id} item={item} docs={item.documents.map(id => docs.get(id)).filter(Boolean) as CustomerDocument[]} canUpload={ticket.can_upload} busy={busy === `upload-${item.tag}`} onUpload={file => upload(file, item.tag)} />)}</ol>
+              {!request?.items.length && <p>The case team will confirm the documents needed for this service.</p>}
             </>
           )}
         </section>
