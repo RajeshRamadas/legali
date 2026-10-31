@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ApiError, describeUploadCheck, formatBytes, normalizeTag, type AccountRequest, type CustomerDocument, type ReportItem, type TicketStatus } from "@homexo/shared";
+import { ApiError, describeUploadCheck, formatBytes, normalizeTag, type AccountRequest, type CustomerDocument, type DocumentJourney, type ReportItem, type TicketStatus } from "@homexo/shared";
 import PropertyIntakeFields, { EMPTY_INTAKE } from "../PropertyIntakeFields";
 import { api } from "../api";
 import "./documents.css";
 import CustomerNav from "../account/CustomerNav";
 import { signOut, useSession, type Session } from "../account/session";
 import { openDocuments, readRef, type Ref } from "./ref";
+import { CheckList, DocumentMap, MapLegend, Stepper, revealCheck } from "./Journey";
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx";
 const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -47,9 +48,9 @@ export default function DocumentsPage() {
       <main>
         <section className="dc-band">
           <div className="wrap">
-            <div className="eyebrow">Document repository</div>
-            <h1>Your case documents</h1>
-            <p>Your property details create a document checklist automatically. Upload each document under its requested tag. Your case team obtains official records and the advocate confirms what applies to your case.</p>
+            <div className="eyebrow">Your documents</div>
+            <h1>Send your documents, see every check</h1>
+            <p>We ask for one document at a time and tell you why we need it. Government records we fetch ourselves. As your advocate checks each one, you can see what is verified, what is being checked and what still needs you.</p>
           </div>
         </section>
         <div className="wrap dc-body">
@@ -109,13 +110,17 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [skipped, setSkipped] = useState<string[]>([]);
   const report = ticket.report;
   const request = ticket.document_request;
+  const journey = request?.journey;
   const [intake, setIntake] = useState(request?.intake ?? EMPTY_INTAKE);
   const docs = new Map(ticket.documents.map((d) => [d.id, d]));
-  const reportTags = (report?.items ?? request?.items ?? []).map((i) => i.tag);
+  const items = request?.items ?? report?.items ?? [];
+  const labels = new Map(items.map((i) => [i.tag, i.label]));
   const checking = ticket.documents.some((d) => d.check?.status === "pending");
   const polls = useRef(0);
+  const uploadsOpen = ticket.can_upload && (!report || report.status === "issued");
 
   // Upload checks finish a few seconds after the upload; refresh until they do (bounded, so a stuck check stops polling).
   useEffect(() => {
@@ -142,8 +147,24 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
     }
   }
 
-  const upload = (file: File, tag: string, note = "") =>
-    run(`upload-${tag}`, () => api.uploadDocument(reference, file, { tag, note }), `Uploaded ${file.name}${tag ? ` under #${tag}` : ""}.`);
+  // Several files at once (e.g. one photo per page) go up one after another under the same document.
+  const upload = (files: File[], tag: string, note = "") =>
+    run(`upload-${tag}`, async () => {
+      let latest = ticket;
+      for (const file of files) latest = await api.uploadDocument(reference, file, { tag, note });
+      return latest;
+    }, `Thank you. ${files.length === 1 ? files[0].name : `${files.length} files`} added${tag && labels.get(tag) ? ` to ${labels.get(tag)}` : ""}. We'll check ${files.length === 1 ? "it" : "them"} now.`);
+
+  // Ask for one document at a time: a rejected upload first, then the next one still needed, skipping any the customer put off.
+  const yours = items.filter((i) => i.fetch_by === "customer");
+  const needed = yours.filter((i) => i.status === "pending" || i.status === "rejected");
+  const next = uploadsOpen ? (needed.find((i) => i.id === journey?.next_upload && !skipped.includes(i.id)) ?? needed.find((i) => !skipped.includes(i.id))) : undefined;
+  const yoursDone = yours.length - needed.length;
+
+  const renderItem = (item: ReportItem) => (
+    <ItemRow item={item} docs={item.documents.map((id) => docs.get(id)).filter(Boolean) as CustomerDocument[]}
+      canUpload={uploadsOpen && item.status !== "verified" && item.status !== "waived"} busy={busy === `upload-${item.tag}`} onUpload={(f) => upload(f, item.tag)} />
+  );
 
   return (
     <>
@@ -152,177 +173,213 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
         <span className={`status-pill status-${ticket.status}`}>{ticket.status_label}</span>
       </div>
       {(error || notice) && <p className={error ? "dc-error" : "dc-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
-      {request && request.origin !== "not_applicable" && <section className="dc-card" style={{ marginBottom: 20 }}>
-        <h2>{request.missing_count ? "Documents we need from you" : "Your document request"}</h2>
-        <p role="status">{request.prompt}</p>
-        {request.questions.length > 0 && <p className="dc-muted">Complete the property details below so we can tailor the request. Unknown answers remain questions for the advocate.</p>}
-        {ticket.can_upload && !report && <details open={request.questions.length > 0}><summary>Property details and automatic checklist</summary>
-          <form onSubmit={e => { e.preventDefault(); run("intake", () => api.updatePropertyIntake(reference, intake), "Property details saved. Your document checklist has been updated."); }}>
+      {journey && <Stepper journey={journey} />}
+
+      {report?.signed_report_url && (
+        <div className="dc-signed">
+          <div><b>Your signed legal report is ready</b><small>Signed by the advocates{report.signed_at ? ` on ${dateFormat.format(new Date(report.signed_at))}` : ""}.</small></div>
+          <a className="btn small gold" href={api.fileUrl(report.signed_report_url)} target="_blank" rel="noreferrer">Download</a>
+        </div>
+      )}
+
+      {request && ticket.can_upload && !report && request.questions.length > 0 && (
+        <section className="dc-card dc-questions">
+          <h2>First, a few questions about the property</h2>
+          <p className="dc-muted">Your answers decide which documents we ask for, so you don&apos;t send anything you don&apos;t need. Choose &ldquo;Not sure&rdquo; if you don&apos;t know; your advocate will find out.</p>
+          <form onSubmit={(e) => { e.preventDefault(); run("intake", () => api.updatePropertyIntake(reference, intake), "Thanks. Your document list is updated."); }}>
             <PropertyIntakeFields value={intake} onChange={setIntake} identifiers />
-            <button className="btn small" style={{ marginTop: 12 }} disabled={busy === "intake"}>{busy === "intake" ? "Updating…" : "Update required documents"}</button>
+            <button className="btn small" style={{ marginTop: 12 }} disabled={busy === "intake"}>{busy === "intake" ? "Saving…" : "Save and update my list"}</button>
           </form>
-        </details>}
-        <small className="dc-muted">{request.note}</small>
-      </section>}
+        </section>
+      )}
+
+      {next && (
+        <section className="jn-next" aria-label="Next document to upload">
+          <div>
+            <div className="eyebrow">Next document · {yoursDone + 1} of {yours.length}</div>
+            <h2>{next.status === "rejected" ? `Please upload your ${next.label.toLowerCase()} again` : next.label}</h2>
+            {next.status === "rejected" && next.note && <p className="jn-reject">Your advocate says: {next.note}</p>}
+            {next.guidance && <p>{next.guidance}</p>}
+            <p className="jn-why">{whyText(next, journey)}</p>
+            <div className="jn-count" aria-hidden><div style={{ width: `${yours.length ? (yoursDone / yours.length) * 100 : 0}%` }} /></div>
+            <div className="jn-next-meta">
+              <span>{yoursDone} of {yours.length} of your documents in</span>
+              {needed.length > 1 && <button type="button" onClick={() => setSkipped([...skipped, next.id])}>I don&apos;t have it now, show the next one</button>}
+              {skipped.length > 0 && <button type="button" onClick={() => setSkipped([])}>Show skipped ones again</button>}
+            </div>
+          </div>
+          <DropZone busy={busy === `upload-${next.tag}`} onFiles={(files) => upload(files, next.tag)} label={`Drop your ${next.label.toLowerCase()} here`} />
+        </section>
+      )}
+      {uploadsOpen && !next && yours.length > 0 && needed.length === 0 && (
+        <p className="dc-notice" role="status">You&apos;ve sent everything we need for now. We&apos;ll message you if the advocate needs anything else.</p>
+      )}
 
       <div className="dc-layout">
         <section className="dc-card">
-          {report ? (
-            <>
-              <div className="dc-card-head">
-                <div>
-                  <h2>Preliminary report</h2>
-                  <small>{report.lawyer_name ? `From ${report.lawyer_name}` : "From your case team"}{report.issued_at ? ` · ${dateFormat.format(new Date(report.issued_at))}` : ""}</small>
-                </div>
-                <a className="btn small light" href={api.fileUrl(report.preliminary_pdf_url)} target="_blank" rel="noreferrer">Print / PDF</a>
-              </div>
-              {report.signed_report_url && (
-                <div className="dc-signed">
-                  <div><b>Your signed legal report is ready</b><small>Signed by the advocates{report.signed_at ? ` on ${dateFormat.format(new Date(report.signed_at))}` : ""}.</small></div>
-                  <a className="btn small gold" href={api.fileUrl(report.signed_report_url)} target="_blank" rel="noreferrer">Download</a>
-                </div>
-              )}
-              {report.status === "final_generated" && <p className="dc-banner">Every document is checked. Your final report is with the advocates for signature.</p>}
-              <div className="dc-progress" aria-label={`${report.progress.done} of ${report.progress.total} documents accepted`}>
-                <div style={{ width: `${report.progress.total ? (report.progress.done / report.progress.total) * 100 : 0}%` }} />
-              </div>
-              <small className="dc-muted">{report.progress.done} of {report.progress.total} checklist items done</small>
-              <ol className="dc-checklist">
-                {report.items.map((item) => (
-                  <ChecklistItem key={item.id} item={item} docs={item.documents.map((id) => docs.get(id)).filter(Boolean) as CustomerDocument[]}
-                    canUpload={ticket.can_upload && report.status === "issued"} busy={busy === `upload-${item.tag}`} onUpload={(f) => upload(f, item.tag)} />
-                ))}
-              </ol>
-              <details className="dc-sections">
-                <summary>Read the full preliminary report</summary>
-                {report.sections.filter((s) => s.text.trim()).map((s) => (
-                  <div key={s.key}><h3>{s.heading}</h3><p>{s.text}</p></div>
-                ))}
-              </details>
-            </>
-          ) : (
-            <>
-              <h2>Automatically requested documents</h2>
-              <p className="dc-muted">Upload the documents below to start verification. Received means uploaded, not legally verified. The advocate may add or waive requirements after reviewing your case.</p>
-              <ol className="dc-checklist">{request?.items.map(item => <ChecklistItem key={item.id} item={item} docs={item.documents.map(id => docs.get(id)).filter(Boolean) as CustomerDocument[]} canUpload={ticket.can_upload} busy={busy === `upload-${item.tag}`} onUpload={file => upload(file, item.tag)} />)}</ol>
-              {!request?.items.length && <p>The case team will confirm the documents needed for this service.</p>}
-            </>
+          <div className="dc-card-head">
+            <div>
+              <h2>What we&apos;re checking</h2>
+              <small>Each question is answered by the documents under it. Tap one to see or add its documents.</small>
+            </div>
+            {report && <a className="btn small light" href={api.fileUrl(report.preliminary_pdf_url)} target="_blank" rel="noreferrer">Report PDF</a>}
+          </div>
+          {journey ? <CheckList journey={journey} items={items} renderItem={renderItem}
+            open={journey.checks.filter((c) => c.status === "problem" || c.flags.length || (next && c.tags.includes(next.tag))).map((c) => c.key)} /> : (
+            <ol className="jn-items">{items.map((i) => <li key={i.id}>{renderItem(i)}</li>)}</ol>
+          )}
+          {!items.length && <p>The case team will confirm the documents needed for this service.</p>}
+          {request?.note && <p className="dc-muted" style={{ marginTop: 12 }}>{request.note}</p>}
+          {report && report.sections.some((s) => s.text.trim()) && (
+            <details className="dc-sections">
+              <summary>Read your advocate&apos;s preliminary report{report.lawyer_name ? ` from ${report.lawyer_name}` : ""}</summary>
+              {report.sections.filter((s) => s.text.trim()).map((s) => (
+                <div key={s.key}><h3>{s.heading}</h3><p>{s.text}</p></div>
+              ))}
+            </details>
           )}
         </section>
 
-        <section className="dc-card">
-          <h2>All documents</h2>
-          {ticket.can_upload && <UploadForm tags={reportTags} busy={busy.startsWith("upload")} onUpload={upload} />}
-          {ticket.documents.length === 0 ? <p className="dc-muted">No documents yet.</p> : (
-            <ul className="dc-files">
-              {ticket.documents.map((d) => (
-                <li key={d.id}>
-                  <div className="dc-file-main">
-                    <a href={api.fileUrl(d.download_url)} target="_blank" rel="noreferrer"><b>{d.filename}</b></a>
-                    <small>{formatBytes(d.size)} · {dateFormat.format(new Date(d.at))} · {d.uploaded_by === "you" ? "You" : "Homexo"}{d.note ? ` · ${d.note}` : ""}</small>
-                    {(() => { const c = describeUploadCheck(d.check); return c && <small className={c.warn ? "dc-check warn" : "dc-check"} role={c.warn ? "status" : undefined}>{c.text}</small>; })()}
-                  </div>
-                  {d.uploaded_by === "you" && d.can_delete && ticket.can_upload ? (
-                    <TagPicker value={d.tag ?? ""} tags={reportTags} disabled={busy === d.id}
-                      onChange={(tag) => run(d.id, () => api.tagDocument(reference, d.id, tag), tag ? `Filed under #${tag}.` : "Tag removed.")} />
-                  ) : <span className="dc-tag">{d.tag ? `#${d.tag}` : "untagged"}</span>}
-                  {d.can_delete && ticket.can_upload && (
-                    <button className="dc-link" disabled={busy === d.id} onClick={() => run(d.id, () => api.deleteDocument(reference, d.id), `Removed ${d.filename}.`)}>Remove</button>
-                  )}
-                </li>
-              ))}
-            </ul>
+        <div className="dc-side">
+          {journey && journey.groups.length > 0 && (
+            <section className="dc-card">
+              <h2>How your documents fit together</h2>
+              <p className="dc-muted">We first confirm who is selling and how they came to own the property. Then we check it is free of loans, matches government records, is approved and has no court cases. The advocate weighs it all in the final opinion.</p>
+              <DocumentMap journey={journey} onPick={revealCheck} />
+              <MapLegend />
+            </section>
           )}
-        </section>
+
+          <section className="dc-card">
+            <h2>All your files</h2>
+            {ticket.can_upload && <OtherUpload items={items} busy={busy.startsWith("upload")} onUpload={upload} />}
+            {ticket.documents.length === 0 ? <p className="dc-muted">No files yet.</p> : (
+              <ul className="dc-files">
+                {ticket.documents.map((d) => (
+                  <li key={d.id}>
+                    <div className="dc-file-main">
+                      <a href={api.fileUrl(d.download_url)} target="_blank" rel="noreferrer"><b>{d.filename}</b></a>
+                      <small>{formatBytes(d.size)} · {dateFormat.format(new Date(d.at))} · {d.uploaded_by === "you" ? "You" : "Homexo"}{d.note ? ` · ${d.note}` : ""}</small>
+                      <CheckLine doc={d} />
+                    </div>
+                    {d.uploaded_by === "you" && d.can_delete && ticket.can_upload ? (
+                      <TagPicker value={d.tag ?? ""} items={items} disabled={busy === d.id}
+                        onChange={(tag) => run(d.id, () => api.tagDocument(reference, d.id, tag), tag ? `Moved to ${labels.get(tag) ?? tag}.` : "Marked as not sure.")} />
+                    ) : <span className="dc-kind">{d.tag ? labels.get(d.tag) ?? d.tag.replaceAll("-", " ") : "Not sorted yet"}</span>}
+                    {d.can_delete && ticket.can_upload && (
+                      <button className="dc-link" disabled={busy === d.id} onClick={() => run(d.id, () => api.deleteDocument(reference, d.id), `Removed ${d.filename}.`)}>Remove</button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
     </>
   );
 }
 
-function ChecklistItem({ item, docs, canUpload, busy, onUpload }: { item: ReportItem; docs: CustomerDocument[]; canUpload: boolean; busy: boolean; onUpload: (f: File) => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const done = item.status === "verified" || item.status === "waived";
+function whyText(item: ReportItem, journey?: DocumentJourney) {
+  const check = journey?.checks.find((c) => c.tags.includes(item.tag));
+  return check ? `Why we need it: it helps answer “${check.question}”` : "";
+}
+
+function CheckLine({ doc }: { doc: CustomerDocument }) {
+  const c = describeUploadCheck(doc.check);
+  return c ? <small className={c.warn ? "dc-check warn" : "dc-check"} role={c.warn ? "status" : undefined}>{c.text}</small> : null;
+}
+
+const STATUS_ICON: Record<string, string> = { verified: "✓", waived: "✓", received: "…", rejected: "!", pending: "" };
+
+function ItemRow({ item, docs, canUpload, busy, onUpload }: { item: ReportItem; docs: CustomerDocument[]; canUpload: boolean; busy: boolean; onUpload: (f: File[]) => void }) {
   const homexo = item.fetch_by === "homexo";
   return (
-    <li className={`dc-item ${item.status}${done ? " done" : ""}`}>
-      <span className="dc-box" aria-hidden>{done ? "✓" : ""}</span>
-      <div className="dc-item-body">
-        <div className="dc-item-top">
-          <b>{item.label}</b>
-          <span className="dc-tag">#{item.tag}</span>
-          <span className={`dc-pill ${homexo && item.status === "pending" ? "fetching" : item.status}`}>{item.status_label}</span>
-        </div>
+    <div className={`jn-item ${item.status}`}>
+      <span className="jn-item-status" aria-hidden>{STATUS_ICON[item.status]}</span>
+      <div className="jn-item-top">
+        <b>{item.label}</b>
+        <span className={`dc-pill ${homexo && item.status === "pending" ? "fetching" : item.status}`}>{item.status_label}</span>
+      </div>
+      <div className="jn-item-body">
         {item.guidance && <small>{item.guidance}</small>}
-        {homexo && item.source && item.status === "pending" && <small className="dc-source">We get this from {item.source.name}, so you needn't upload it. If you already have a copy, you can add it.</small>}
-        {item.status === "rejected" && item.note && <p className="dc-reject">{item.note}</p>}
+        {homexo && item.source && item.status === "pending" && <small className="dc-source">We get this from {item.source.name}, so you don&apos;t need to upload it. If you already have a copy, you can add it.</small>}
+        {item.status === "rejected" && item.note && <p className="dc-reject">Your advocate says: {item.note}</p>}
         {docs.length > 0 && (
-          <ul className="dc-linked">
-            {docs.map((d) => <li key={d.id}><a href={api.fileUrl(d.download_url)} target="_blank" rel="noreferrer">{d.filename}</a></li>)}
+          <ul className="jn-files">
+            {docs.map((d) => <li key={d.id}><a href={api.fileUrl(d.download_url)} target="_blank" rel="noreferrer">{d.filename}</a><CheckLine doc={d} /></li>)}
           </ul>
         )}
+        {canUpload && homexo && item.status === "pending" && !docs.length ? (
+          <DropZone compact quiet busy={busy} onFiles={onUpload} label="Already have a copy? You can add it." />
+        ) : canUpload && (
+          <DropZone compact busy={busy} onFiles={onUpload}
+            label={item.status === "rejected" ? "Upload a better copy" : docs.length ? "Add more pages" : homexo ? "Have a copy? Add it" : "Upload"} />
+        )}
       </div>
-      {canUpload && !done && (
-        <>
-          <input ref={input} type="file" accept={ACCEPT} hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }} />
-          <button className={`btn small${homexo ? " light" : ""}`} disabled={busy} onClick={() => input.current?.click()}>{busy ? "Uploading…" : docs.length ? "Add file" : "Upload"}</button>
-        </>
-      )}
-    </li>
+    </div>
   );
 }
 
-function TagPicker({ value, tags, disabled, onChange }: { value: string; tags: string[]; disabled?: boolean; onChange: (tag: string) => void }) {
-  const known = value === "" || tags.includes(value);
+// Drag and drop, choose files, or (on phones) take a photo. Several files are fine, e.g. one photo per page.
+function DropZone({ label, busy, onFiles, compact, quiet }: { label: string; busy: boolean; onFiles: (files: File[]) => void; compact?: boolean; quiet?: boolean }) {
+  const [over, setOver] = useState(false);
+  const files = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const take = (list: FileList | null) => { const picked = Array.from(list ?? []); if (picked.length) onFiles(picked); };
   return (
-    <select className="dc-select" value={known ? value : `custom:${value}`} disabled={disabled} aria-label="Tag"
+    <div className={`jn-drop${compact ? " compact" : ""}${quiet ? " quiet" : ""}${over ? " over" : ""}`}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); if (!busy) take(e.dataTransfer.files); }}>
+      <input ref={files} type="file" accept={ACCEPT} multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
+      <div>
+        <b>{busy ? "Uploading…" : label}</b>
+        {!compact && <><br /><small>PDF, photo or Word file, up to 25 MB each. Photos of each page are fine.</small></>}
+      </div>
+      <div className="jn-drop-actions">
+        <button type="button" className={`btn small${compact ? " light" : " gold"}`} disabled={busy} onClick={() => files.current?.click()}>{compact ? "Choose file" : "Choose files"}</button>
+        <button type="button" className="btn small light jn-camera" disabled={busy} onClick={() => camera.current?.click()}>Take a photo</button>
+      </div>
+    </div>
+  );
+}
+
+// Labels, not tags: the customer picks "Sale deed of the present owner", the server files it under #sale-deed.
+function TagPicker({ value, items, disabled, onChange }: { value: string; items: ReportItem[]; disabled?: boolean; onChange: (tag: string) => void }) {
+  const known = value === "" || items.some((i) => i.tag === value);
+  return (
+    <select className="dc-select" value={known ? value : `custom:${value}`} disabled={disabled} aria-label="What is this file?"
       onChange={(e) => {
         const next = e.target.value;
         if (next === "__other") {
-          const typed = normalizeTag(window.prompt("Tag for this document, e.g. gift-deed") ?? "");
+          const typed = normalizeTag(window.prompt("What is this document? e.g. Gift deed") ?? "");
           if (typed) onChange(typed);
         } else if (!next.startsWith("custom:")) onChange(next);
       }}>
-      <option value="">Untagged</option>
-      {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
-      {!known && <option value={`custom:${value}`}>#{value}</option>}
-      <option value="__other">Other tag…</option>
+      <option value="">Not sure</option>
+      {items.map((i) => <option key={i.tag} value={i.tag}>{i.label}</option>)}
+      {!known && <option value={`custom:${value}`}>{value.replaceAll("-", " ")}</option>}
+      <option value="__other">Something else…</option>
     </select>
   );
 }
 
-function UploadForm({ tags, busy, onUpload }: { tags: string[]; busy: boolean; onUpload: (f: File, tag: string, note: string) => Promise<void> }) {
-  const [file, setFile] = useState<File | null>(null);
+// For files that don't match a requested document, or when the customer isn't sure what a file is.
+function OtherUpload({ items, busy, onUpload }: { items: ReportItem[]; busy: boolean; onUpload: (f: File[], tag: string, note: string) => Promise<void> }) {
   const [tag, setTag] = useState("");
-  const [custom, setCustom] = useState("");
   const [note, setNote] = useState("");
-  const input = useRef<HTMLInputElement>(null);
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!file) return;
-    await onUpload(file, tag === "__other" ? normalizeTag(custom) : tag, note.trim());
-    setFile(null);
-    setNote("");
-    setCustom("");
-    if (input.current) input.current.value = "";
-  }
-
   return (
-    <form className="dc-upload" onSubmit={submit}>
-      <label className="dc-drop">
-        <input ref={input} type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <span>{file ? `${file.name} · ${formatBytes(file.size)}` : "Choose a file: PDF, photo or Word, up to 25 MB"}</span>
-      </label>
+    <div className="dc-upload">
+      <p className="dc-muted" style={{ margin: 0 }}>Have another document, or not sure which one a file is? Add it here. The automatic check suggests where it belongs and your case team sorts it.</p>
       <div className="dc-upload-row">
-        <select className="dc-select" value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Tag">
-          <option value="">No tag yet</option>
-          {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
-          <option value="__other">Other tag…</option>
+        <select className="dc-select" value={tag} onChange={(e) => setTag(e.target.value)} aria-label="What is this file?">
+          <option value="">I&apos;m not sure what it is</option>
+          {items.map((i) => <option key={i.tag} value={i.tag}>{i.label}</option>)}
         </select>
-        {tag === "__other" && <input className="dc-input" placeholder="e.g. gift-deed" value={custom} onChange={(e) => setCustom(e.target.value)} aria-label="Your tag" />}
-        <input className="dc-input" placeholder="Note (optional)" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" />
-        <button className="btn small" disabled={!file || busy}>{busy ? "Uploading…" : "Upload"}</button>
+        <input className="dc-input" placeholder="Note for the team (optional)" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" />
       </div>
-    </form>
+      <DropZone compact busy={busy} label="Drop files here" onFiles={async (files) => { await onUpload(files, tag, note.trim()); setNote(""); }} />
+    </div>
   );
 }
