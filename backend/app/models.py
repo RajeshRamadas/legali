@@ -348,6 +348,8 @@ class Document(Base):
     note: Mapped[str | None] = mapped_column(Text)
     scan_status: Mapped[str] = mapped_column(Text, default="pending", nullable=False)
     access_classification: Mapped[str] = mapped_column(Text, default="confidential", nullable=False)
+    # Result of the automatic upload check (app.upload_check): document type, legibility, dates and problems.
+    ai_check: Mapped[dict | None] = mapped_column(JSONType)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class LegalReport(TimestampMixin, Base):

@@ -69,6 +69,17 @@ npm run build --workspace frontend
 - Runs retain extracted text and evidence in the case database. Apply the same access, backup and retention controls as original case documents. Legal verdicts are internal staff work product until the advocate completes the existing signed-report process.
 - Runs are synchronous and may take several minutes for scans. A PostgreSQL row lock serializes runs on a case, and a one-minute interval limits repeated analysis. Deploy with suitable request timeouts; a durable worker queue and broader abuse/retention policies are follow-up production work.
 
+## Automatic upload check
+
+Every customer or staff upload is checked a few seconds after it arrives, in a background task, with a low-cost model (`VERIFICATION_CLASSIFY_MODEL`, default `claude-haiku-5-5` on Anthropic). It reads the first 3 pages (text plus images of scanned pages) and records on the document (`documents.ai_check`, migration `0012_document_checks`):
+
+- document type and the checklist tag it most likely belongs to (`suggested_tag`, limited to known tags); `tag_mismatch` is computed at view time, so retagging clears it without another call;
+- legibility (`yes` / `partly` / `no`) and completeness (`yes` / `no` / `unclear`);
+- issue date and, for encumbrance certificates, the search period;
+- customer-facing `problems`. The code adds two deterministic EC rules: the period must end within the last 45 days and cover 30 years.
+
+The customer sees one line under each file on the Documents page (the page refreshes while checks are pending) and the case team sees it in the case file, with **Check again** (`POST /api/v1/admin/tickets/{ticket}/documents/{id}/check`). The check is advice only: it never marks an item verified or rejected. It runs whenever the LLM is configured and `VERIFICATION_UPLOAD_CHECKS` is not `false`; turning it off stops documents from being sent to the provider at upload. A provider failure records `status: failed` and never affects the upload.
+
 ## Intake-driven Karnataka workflow
 
 Verification services (`title-verification`, `legal-due-diligence`, `developer-land-screening`, `acquisition-due-diligence`) now create a provisional document request as soon as a ticket is raised. No LLM key and no issued lawyer report is needed for this request. The response, customer Documents page and tracking card include the current request. A customer-visible system message and queued SMS/email notifications announce it; delivery still depends on the repository's notification-provider integrations.

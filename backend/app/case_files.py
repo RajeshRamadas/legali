@@ -85,6 +85,8 @@ def document_view(document: Document, *, staff: bool = False, locked_tags: set[s
         "at": _iso(document.created_at),
         "download_url": file_url(document.id),
     }
+    from . import upload_check  # local import: upload_check depends on modules that import this one
+    view["check"] = upload_check.view(document)
     if staff:
         return view | {"uploaded_by": document.uploader_type, "checksum_sha256": document.checksum_sha256}
     return view | {

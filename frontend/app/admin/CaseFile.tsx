@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatBytes, normalizeTag, type GovSource } from "@homexo/shared";
+import { describeUploadCheck, formatBytes, normalizeTag, type GovSource } from "@homexo/shared";
 import { adminFetch, adminUpload, fileHref, formatDate, type ReportTemplate, type StaffReport, type StaffUser, type TicketDetail } from "./api";
 
 type EditItem = { id?: string; tag: string; label: string; guidance: string; fetch_by: "customer" | "homexo"; source: string | null };
@@ -136,6 +136,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
       <DocumentList ticket={ticket} tags={tags} busy={busy}
         onTag={(id, tag) => call(id, `/documents/${id}`, "PATCH", { tag }, tag ? `Filed under #${tag}.` : "Tag removed.")}
         onDelete={(id) => call(id, `/documents/${id}`, "DELETE", undefined, "Document removed.")}
+        onRecheck={(id) => call(id, `/documents/${id}/check`, "POST", undefined, "Document checked again.")}
         onUpload={(file, tag, note) => upload("upload", "/documents", file, { tag, note }, `${file.name} uploaded.`)}
         onProperty={(body) => call("property", "/property", "PATCH", body, "Property details saved.")} />
     </section>
@@ -352,12 +353,13 @@ const PROPERTY_FIELDS: [keyof NonNullable<TicketDetail["property"]>, string][] =
   ["village", "Village"], ["hobli", "Hobli"], ["taluk", "Taluk"], ["district", "District"], ["address_line", "Address"],
 ];
 
-function DocumentList({ ticket, tags, busy, onTag, onDelete, onUpload, onProperty }: {
+function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onUpload, onProperty }: {
   ticket: TicketDetail;
   tags: string[];
   busy: string;
   onTag: (id: string, tag: string) => void;
   onDelete: (id: string) => void;
+  onRecheck: (id: string) => void;
   onUpload: (file: File, tag: string, note: string) => Promise<boolean>;
   onProperty: (body: object) => Promise<boolean>;
 }) {
@@ -391,6 +393,8 @@ function DocumentList({ ticket, tags, busy, onTag, onDelete, onUpload, onPropert
                 <div>
                   <a href={fileHref(d.download_url)} target="_blank" rel="noreferrer"><b>{d.filename}</b></a>
                   <small>{formatBytes(d.size)} · {d.uploaded_by} · {formatDate(d.at)}{d.note ? ` · ${d.note}` : ""}</small>
+                  {(() => { const c = describeUploadCheck(d.check); return c && <small className={c.warn ? "casefile-check warn" : "casefile-check"}>AI check: {c.text}{d.check?.status === "done" && d.check.legible !== "yes" ? ` · legible: ${d.check.legible}` : ""}{d.check?.status === "done" && d.check.complete !== "yes" ? ` · complete: ${d.check.complete}` : ""}{d.check?.period_from || d.check?.period_to ? ` · period ${d.check.period_from || "?"} to ${d.check.period_to || "?"}` : ""}</small>; })()}
+                  {(d.check?.status === "failed" || d.check?.status === "done") && <button className="admin-link" disabled={busy === d.id} onClick={() => onRecheck(d.id)}>Check again</button>}
                 </div>
                 <select value={d.tag ?? ""} disabled={busy === d.id} aria-label="Tag" onChange={(e) => onTag(d.id, e.target.value)}>
                   <option value="">Untagged</option>
