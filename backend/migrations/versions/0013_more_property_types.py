@@ -1,7 +1,7 @@
 """villas, farmhouses, plantation estates and industrial land as property types
 
-Revision ID: 0010
-Revises: 0009
+Revision ID: 0013_more_property_types
+Revises: 0012_document_checks
 Create Date: 2026-10-19 18:00:00
 
 """
@@ -10,8 +10,8 @@ from typing import Sequence, Union
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '0010'
-down_revision: Union[str, Sequence[str], None] = '0009'
+revision: str = '0013_more_property_types'
+down_revision: Union[str, Sequence[str], None] = '0012_document_checks'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
