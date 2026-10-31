@@ -67,12 +67,18 @@ def draft(ticket_number: str, payload: DraftRequest, user: User = Depends(curren
         ticket.report = report
         db.add(report)
     lines = ["AUTOMATED DRAFT - requires advocate review", result["reason"], "Screening verdict: " + result["verdict"]]
+    rejected = result.get("rejected") or {}
+    if rejected.get("facts") or rejected.get("findings"):
+        lines.append(f"The agent discarded {rejected.get('facts', 0)} facts and {rejected.get('findings', 0)} findings whose quotes did not match the source text; check the originals.")
     for finding in result["findings"]:
         lines += [finding["severity"].upper() + ": " + finding["title"], finding["reason"]]
         for evidence in finding["evidence"]:
             doc = next(d for d in result["documents"] if d["id"] == evidence["document_id"])
             lines.append(f"{doc['filename']}, page/part {evidence['page']}: {evidence['quote']}")
-        lines.append("Legal references: " + "; ".join(property_law.BY_ID[key]["act"] + " - " + property_law.BY_ID[key]["sections"] for key in finding["law_ids"]))
+        if finding.get("law_ids"):
+            lines.append("Legal references: " + "; ".join(property_law.BY_ID[key]["act"] + " - " + property_law.BY_ID[key]["sections"] for key in finding["law_ids"]))
+        else:
+            lines.append("Factual inconsistency between documents: reconcile against the originals and official records.")
     chain_lines = [result.get("title_chain", {}).get("note", "Title chain requires advocate reconstruction.")]
     for transfer in result.get("title_chain", {}).get("transfers", []):
         chain_lines.append(transfer["filename"])

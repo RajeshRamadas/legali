@@ -6,8 +6,8 @@ The staff case page (`/admin/tickets/<ticket number>`) includes a document analy
 
 1. Upload the case documents in the case file. Select the state/union territory and keep property identifiers and the lawyer's checklist current.
 2. Run local extraction to inspect coverage, OCR and the remaining legal checks without sending documents to an LLM.
-3. For semantic analysis, enable the configured LLM and confirm authorisation to send extracted case text externally. This transmits the extracted document contents, case property details and law reference pack to the configured provider. Uploaded originals are not sent by this implementation. Choose a provider and retention policy appropriate for your documents.
-4. The agent inventories/checks file hashes, extracts evidence, asks the model to extract quoted facts, asks it to compare documents and identify legal issues, and validates every quoted page/document reference and law ID. The server computes the screening verdict from evidence completeness and finding severity.
+3. For semantic analysis, enable the configured LLM and confirm authorisation to send extracted case text externally. This transmits the extracted document contents, JPEG images of scanned (OCR'd) pages, case property details and law reference pack to the configured provider. Digital PDFs and DOCX files are sent as text only. Set `VERIFICATION_SEND_PAGE_IMAGES=false` to send text only. Choose a provider and retention policy appropriate for your documents.
+4. The agent inventories/checks file hashes and extracts text, then makes one extraction call per document (with that document's scanned page images) and one comparison call across all documents. Findings are either `legal` (must cite a supplied law ID) or `factual_inconsistency` (documents disagree on survey number, extent, boundaries, names or dates; no law ID needed). Every quote is checked against the page text after normalising whitespace, line-break hyphenation, case and invisible characters. A fact or finding whose quote or law ID does not match is discarded on its own and counted in `rejected`; the rest of the run is kept. Any discarded item prevents a conditional verdict. The server computes the screening verdict from evidence completeness and finding severity.
 5. Review findings, source quotes, OCR coverage, missing items and independent checks. Export the JSON evidence report for the case record. History stores the ten most recent runs in the UI (older runs remain in the database). Any file, tag, property or checklist-status change marks a previous run as stale.
 6. Complete official searches and advocate review through the existing checklist, report, final PDF and signed-report workflow. The agent cannot mark a checklist item verified or sign a report.
 
@@ -22,16 +22,20 @@ Verdicts:
 For Docker, place values securely in `infra/.env` and recreate the API service. For a native API process, export these variables before starting uvicorn. No key is stored in the database or exposed to the browser. No client-supplied API URL/key is accepted by the analysis endpoint.
 
 ```dotenv
-VERIFICATION_LLM_PROVIDER=openai
-VERIFICATION_LLM_MODEL=gpt-4.1-mini
-VERIFICATION_LLM_API_KEY=<supply securely on the server>
-VERIFICATION_LLM_BASE_URL=https://api.openai.com/v1
-VERIFICATION_OCR_LANGUAGES=eng
+VERIFICATION_LLM_PROVIDER=anthropic
+VERIFICATION_LLM_API_KEY=<supply securely on the server, or set ANTHROPIC_API_KEY>
+# Optional overrides; these are the defaults for anthropic:
+VERIFICATION_EXTRACT_MODEL=claude-sonnet-5-5
+VERIFICATION_COMPARE_MODEL=claude-opus-5-5
+VERIFICATION_SEND_PAGE_IMAGES=true
+VERIFICATION_OCR_LANGUAGES=eng+hin+kan
 ```
 
-For Anthropic, use `VERIFICATION_LLM_PROVIDER=anthropic`, select a model available to your account, and supply `VERIFICATION_LLM_API_KEY` (or the existing `ANTHROPIC_API_KEY`). Anthropic uses its fixed HTTPS messages endpoint; the base URL setting only affects OpenAI-compatible providers. For a trusted compatible gateway, use provider `openai` and its HTTPS API base URL. It must support chat completions, JSON object responses, and `max_tokens`. Configure network access for the actual destination (e.g. `api.openai.com` or `api.anthropic.com`) through environment settings. Keys cannot overcome a network deny.
+Why two models: extraction runs once per document and reads scanned page images, so it uses Claude Sonnet 5.5 (vision, lower cost). The comparison and legal screen runs once per case and is where a missed defect is costly, so it uses Claude Opus 5.5. Anthropic calls use a forced `submit` tool whose input schema is the Pydantic schema, so the provider enforces the JSON shape. Output is capped at 16,000 tokens per call and the request timeout is 300 seconds.
 
-Models must return complete JSON with exact source quotes. Provider timeouts, non-2xx responses, truncated output, unsupported quotes/laws and invalid schemas produce `llm_status=failed`, no accepted model findings and an insufficient-evidence verdict. The saved run explains the failure without logging credential values or provider response bodies. No live credentialed LLM call is part of the automated test suite.
+`VERIFICATION_LLM_MODEL` sets one model for both steps when no per-step value is given. For OpenAI or a trusted OpenAI-compatible gateway, use provider `openai`, its HTTPS API base URL and a vision-capable model (default `gpt-4.1-mini`). It must support chat completions, JSON object responses, image inputs and `max_tokens`. Anthropic uses its fixed HTTPS messages endpoint; the base URL setting only affects OpenAI-compatible providers. Configure network access for the actual destination (e.g. `api.anthropic.com`) through environment settings. Keys cannot overcome a network deny.
+
+Models must return complete structured output with source quotes. Provider timeouts, non-2xx responses, truncated output and invalid schemas produce `llm_status=failed`, no accepted model findings and an insufficient-evidence verdict. Individual unsupported quotes or law IDs are discarded and counted instead of failing the run. The saved run explains the failure without logging credential values or provider response bodies. No live credentialed LLM call is part of the automated test suite.
 
 ## Installation
 
