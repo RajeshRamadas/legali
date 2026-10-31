@@ -76,7 +76,36 @@ export type CustomerDocument = {
   download_url: string;
   uploaded_by: "you" | "homexo";
   can_delete: boolean;
+  check?: UploadCheck | null;
 };
+
+// Automatic upload check (backend/app/upload_check.py). Advice only: it never accepts or rejects a checklist item.
+export type UploadCheck = {
+  status: "pending" | "done" | "failed" | "skipped";
+  document_type?: string | null;
+  suggested_tag?: string | null;
+  legible?: "yes" | "partly" | "no" | null;
+  complete?: "yes" | "no" | "unclear" | null;
+  issue_date?: string | null;
+  period_from?: string | null;
+  period_to?: string | null;
+  summary?: string | null;
+  problems: string[];
+  tag_mismatch?: boolean;
+  checked_at?: string | null;
+};
+
+// One line a person can read about an upload check, plus whether it needs their attention.
+export function describeUploadCheck(check: UploadCheck | null | undefined): { text: string; warn: boolean } | null {
+  if (!check) return null;
+  if (check.status === "pending") return { text: "Checking this file…", warn: false };
+  if (check.status === "failed") return { text: "Automatic check unavailable; the case team will review it.", warn: false };
+  if (check.status === "skipped") return { text: check.summary || "This file type can't be checked automatically.", warn: false };
+  const problems = [...check.problems];
+  if (check.tag_mismatch && check.suggested_tag) problems.unshift(`This looks like ${check.document_type || "a different document"}. Should it be filed under #${check.suggested_tag}?`);
+  if (problems.length) return { text: problems.join(" "), warn: true };
+  return { text: `Looks like ${check.document_type}${check.summary ? `: ${check.summary}` : ""}`, warn: false };
+}
 
 export type GovSource = { key: string; name: string; url: string; search_by: string; automatic: boolean };
 

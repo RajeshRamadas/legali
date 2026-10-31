@@ -1,4 +1,4 @@
-import { DEFAULT_API_BASE_URL, type CustomerMeeting, type GovSource, type ReportItem, type ReportSection, type DocumentRequest } from "@homexo/shared";
+import { DEFAULT_API_BASE_URL, type UploadCheck, type CustomerMeeting, type GovSource, type ReportItem, type ReportSection, type DocumentRequest } from "@homexo/shared";
 
 // Staff workspace API (backend/app/admin.py). Kept out of @homexo/shared because only the website uses it.
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
@@ -34,6 +34,7 @@ export type StaffDocument = {
   download_url: string;
   uploaded_by: "customer" | "staff" | "system";
   checksum_sha256: string | null;
+  check?: UploadCheck | null;
 };
 export type StaffReport = {
   status: "draft" | "issued" | "final_generated" | "signed";

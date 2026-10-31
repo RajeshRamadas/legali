@@ -32,11 +32,12 @@ def command(args, timeout=45):
     return subprocess.run(args, check=True, capture_output=True, timeout=timeout).stdout.decode("utf-8", errors="replace")
 
 
-def extract(data: bytes, filename: str, images: dict | None = None) -> dict:
+def extract(data: bytes, filename: str, images: dict | None = None, max_pages: int = MAX_PAGES) -> dict:
     """Return page text and warnings. When `images` is a dict, JPEG copies of OCR'd pages are added to it
     by page number; they are kept out of the returned result so they never enter the saved run."""
     suffix = Path(filename).suffix.lower()
     pages, warnings = [], []
+    count = None
     try:
         with tempfile.TemporaryDirectory(prefix="homexo-read-") as folder:
             path = Path(folder) / ("input" + suffix)
@@ -44,11 +45,11 @@ def extract(data: bytes, filename: str, images: dict | None = None) -> dict:
             if suffix == ".pdf":
                 info = command(["pdfinfo", str(path)])
                 count = next(int(line.split(":", 1)[1]) for line in info.splitlines() if line.startswith("Pages:"))
-                if count > MAX_PAGES:
-                    warnings.append(f"Only the first {MAX_PAGES} of {count} pages were examined; split the remaining pages into additional files.")
-                text = command(["pdftotext", "-f", "1", "-l", str(MAX_PAGES), "-layout", str(path), "-"])
+                if count > max_pages:
+                    warnings.append(f"Only the first {max_pages} of {count} pages were examined; split the remaining pages into additional files.")
+                text = command(["pdftotext", "-f", "1", "-l", str(max_pages), "-layout", str(path), "-"])
                 native = text.split("\f")
-                for number in range(1, min(count, MAX_PAGES) + 1):
+                for number in range(1, min(count, max_pages) + 1):
                     content = native[number - 1].strip() if number <= len(native) else ""
                     method = "embedded_text"
                     if len(content) < 50:
@@ -91,4 +92,7 @@ def extract(data: bytes, filename: str, images: dict | None = None) -> dict:
         remaining -= len(page["text"])
     if not any(p["text"].strip() for p in pages):
         warnings.append("No readable text was extracted. This document has not been analysed.")
-    return {"pages": pages, "warnings": list(dict.fromkeys(warnings))}
+    result = {"pages": pages, "warnings": list(dict.fromkeys(warnings))}
+    if count is not None:
+        result["page_count"] = count
+    return result

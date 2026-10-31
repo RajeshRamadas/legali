@@ -27,8 +27,8 @@ from .security import current_staff
 
 router = APIRouter(prefix="/api/v1")
 MAX_DOCUMENTS = 10
-DEFAULT_MODELS = {"anthropic": {"extract": "claude-sonnet-5-5", "compare": "claude-opus-5-5"},
-                  "openai": {"extract": "gpt-4.1-mini", "compare": "gpt-4.1-mini"}}
+DEFAULT_MODELS = {"anthropic": {"extract": "claude-sonnet-5-5", "compare": "claude-opus-5-5", "classify": "claude-haiku-5-5"},
+                  "openai": {"extract": "gpt-4.1-mini", "compare": "gpt-4.1-mini", "classify": "gpt-4.1-mini"}}
 MAX_OUTPUT_TOKENS = 16000
 
 class Strict(BaseModel):
@@ -75,7 +75,8 @@ SYSTEM = """You are a property-document screening agent for an Indian advocate. 
 
 
 def model_for(step: str) -> str:
-    override = config.VERIFICATION_EXTRACT_MODEL if step == "extract" else config.VERIFICATION_COMPARE_MODEL
+    override = {"extract": config.VERIFICATION_EXTRACT_MODEL, "compare": config.VERIFICATION_COMPARE_MODEL,
+                "classify": config.VERIFICATION_CLASSIFY_MODEL}[step]
     return override or config.VERIFICATION_LLM_MODEL or DEFAULT_MODELS.get(config.VERIFICATION_LLM_PROVIDER, {}).get(step, "")
 
 
@@ -104,7 +105,8 @@ def inline_refs(schema: dict) -> dict:
     return walk(schema)
 
 
-def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "compare", images: list[tuple[str, int, bytes]] | None = None):
+def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "compare", images: list[tuple[str, int, bytes]] | None = None,
+               system: str = SYSTEM, timeout: float = 300):
     """One structured call. `images` are (document_id, page, jpeg) copies of scanned pages for the vision model."""
     provider = config.VERIFICATION_LLM_PROVIDER
     key = config.VERIFICATION_LLM_API_KEY or (config.ANTHROPIC_API_KEY if provider == "anthropic" else "")
@@ -113,7 +115,7 @@ def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "c
     model = model_for(step)
     prompt = json.dumps({"task": task, "input": payload}, ensure_ascii=False)
     images = images or []
-    with httpx.Client(timeout=httpx.Timeout(300, connect=10), follow_redirects=False, trust_env=True) as client:
+    with httpx.Client(timeout=httpx.Timeout(timeout, connect=10), follow_redirects=False, trust_env=True) as client:
         if provider == "anthropic":
             content = []
             for document_id, page, data in images:
@@ -122,7 +124,7 @@ def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "c
             content.append({"type": "text", "text": prompt})
             # A forced tool call makes the provider enforce the JSON shape instead of parsing free text.
             response = client.post("https://api.anthropic.com/v1/messages", headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
-                json={"model": model, "max_tokens": MAX_OUTPUT_TOKENS, "system": SYSTEM,
+                json={"model": model, "max_tokens": MAX_OUTPUT_TOKENS, "system": system,
                       "tools": [{"name": "submit", "description": "Submit the result of the task.", "input_schema": inline_refs(schema.model_json_schema())}],
                       "tool_choice": {"type": "tool", "name": "submit"},
                       "messages": [{"role": "user", "content": content}]})
@@ -144,7 +146,7 @@ def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "c
                         {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(data).decode()}}]
         response = client.post(base + "/chat/completions", headers={"Authorization": "Bearer " + key},
             json={"model": model, "max_tokens": MAX_OUTPUT_TOKENS, "response_format": {"type": "json_object"},
-                  "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": content if images else text}]})
+                  "messages": [{"role": "system", "content": system}, {"role": "user", "content": content if images else text}]})
         response.raise_for_status()
         choice = response.json()["choices"][0]
         if choice.get("finish_reason") != "stop":

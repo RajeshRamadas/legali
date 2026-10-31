@@ -40,3 +40,5 @@
 .dc-link{border:0;background:none;color:var(--coral);font-size:12px;font-weight:700;padding:4px}
 @media (max-width:860px){.dc-layout{grid-template-columns:1fr}.dc-nav{gap:14px}}
 @media (max-width:560px){.dc-item{flex-wrap:wrap}.dc-item .btn{margin-left:31px}.dc-files li{flex-wrap:wrap}.dc-files .dc-select{max-width:none}.dc-card{padding:16px}.dc-ticket{align-items:flex-start}}
+
+.dc-check{display:block;margin-top:3px;font-size:11px;color:var(--muted);white-space:normal}.dc-check.warn{color:var(--coral);font-weight:600}

@@ -115,3 +115,5 @@
 /* Keep the staff case workspace usable on narrow screens. */
 @media(max-width:980px){.admin-app{grid-template-columns:minmax(0,1fr)}.admin-side nav{flex-wrap:wrap;max-width:100%}.admin-main,.ticket-main,.ticket-side{min-width:0}.ticket-head h1{overflow-wrap:anywhere}}
 .casefile-prop input{min-width:0;width:100%}
+
+.casefile-docs small.casefile-check{display:block;margin-top:2px;white-space:normal}.casefile-docs small.casefile-check.warn{color:var(--coral)}

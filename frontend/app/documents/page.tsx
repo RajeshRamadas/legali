@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ApiError, formatBytes, normalizeTag, type AccountRequest, type CustomerDocument, type ReportItem, type TicketStatus } from "@homexo/shared";
+import { ApiError, describeUploadCheck, formatBytes, normalizeTag, type AccountRequest, type CustomerDocument, type ReportItem, type TicketStatus } from "@homexo/shared";
 import PropertyIntakeFields, { EMPTY_INTAKE } from "../PropertyIntakeFields";
 import { api } from "../api";
 import "./documents.css";
@@ -70,7 +70,7 @@ export default function DocumentsPage() {
       </main>
       <footer className="footer">
         <div className="wrap" style={{ fontSize: 11, color: "#a4bcb2", lineHeight: 1.7 }}>
-          Files are kept in Homexo's private cloud storage and seen only by your case team. Download links expire after a few minutes.
+          Files are kept in Homexo's private cloud storage and seen only by your case team. Download links expire after a few minutes. When you upload, the first pages are checked automatically by an AI service for document type, readability and dates, so we can tell you quickly if something needs fixing. An advocate still reviews every document.
         </div>
       </footer>
     </>
@@ -114,6 +114,19 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
   const [intake, setIntake] = useState(request?.intake ?? EMPTY_INTAKE);
   const docs = new Map(ticket.documents.map((d) => [d.id, d]));
   const reportTags = (report?.items ?? request?.items ?? []).map((i) => i.tag);
+  const checking = ticket.documents.some((d) => d.check?.status === "pending");
+  const polls = useRef(0);
+
+  // Upload checks finish a few seconds after the upload; refresh until they do (bounded, so a stuck check stops polling).
+  useEffect(() => {
+    if (!checking) { polls.current = 0; return; }
+    if (polls.current >= 15) return;
+    const timer = setTimeout(async () => {
+      polls.current += 1;
+      try { onChange(await api.lookupTicket(reference.ticket_number, reference.contact)); } catch { /* keep the current view */ }
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [checking, ticket, reference, onChange]);
 
   async function run(key: string, action: () => Promise<TicketStatus>, done: string) {
     setBusy(key);
@@ -207,6 +220,7 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
                   <div className="dc-file-main">
                     <a href={api.fileUrl(d.download_url)} target="_blank" rel="noreferrer"><b>{d.filename}</b></a>
                     <small>{formatBytes(d.size)} · {dateFormat.format(new Date(d.at))} · {d.uploaded_by === "you" ? "You" : "Homexo"}{d.note ? ` · ${d.note}` : ""}</small>
+                    {(() => { const c = describeUploadCheck(d.check); return c && <small className={c.warn ? "dc-check warn" : "dc-check"} role={c.warn ? "status" : undefined}>{c.text}</small>; })()}
                   </div>
                   {d.uploaded_by === "you" && d.can_delete && ticket.can_upload ? (
                     <TagPicker value={d.tag ?? ""} tags={reportTags} disabled={busy === d.id}

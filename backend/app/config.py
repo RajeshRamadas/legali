@@ -10,6 +10,10 @@ VERIFICATION_EXTRACT_MODEL = os.getenv("VERIFICATION_EXTRACT_MODEL", "")
 # Cross-document comparison and legal screening is where a missed defect is costly, so it uses the strongest model.
 VERIFICATION_COMPARE_MODEL = os.getenv("VERIFICATION_COMPARE_MODEL", "")
 # Send JPEG copies of OCR'd pages to the extraction model (Kannada scans, EC tables). Set to "false" to send text only.
+# Check every upload as it arrives (document type, legibility, completeness, dates) with a low-cost model.
+# Sends the first pages of each upload to the configured provider. Set to "false" to turn off.
+VERIFICATION_UPLOAD_CHECKS = os.getenv("VERIFICATION_UPLOAD_CHECKS", "true").lower() not in ("0", "false", "no")
+VERIFICATION_CLASSIFY_MODEL = os.getenv("VERIFICATION_CLASSIFY_MODEL", "")
 VERIFICATION_SEND_PAGE_IMAGES = os.getenv("VERIFICATION_SEND_PAGE_IMAGES", "true").lower() not in ("0", "false", "no")
 VERIFICATION_LLM_API_KEY = os.getenv("VERIFICATION_LLM_API_KEY", "")
 VERIFICATION_LLM_BASE_URL = os.getenv("VERIFICATION_LLM_BASE_URL", "https://api.openai.com/v1")

@@ -11,13 +11,13 @@ import re
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements
+from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements, upload_check
 from .admin import _detail, _get_ticket, _visible_tickets
 from .db import get_db
 from .models import (
@@ -189,7 +189,7 @@ def _check_customer_tag(ticket: ServiceRequest, tag: str) -> None:
 
 @router.post("/tickets/documents", status_code=201)
 def customer_upload(
-    ticket_number: str = Form(min_length=5, max_length=40), contact: str = Form(min_length=5, max_length=254),
+    background: BackgroundTasks, ticket_number: str = Form(min_length=5, max_length=40), contact: str = Form(min_length=5, max_length=254),
     tag: str = Form(default="", max_length=60), note: str = Form(default="", max_length=500), file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -197,11 +197,13 @@ def customer_upload(
     tag = report_templates.normalize_tag(tag)
     _check_customer_tag(ticket, tag)
     filename, content_type, data = _read_upload(file)
-    store_document(db, ticket, filename, content_type, data, uploader_type="customer", tag=tag, note=note)
+    document = store_document(db, ticket, filename, content_type, data, uploader_type="customer", tag=tag, note=note)
     tickets.add_event(db, ticket, "document_uploaded", new={"filename": filename, "tag": tag or None, "by": "customer"})
     _after_customer_files(db, ticket)
     ticket.updated_at = utcnow()
     db.commit()
+    if upload_check.enabled():
+        background.add_task(upload_check.run, document.id)
     return tickets.customer_view(ticket)
 
 @router.post("/tickets/documents/tag")
@@ -259,19 +261,21 @@ def download(token: str, db: Session = Depends(get_db)):
 
 @router.post("/admin/tickets/{ticket_number}/documents", status_code=201)
 def staff_upload(
-    ticket_number: str, tag: str = Form(default="", max_length=60), note: str = Form(default="", max_length=500),
+    background: BackgroundTasks, ticket_number: str, tag: str = Form(default="", max_length=60), note: str = Form(default="", max_length=500),
     file: UploadFile = File(...), user: User = Depends(current_staff), db: Session = Depends(get_db),
 ):
     """Files the team adds, e.g. an EC fetched from Kaveri, filed under the checklist item's tag."""
     ticket = _get_ticket(db, user, ticket_number)
     filename, content_type, data = _read_upload(file)
     tag = report_templates.normalize_tag(tag)
-    store_document(db, ticket, filename, content_type, data, uploader_type="staff", user=user, tag=tag, note=note)
+    document = store_document(db, ticket, filename, content_type, data, uploader_type="staff", user=user, tag=tag, note=note)
     tickets.add_event(db, ticket, "document_uploaded", user, new={"filename": filename, "tag": tag or None, "by": "staff"})
     case_files.sync_items(ticket)
     tickets.audit(db, user, "document.uploaded", ticket.id, filename=filename, tag=tag)
     ticket.updated_at = utcnow()
     db.commit()
+    if upload_check.enabled():
+        background.add_task(upload_check.run, document.id)
     return _detail(db, ticket)
 
 @router.patch("/admin/tickets/{ticket_number}/documents/{document_id}")
@@ -282,6 +286,17 @@ def staff_tag(ticket_number: str, document_id: uuid.UUID, payload: StaffTag, use
     case_files.sync_items(ticket)
     db.commit()
     return _detail(db, ticket)
+
+@router.post("/admin/tickets/{ticket_number}/documents/{document_id}/check")
+def staff_recheck(ticket_number: str, document_id: uuid.UUID, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    """Run the automatic upload check again, e.g. after it failed or the provider was configured later."""
+    ticket = _get_ticket(db, user, ticket_number)
+    document = _ticket_document(ticket, document_id)
+    if not upload_check.enabled():
+        raise HTTPException(status_code=409, detail="Automatic upload checks are off or the LLM is not configured on the server.")
+    upload_check.run(document.id)
+    db.expire_all()
+    return _detail(db, _get_ticket(db, user, ticket_number))
 
 @router.delete("/admin/tickets/{ticket_number}/documents/{document_id}")
 def staff_delete(ticket_number: str, document_id: uuid.UUID, user: User = Depends(current_staff), db: Session = Depends(get_db)):
