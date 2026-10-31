@@ -49,8 +49,11 @@ def _flags(items, documents):
             check = (documents.get(doc_id) and documents[doc_id].ai_check) or {}
             if check.get("status") != "done":
                 continue
-            name = documents[doc_id].original_filename
-            if check.get("tag_mismatch") and check.get("document_type"):
+            document = documents[doc_id]
+            name = document.original_filename
+            # Same rule as upload_check.view: the mismatch is computed now, so re-filing the document clears it.
+            mismatch = check.get("suggested_tag") and document.tag and check["suggested_tag"] != document.tag
+            if mismatch and check.get("document_type"):
                 flags.append(f"{name} looks like {check['document_type']}, not {item['label']}.")
             flags += [f"{name}: {problem}" for problem in check.get("problems") or []]
     return flags
