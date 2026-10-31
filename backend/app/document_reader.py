@@ -10,13 +10,31 @@ from . import config
 
 MAX_PAGES = 15
 MAX_CHARS = 45000
+# Long edge for page images sent to vision models; larger images are downscaled by the provider anyway.
+IMAGE_EDGE = 1568
+
+
+def model_image(path) -> bytes | None:
+    """A JPEG copy of a scanned page for the extraction model. OCR text stays the quote anchor."""
+    try:
+        from PIL import Image
+        with Image.open(path) as image:
+            image = image.convert("RGB")
+            image.thumbnail((IMAGE_EDGE, IMAGE_EDGE))
+            out = io.BytesIO()
+            image.save(out, format="JPEG", quality=85)
+            return out.getvalue()
+    except (OSError, ValueError, ImportError):
+        return None
 
 
 def command(args, timeout=45):
     return subprocess.run(args, check=True, capture_output=True, timeout=timeout).stdout.decode("utf-8", errors="replace")
 
 
-def extract(data: bytes, filename: str) -> dict:
+def extract(data: bytes, filename: str, images: dict | None = None) -> dict:
+    """Return page text and warnings. When `images` is a dict, JPEG copies of OCR'd pages are added to it
+    by page number; they are kept out of the returned result so they never enter the saved run."""
     suffix = Path(filename).suffix.lower()
     pages, warnings = [], []
     try:
@@ -38,11 +56,15 @@ def extract(data: bytes, filename: str) -> dict:
                         command(["pdftoppm", "-f", str(number), "-l", str(number), "-scale-to", "1800", "-singlefile", "-png", str(path), prefix])
                         content = command(["tesseract", prefix + ".png", "stdout", "-l", config.VERIFICATION_OCR_LANGUAGES])
                         method = "ocr"
+                        if images is not None and (image := model_image(prefix + ".png")):
+                            images[number] = image
                     if len(content.strip()) > 10000:
                         warnings.append(f"Page {number} exceeds the text limit and was partially examined.")
                     pages.append({"page": number, "text": content.strip()[:10000], "method": method})
             elif suffix in (".png", ".jpg", ".jpeg", ".webp"):
                 text = command(["tesseract", str(path), "stdout", "-l", config.VERIFICATION_OCR_LANGUAGES])
+                if images is not None and (image := model_image(path)):
+                    images[1] = image
                 if len(text.strip()) > 10000:
                     warnings.append("Image text limit reached; the image was partially examined.")
                 pages = [{"page": 1, "text": text.strip()[:10000], "method": "ocr"}]
