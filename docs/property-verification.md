@@ -1,5 +1,7 @@
 # Property verification agent
 
+Requirements, design and implementation notes for the LLM parts of this feature are in [llm-verification/](llm-verification/README.md).
+
 The staff case page (`/admin/tickets/<ticket number>`) includes a document analysis agent. Customers continue to upload through the existing document repository. Assigned agents and admins can run the agent; it uses the same case access restrictions as the rest of the staff workspace.
 
 ## Workflow
