@@ -1,6 +1,12 @@
 import os
 
 APP_ENV = os.getenv("APP_ENV", "development")
+# Property document agent: keys never travel to browsers or enter saved reports.
+VERIFICATION_LLM_PROVIDER = os.getenv("VERIFICATION_LLM_PROVIDER", "openai")
+VERIFICATION_LLM_MODEL = os.getenv("VERIFICATION_LLM_MODEL", "gpt-4.1-mini")
+VERIFICATION_LLM_API_KEY = os.getenv("VERIFICATION_LLM_API_KEY", "")
+VERIFICATION_LLM_BASE_URL = os.getenv("VERIFICATION_LLM_BASE_URL", "https://api.openai.com/v1")
+VERIFICATION_OCR_LANGUAGES = os.getenv("VERIFICATION_OCR_LANGUAGES", "eng")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://homexo_app:change-this-local-password@localhost:5432/homexo")
 CORS_ORIGINS = [item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if item.strip()]
 

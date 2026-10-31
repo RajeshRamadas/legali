@@ -109,6 +109,10 @@ Each staff member can publish a lawyer profile with weekly hours from Lawyer pro
 
 Set `S3_BUCKET` (plus `S3_ENDPOINT_URL` and `S3_REGION=auto` for Cloudflare R2, and keys) to keep files in a private bucket; without it they go to `backend/storage/`. The flow, settings and the government portals are in `docs/documents.md`.
 
+### Property verification agent
+
+Each staff ticket has a **Property verification agent** panel. Upload the case documents, choose the property's state and run local extraction or LLM analysis. The agent extracts PDF/DOCX text and OCRs scans, compares quoted evidence, screens risks against a curated Indian property-law pack, and saves a reasoned verdict with legal references, open checks, document hashes and analysis history. Configure `VERIFICATION_LLM_PROVIDER`, `VERIFICATION_LLM_MODEL` and `VERIFICATION_LLM_API_KEY` on the backend to enable LLM analysis. See [agent setup, capabilities and limits](docs/property-verification.md).
+
 ### Run the API without Docker
 
 With PostgreSQL running locally:

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PROPERTY_TYPES } from "@homexo/shared";
 import { useStaff } from "../../AdminShell";
 import CaseFile from "../../CaseFile";
+import VerificationPanel from "../../VerificationPanel";
 import { adminFetch, formatDate, joinable, toLocalInput, type Meeting, type Meta, type StaffUser, type TicketDetail } from "../../api";
 
 const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Record<string, string>) => string> = {
@@ -125,6 +126,7 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
         <div className="ticket-main">
           <Conversation ticket={ticket} onSend={(message, visibility) => act("/messages", "POST", { message, visibility }, visibility === "internal" ? "Internal note added." : "Message sent to the customer.")} />
 
+          <VerificationPanel ticket={ticket} />
           <CaseFile ticket={ticket} staff={user.role === "admin" ? staff : [user]} onTicket={setTicket} onError={onError} />
 
           <MeetingsCard
