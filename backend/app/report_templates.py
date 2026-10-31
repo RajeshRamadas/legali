@@ -36,42 +36,96 @@ def section_view(sections: tuple, values: dict) -> list[dict]:
     return [{"key": key, "heading": heading, "hint": hint, "text": (values or {}).get(key, "")} for key, heading, hint, _ in sections]
 
 # (tag, label, guidance). The tag is what customers file uploads under, so keep it short.
+# Every property: the title chain, encumbrances and who is selling.
 COMMON = (
     ("sale-deed", "Sale deed of the present owner", "Registered copy, all pages"),
     ("title-deeds", "Previous title deeds (30 years)", "Mother deed and every deed in the chain for the last 30 years"),
     ("ec", "Encumbrance certificate (30 years)", "Form 15 / Form 16 from the sub-registrar, up to date"),
-    ("khata", "Khata certificate and extract", "BBMP / BDA / panchayat, in the owner's name"),
-    ("tax-receipts", "Property tax receipts", "Last 3 years"),
     ("owner-id", "Owner's identity proof", "Aadhaar or PAN of every owner and seller"),
 )
+# Property in a city or town: municipal khata and tax.
+URBAN = (
+    ("khata", "Khata certificate and extract", "BBMP / BDA / municipal khata in the owner's name, A or B khata. Waive for property in panchayat limits"),
+    ("tax-receipts", "Property tax receipts", "Last 3 years"),
+)
+# Property in a village panchayat: e-Swathu records instead of a city khata.
+PANCHAYAT = (
+    ("eswathu", "e-Swathu Form 9 / Form 11", "Panchayat property record in the owner's name. Waive for property in city limits"),
+)
+# Land still on the revenue records: RTC, mutations, survey and land-reform checks.
+REVENUE = (
+    ("rtc", "RTC / Pahani (30 years)", "Record of rights for every survey number, from the earliest year available"),
+    ("mutation", "Mutation register extracts", "Every mutation (MR) in the 30-year period"),
+    ("survey-sketch", "Survey sketch, tippani and akarbandh", "Hissa sketch with tippani and akarbandh for each survey number"),
+    ("grant-orders", "Grant, inam or land reform orders", "Saguvali chit, grant certificate or Land Tribunal order, if any part was granted"),
+    ("ptcl", "PTCL non-alienation check", "Confirmation the land was not granted to SC/ST holders, or the government's permission to sell"),
+)
+# Built property: approvals for the structure.
+BUILDING = (
+    ("building-plan", "Sanctioned building plan", "Plan approval from BBMP / BDA / BMRDA / panchayat"),
+    ("oc", "Occupancy certificate", "OC for the building, or completion certificate if OC is not issued yet"),
+)
 BY_PROPERTY_TYPE = {
-    "apartment": (
+    "apartment": URBAN + (
         ("jda", "Builder-landowner agreements", "Joint development agreement and GPA, if the building was developed"),
-        ("building-plan", "Sanctioned building plan", "Plan approval from BBMP / BDA / BMRDA"),
-        ("oc", "Occupancy certificate", "OC for the building, or CC if OC is not issued yet"),
+        *BUILDING,
         ("rera", "RERA registration", "Project registration number and certificate, if applicable"),
         ("sale-agreement", "Agreement for sale", "Draft or signed agreement with the builder or seller"),
+        ("conversion-order", "Land conversion order", "DC conversion order for the land the project stands on"),
     ),
-    "independent_house": (
-        ("building-plan", "Sanctioned building plan", "Plan approval from BBMP / BDA / panchayat"),
-        ("oc", "Occupancy certificate", "If the house was built after 2003 in BBMP limits"),
+    "villa": URBAN + PANCHAYAT + (
+        ("jda", "Builder-landowner agreements", "Joint development agreement and GPA for the layout"),
+        ("layout-approval", "Layout and building approvals", "Approved layout plan with release order, and the villa's sanctioned plan"),
+        ("oc", "Occupancy certificate", "OC or completion certificate for the villa"),
+        ("rera", "RERA registration", "Project registration number and certificate"),
+        ("conversion-order", "Land conversion order", "DC conversion order for the layout land"),
+        ("sale-agreement", "Agreement for sale and association rules", "Builder agreement, and the owners' association bye-laws if any"),
+    ),
+    "independent_house": URBAN + BUILDING + (
         ("survey-sketch", "Survey sketch", "Hissa / survey sketch of the site"),
+        ("conversion-order", "Land conversion order", "DC conversion order, if the site was carved out of farm land"),
     ),
-    "residential_plot": (
+    "residential_plot": URBAN + PANCHAYAT + (
         ("conversion-order", "Land conversion order", "DC conversion order for non-agricultural use"),
-        ("layout-approval", "Layout approval", "Approved layout plan and release order from BDA / BMRDA"),
+        ("layout-approval", "Layout approval", "Approved layout plan and release order from BDA / BMRDA / planning authority"),
         ("survey-sketch", "Survey sketch", "Hissa / survey sketch of the plot"),
     ),
-    "agricultural_land": (
-        ("rtc", "RTC / Pahani (30 years)", "Record of rights for every survey number"),
-        ("mutation", "Mutation register extracts", "Every mutation in the 30-year period"),
-        ("survey-sketch", "Survey sketch and tippani", "Hissa sketch, tippani and akarbandh"),
-        ("grant-orders", "Grant or land reform orders", "If any part was granted or subject to land reforms"),
+    "agricultural_land": REVENUE + (
+        ("buyer-eligibility", "Buyer's eligibility to buy farm land", "Karnataka Land Reforms Act sections 79A / 79B as they now apply, and income declaration if asked"),
+        ("tenancy", "Tenancy and Land Tribunal check", "Any tenancy claim or Form 7 application on the land"),
     ),
-    "commercial": (
-        ("building-plan", "Sanctioned building plan", "Plan approval for commercial use"),
-        ("oc", "Occupancy certificate", "OC for the building"),
+    "farmhouse": REVENUE + PANCHAYAT + (
+        ("conversion-order", "Conversion or farmhouse permission", "DC conversion order, or the panchayat permission for a farmhouse on farm land"),
+        ("building-plan", "Farmhouse building approval", "Panchayat or planning authority approval for the structure"),
+        ("farm-agreement", "Managed farmland agreements", "Sale and maintenance agreements with the farmland developer, and the sub-division sketch (11E / phodi)"),
+        ("buyer-eligibility", "Buyer's eligibility to buy farm land", "Karnataka Land Reforms Act sections 79A / 79B as they now apply"),
+    ),
+    "plantation_estate": REVENUE + PANCHAYAT + (
+        ("plantation-registration", "Plantation registration", "Coffee Board / Tea Board / Rubber Board / Spices Board registration of the estate"),
+        ("land-reforms-exemption", "Land reforms plantation exemption", "Order or declaration exempting the plantation from the land ceiling"),
+        ("forest-noc", "Forest and eco-sensitive zone check", "Forest department NOC or confirmation the land is not deemed forest or in an eco-sensitive zone"),
+        ("estate-buildings", "Estate buildings and labour lines", "Approvals or panchayat records for bungalows, curing yards and labour lines"),
+        ("water-rights", "Water and tree rights", "Water source permissions and any tree-felling or timber permits on record"),
+    ),
+    "industrial_land": (
+        ("kiadb-allotment", "KIADB / KSSIDC allotment letter", "Allotment letter and the terms, for land in an industrial area"),
+        ("lease-cum-sale", "Lease-cum-sale agreement", "Registered lease-cum-sale agreement with KIADB"),
+        ("possession-certificate", "Possession certificate", "Possession certificate from KIADB"),
+        ("absolute-sale-deed", "Absolute sale deed from KIADB", "Once the lease period is over and conditions are met"),
+        ("conversion-order", "Land conversion order", "For industrial land outside KIADB areas"),
+        ("building-plan", "Sanctioned factory building plan", "Plan approval from KIADB or the planning authority"),
+        ("pcb-consent", "Pollution control board consent", "KSPCB consent to establish and operate"),
+        ("fire-noc", "Fire and other NOCs", "Fire NOC and factory licence, if a unit is running"),
+        *URBAN,
+    ),
+    "commercial": URBAN + BUILDING + (
+        ("conversion-order", "Land conversion order", "DC conversion order for commercial use"),
         ("fire-noc", "Fire and other NOCs", "Fire NOC and any other approvals for the use"),
+        ("trade-licence", "Trade licence and leases", "Trade licence, and leases with current tenants if the property is let"),
+    ),
+    "other": URBAN + PANCHAYAT + (
+        ("rtc", "RTC / Pahani", "If the land is still on the revenue records"),
+        ("survey-sketch", "Survey sketch", "Hissa / survey sketch of the property"),
     ),
 }
 
