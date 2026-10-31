@@ -9,6 +9,12 @@ from typing import Callable
 
 # key -> portal. "provides" lists the checklist tags this portal can supply.
 SOURCES: dict[str, dict] = {
+    "ecourts": {
+        "name": "eCourts case services (court coverage must be confirmed)",
+        "url": "https://services.ecourts.gov.in",
+        "provides": ("litigation-search",),
+        "search_by": "Relevant courts, party names, case numbers and property identifiers; record search date and coverage. Search other applicable courts separately.",
+    },
     "kaveri": {
         "name": "Kaveri Online Services (IGR Karnataka)",
         "url": "https://kaveri.karnataka.gov.in",

@@ -11,13 +11,13 @@ import re
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets
+from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements, upload_check
 from .admin import _detail, _get_ticket, _visible_tickets
 from .db import get_db
 from .models import (
@@ -52,6 +52,30 @@ class CustomerTag(CustomerRef):
 
 class CustomerDelete(CustomerRef):
     document_id: uuid.UUID
+
+class IntakeUpdate(CustomerRef):
+    intake: document_requirements.PropertyIntake
+
+@router.post("/tickets/property-intake")
+def customer_intake(payload: IntakeUpdate, db: Session = Depends(get_db)):
+    ticket = _customer_ticket(db, payload.ticket_number, payload.contact)
+    if ticket.report and ticket.report.status in ("issued", "final_generated", "signed"):
+        raise HTTPException(409, "The advocate has issued your checklist. Send corrections to the case team so they can review it.")
+    values = payload.intake.model_dump()
+    if document_requirements.intake(ticket) != values:
+        ticket.structured_answers = {**(ticket.structured_answers or {}), "property_intake": values}
+        if ticket.prop:
+            for field in ("survey_number", "property_id_or_pid", "village", "taluk", "district"):
+                if values[field].strip():
+                    setattr(ticket.prop, field, values[field].strip())
+        request = document_requirements.view(ticket)
+        tickets.add_event(db, ticket, "intake_updated", new={"state": values["state"]})
+        from .models import TicketMessage
+        ticket.messages.append(TicketMessage(service_request_id=ticket.id, author_type="system", visibility="customer", message=request["prompt"]))
+        tickets.queue_notifications(db, ticket, "documents_requested", f"{ticket.ticket_number}: {request['prompt']}")
+        ticket.updated_at = utcnow()
+        db.commit()
+    return tickets.customer_view(ticket)
 
 class StaffTag(BaseModel):
     tag: str = Field(default="", max_length=60)
@@ -165,7 +189,7 @@ def _check_customer_tag(ticket: ServiceRequest, tag: str) -> None:
 
 @router.post("/tickets/documents", status_code=201)
 def customer_upload(
-    ticket_number: str = Form(min_length=5, max_length=40), contact: str = Form(min_length=5, max_length=254),
+    background: BackgroundTasks, ticket_number: str = Form(min_length=5, max_length=40), contact: str = Form(min_length=5, max_length=254),
     tag: str = Form(default="", max_length=60), note: str = Form(default="", max_length=500), file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -173,11 +197,13 @@ def customer_upload(
     tag = report_templates.normalize_tag(tag)
     _check_customer_tag(ticket, tag)
     filename, content_type, data = _read_upload(file)
-    store_document(db, ticket, filename, content_type, data, uploader_type="customer", tag=tag, note=note)
+    document = store_document(db, ticket, filename, content_type, data, uploader_type="customer", tag=tag, note=note)
     tickets.add_event(db, ticket, "document_uploaded", new={"filename": filename, "tag": tag or None, "by": "customer"})
     _after_customer_files(db, ticket)
     ticket.updated_at = utcnow()
     db.commit()
+    if upload_check.enabled():
+        background.add_task(upload_check.run, document.id)
     return tickets.customer_view(ticket)
 
 @router.post("/tickets/documents/tag")
@@ -235,19 +261,21 @@ def download(token: str, db: Session = Depends(get_db)):
 
 @router.post("/admin/tickets/{ticket_number}/documents", status_code=201)
 def staff_upload(
-    ticket_number: str, tag: str = Form(default="", max_length=60), note: str = Form(default="", max_length=500),
+    background: BackgroundTasks, ticket_number: str, tag: str = Form(default="", max_length=60), note: str = Form(default="", max_length=500),
     file: UploadFile = File(...), user: User = Depends(current_staff), db: Session = Depends(get_db),
 ):
     """Files the team adds, e.g. an EC fetched from Kaveri, filed under the checklist item's tag."""
     ticket = _get_ticket(db, user, ticket_number)
     filename, content_type, data = _read_upload(file)
     tag = report_templates.normalize_tag(tag)
-    store_document(db, ticket, filename, content_type, data, uploader_type="staff", user=user, tag=tag, note=note)
+    document = store_document(db, ticket, filename, content_type, data, uploader_type="staff", user=user, tag=tag, note=note)
     tickets.add_event(db, ticket, "document_uploaded", user, new={"filename": filename, "tag": tag or None, "by": "staff"})
     case_files.sync_items(ticket)
     tickets.audit(db, user, "document.uploaded", ticket.id, filename=filename, tag=tag)
     ticket.updated_at = utcnow()
     db.commit()
+    if upload_check.enabled():
+        background.add_task(upload_check.run, document.id)
     return _detail(db, ticket)
 
 @router.patch("/admin/tickets/{ticket_number}/documents/{document_id}")
@@ -258,6 +286,17 @@ def staff_tag(ticket_number: str, document_id: uuid.UUID, payload: StaffTag, use
     case_files.sync_items(ticket)
     db.commit()
     return _detail(db, ticket)
+
+@router.post("/admin/tickets/{ticket_number}/documents/{document_id}/check")
+def staff_recheck(ticket_number: str, document_id: uuid.UUID, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    """Run the automatic upload check again, e.g. after it failed or the provider was configured later."""
+    ticket = _get_ticket(db, user, ticket_number)
+    document = _ticket_document(ticket, document_id)
+    if not upload_check.enabled():
+        raise HTTPException(status_code=409, detail="Automatic upload checks are off or the LLM is not configured on the server.")
+    upload_check.run(document.id)
+    db.expire_all()
+    return _detail(db, _get_ticket(db, user, ticket_number))
 
 @router.delete("/admin/tickets/{ticket_number}/documents/{document_id}")
 def staff_delete(ticket_number: str, document_id: uuid.UUID, user: User = Depends(current_staff), db: Session = Depends(get_db)):
@@ -295,7 +334,7 @@ def report_template(ticket: str | None = None, user: User = Depends(current_staf
     return {
         "preliminary": [{"key": k, "heading": h, "hint": hint, "text": t} for k, h, hint, t in report_templates.PRELIMINARY_SECTIONS],
         "final": [{"key": k, "heading": h, "hint": hint, "text": t} for k, h, hint, t in report_templates.FINAL_SECTIONS],
-        "items": report_templates.checklist_for(property_type),
+        "items": document_requirements.checklist(found) if ticket else report_templates.checklist_for(property_type),
         "sources": [gov_sources.source_view(key) for key in gov_sources.SOURCES],
     }
 
@@ -434,6 +473,8 @@ def generate_final(ticket_number: str, user: User = Depends(current_staff), db: 
     """Make the final report PDF to print and sign. Needs every checklist item verified or waived."""
     ticket = _get_ticket(db, user, ticket_number)
     report = _editable_report(ticket)
+    from .verification_workflow import validate_final_approval
+    validate_final_approval(ticket)
     if report.status == "draft":
         raise HTTPException(status_code=409, detail="Issue the preliminary report first.")
     if not case_files.checklist_complete(report):
@@ -501,4 +542,49 @@ def fetch_queue(user: User = Depends(current_staff), db: Session = Depends(get_d
             "source": gov_sources.source_view(item.source),
             "property": tickets.property_view(prop) if prop else None,
         })
+    # Intake requests create official-record tasks immediately, without pretending a lawyer has issued a report.
+    for ticket in db.scalars(_visible_tickets(user).where(ServiceRequest.status.not_in(CLOSED_STATUSES))).unique().all():
+        if ticket.report and ticket.report.status != "draft":
+            continue
+        for item in document_requirements.view(ticket)["items"]:
+            if item["fetch_by"] == "homexo" and item["status"] == "pending":
+                items.append({"ticket_number": ticket.ticket_number, "customer_name": ticket.customer.full_name,
+                    "item": {key: item[key] for key in ("id", "tag", "label", "guidance", "status", "note")},
+                    "source": item["source"], "property": tickets.property_view(ticket.prop) if ticket.prop else None})
     return {"items": items, "sources": [gov_sources.source_view(key) for key in gov_sources.SOURCES]}
+
+@router.patch("/admin/tickets/{ticket_number}/property-intake")
+def staff_intake(ticket_number: str, payload: document_requirements.PropertyIntake,
+                 user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    ticket = _get_ticket(db, user, ticket_number)
+    if ticket.report and ticket.report.status == "signed":
+        raise HTTPException(409, "The signed report is on file. Its intake cannot be changed.")
+    values = payload.model_dump()
+    if document_requirements.intake(ticket) == values:
+        return _detail(db, ticket)
+    ticket.structured_answers = {**(ticket.structured_answers or {}), "property_intake": values}
+    if ticket.prop:
+        for field in ("survey_number", "property_id_or_pid", "village", "taluk", "district"):
+            if values[field].strip():
+                setattr(ticket.prop, field, values[field].strip())
+    if ticket.report:
+        existing = {i.tag: i for i in ticket.report.items}
+        for item in document_requirements.checklist(ticket):
+            if item["tag"] not in existing:
+                ticket.report.items.append(ReportItem(**item, position=len(ticket.report.items), status="pending"))
+        if values["state"] != "Karnataka":
+            for item in ticket.report.items:
+                item.source = None
+        else:
+            for item in ticket.report.items:
+                if not item.source:
+                    item.source = gov_sources.source_for(item.tag)
+        if ticket.report.status == "final_generated":
+            ticket.report.status = "issued"
+        case_files.sync_items(ticket)
+    tickets.add_event(db, ticket, "intake_updated", user, new={"state": values["state"]})
+    tickets.queue_notifications(db, ticket, "documents_requested", f"{ticket.ticket_number}: {document_requirements.view(ticket)['prompt']}")
+    tickets.audit(db, user, "property.intake_updated", ticket.id)
+    ticket.updated_at = utcnow()
+    db.commit()
+    return _detail(db, ticket)

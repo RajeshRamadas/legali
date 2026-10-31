@@ -43,7 +43,9 @@ def test_customer_reply_appears_in_thread(client, raise_ticket):
     number = raise_ticket()
     response = client.post("/api/v1/tickets/messages", json={"ticket_number": number, "contact": "9876543210", "message": "Seller sent the EC."})
     assert response.status_code == 201
-    assert response.json()["messages"] == [{"from": "you", "message": "Seller sent the EC.", "at": response.json()["messages"][0]["at"]}]
+    assert response.json()["messages"][0]["from"] == "homexo"
+    assert "Please upload" in response.json()["messages"][0]["message"]
+    assert response.json()["messages"][1:] == [{"from": "you", "message": "Seller sent the EC.", "at": response.json()["messages"][1]["at"]}]
 
 def test_customer_reply_needs_matching_contact(client, raise_ticket):
     number = raise_ticket()

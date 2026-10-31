@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AccountLink from "../account/AccountLink";
 import "./lawyers.css";
 
 // Header and footer for Find a lawyer, lawyer profiles and My bookings.
@@ -16,6 +17,7 @@ export default function LawyerShell({ children }: { children: React.ReactNode })
             <Link href="/lawyers" className={pathname.startsWith("/lawyers") ? "active" : undefined}>Find a lawyer</Link>
             <Link href="/bookings" className={pathname.startsWith("/bookings") ? "active" : undefined}>My bookings</Link>
             <Link href="/" className="hide-sm">Property services</Link>
+            <AccountLink className={pathname.startsWith("/account") ? "active" : undefined} />
           </nav>
         </div>
       </header>

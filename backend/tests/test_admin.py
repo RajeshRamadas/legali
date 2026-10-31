@@ -57,9 +57,11 @@ def test_internal_notes_stay_internal(client, admin_headers, raise_ticket):
     number = raise_ticket()
     client.post(f"/api/v1/admin/tickets/{number}/messages", json={"message": "Seller seems evasive", "visibility": "internal"}, headers=admin_headers)
     detail = client.post(f"/api/v1/admin/tickets/{number}/messages", json={"message": "We'll call you at 4 pm.", "visibility": "customer"}, headers=admin_headers).json()
-    assert [m["visibility"] for m in detail["messages"]] == ["internal", "customer"]
+    assert detail["messages"][0]["author_type"] == "system"
+    assert [m["visibility"] for m in detail["messages"] if m["author_type"] != "system"] == ["internal", "customer"]
     public = client.post("/api/v1/tickets/lookup", json={"ticket_number": number, "contact": "9876543210"}).json()
-    assert [m["message"] for m in public["messages"]] == ["We'll call you at 4 pm."]
+    assert "Please upload" in public["messages"][0]["message"]
+    assert [m["message"] for m in public["messages"]][1:] == ["We'll call you at 4 pm."]
 
 def test_agent_sees_only_assigned_tickets(client, admin_headers, agent, raise_ticket):
     mine = raise_ticket()

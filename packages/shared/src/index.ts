@@ -37,6 +37,7 @@ export type Service = {
 
 // Mirrors TicketCreate in backend/app/public.py.
 export type TicketCreate = {
+  property_intake?: PropertyIntake;
   customer_name: string;
   contact: string;
   property_type: PropertyType;
@@ -51,6 +52,7 @@ export type TicketCreate = {
 };
 
 export type TicketCreated = {
+  document_request?: DocumentRequest;
   ticket_number: string;
   status: string;
   message: string;
@@ -82,7 +84,36 @@ export type CustomerDocument = {
   download_url: string;
   uploaded_by: "you" | "homexo";
   can_delete: boolean;
+  check?: UploadCheck | null;
 };
+
+// Automatic upload check (backend/app/upload_check.py). Advice only: it never accepts or rejects a checklist item.
+export type UploadCheck = {
+  status: "pending" | "done" | "failed" | "skipped";
+  document_type?: string | null;
+  suggested_tag?: string | null;
+  legible?: "yes" | "partly" | "no" | null;
+  complete?: "yes" | "no" | "unclear" | null;
+  issue_date?: string | null;
+  period_from?: string | null;
+  period_to?: string | null;
+  summary?: string | null;
+  problems: string[];
+  tag_mismatch?: boolean;
+  checked_at?: string | null;
+};
+
+// One line a person can read about an upload check, plus whether it needs their attention.
+export function describeUploadCheck(check: UploadCheck | null | undefined): { text: string; warn: boolean } | null {
+  if (!check) return null;
+  if (check.status === "pending") return { text: "Checking this file…", warn: false };
+  if (check.status === "failed") return { text: "Automatic check unavailable; the case team will review it.", warn: false };
+  if (check.status === "skipped") return { text: check.summary || "This file type can't be checked automatically.", warn: false };
+  const problems = [...check.problems];
+  if (check.tag_mismatch && check.suggested_tag) problems.unshift(`This looks like ${check.document_type || "a different document"}. Should it be filed under #${check.suggested_tag}?`);
+  if (problems.length) return { text: problems.join(" "), warn: true };
+  return { text: `Looks like ${check.document_type}${check.summary ? `: ${check.summary}` : ""}`, warn: false };
+}
 
 export type GovSource = { key: string; name: string; url: string; search_by: string; automatic: boolean };
 
@@ -100,8 +131,40 @@ export type ReportItem = {
   // "homexo": a public record the case team gets from a government portal, so the customer needn't upload it.
   fetch_by: "customer" | "homexo";
   source: GovSource | null;
+  // Which verification question the document answers (DocumentJourney groups). Only on document_request items.
+  group?: string;
 };
 export type ReportSection = { key: string; heading: string; hint: string; text: string };
+
+export type PropertyIntake = {
+  state: "Karnataka" | "Other" | "Unknown";
+  transaction: "purchase" | "inheritance" | "gift" | "partition" | "other" | "unknown";
+  seller_capacity: "owner" | "power_of_attorney" | "legal_heir" | "company" | "unknown";
+  development: "new" | "resale" | "land" | "unknown";
+  granted_land: "yes" | "no" | "unknown";
+  survey_number: string; property_id_or_pid: string; village: string; taluk: string; district: string;
+};
+// Mirrors backend/app/document_journey.py: where the case stands, how the documents relate, and which checks are done.
+export type JourneyStage = { key: string; label: string; status: "done" | "current" | "upcoming"; detail: string; at?: string };
+export type CheckStatus = "passed" | "in_review" | "waiting" | "problem";
+export type JourneyCheck = { key: string; label: string; question: string; explains: string; status: CheckStatus; detail: string; accepted: number; total: number; tags: string[];
+  // Problems the automatic upload check noticed in this check's files. Advice only.
+  flags: string[] };
+export type JourneyGroup = { key: string; label: string; explains: string; status: CheckStatus; tags: string[]; flagged: boolean };
+export type DocumentJourney = {
+  stages: JourneyStage[];
+  groups: JourneyGroup[];
+  links: { from: string; to: string }[];
+  checks: JourneyCheck[];
+  // The id of the item to ask the customer for next: a rejected upload first, then the first one still needed.
+  next_upload: string | null;
+};
+export type DocumentRequest = {
+  origin: "automatic_intake" | "advocate_checklist" | "not_applicable";
+  intake: PropertyIntake; items: ReportItem[]; missing_count: number; official_count: number;
+  questions: string[]; prompt: string; note: string;
+  journey?: DocumentJourney;
+};
 
 // Mirrors customer_report_view in backend/app/case_files.py. Null until the lawyer issues the preliminary report.
 export type CustomerReport = {
@@ -119,6 +182,7 @@ export type CustomerReport = {
 
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
+  document_request?: DocumentRequest;
   ticket_number: string;
   service_name: string;
   package: string | null;
@@ -264,6 +328,40 @@ export type PaymentResult = { order_id: string; payment_id: string; signature: s
 // What a customer keeps to find a booking again: the ticket number and the phone or email it was made with.
 export type BookingRef = { ticket_number: string; contact: string };
 
+// Customer accounts (backend/app/accounts.py). Customers sign in with a code sent to their phone; the account shows
+// everything raised with that number. `contact` is what the ticket, document and booking calls take for these requests.
+export type AccountProfile = { name: string | null; phone: string; email: string | null; contact: string };
+export type LoginCodeSent = { phone: string; channel: "whatsapp" | "dev"; expires_in: number; resend_after: number; dev_code?: string };
+export type AccountSession = { access_token: string; token_type: "bearer"; account: AccountProfile };
+export type AccountRequest = {
+  ticket_number: string;
+  title: string;
+  service_name: string;
+  package: string | null;
+  kind: "consultation" | "request";
+  status: string;
+  status_label: string;
+  created_at: string;
+  updated_at: string;
+  documents: number;
+  report: { status_label: string; progress: { done: number; total: number }; signed: boolean } | null;
+  next_meeting: CustomerMeeting | null;
+  // A short line when the customer has something to do, e.g. "Documents to upload".
+  needs_you: string | null;
+};
+export type AccountPayment = Pick<BookingPayment, "status" | "amount" | "paid_at" | "method" | "reference" | "can_pay"> & {
+  ticket_number: string;
+  description: string;
+  when: string;
+};
+export type AccountOverview = {
+  profile: AccountProfile;
+  requests: AccountRequest[];
+  bookings: Booking[];
+  payments: AccountPayment[];
+  payments_mode: BookingPayment["mode"];
+};
+
 export const formatFee = (rupees: number) => `₹${rupees.toLocaleString("en-IN")}`;
 
 // Test mode takes a pretend payment; this id is what the server accepts for it.
@@ -271,7 +369,7 @@ export const testPayment = (checkout: PaymentCheckout): PaymentResult => ({
   order_id: checkout.order_id, payment_id: `pay_test_${Date.now().toString(36)}`, signature: "",
 });
 
-export const paymentLabel = (payment: BookingPayment): string => ({
+export const paymentLabel = (payment: Pick<BookingPayment, "status" | "amount">): string => ({
   due: `${formatFee(payment.amount)} to pay`,
   paid: `${formatFee(payment.amount)} paid`,
   refund_due: `Refund of ${formatFee(payment.amount)} on its way`,
@@ -436,6 +534,15 @@ export type ReraSearchResult = { items: ReraProjectCard[]; total: number; page: 
 
 export const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
+// Thrown for any failed API call. status 401 on an account call means the session ended: sign in again.
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, init);
   const data = await response.json().catch(() => ({}));
@@ -445,10 +552,12 @@ async function request<T>(baseUrl: string, path: string, init?: RequestInit): Pr
       typeof data.detail === "string" ? data.detail
       : Array.isArray(data.detail) && data.detail[0]?.msg ? `${data.detail[0].loc?.at(-1) ?? "Field"}: ${data.detail[0].msg}`
       : "Request failed.";
-    throw new Error(detail);
+    throw new ApiError(detail, response.status);
   }
   return data as T;
 }
+
+const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 const post = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -477,6 +586,9 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
     },
     tagDocument(ref: { ticket_number: string; contact: string }, documentId: string, tag: string): Promise<TicketStatus> {
       return request<TicketStatus>(baseUrl, "/api/v1/tickets/documents/tag", post({ ...ref, document_id: documentId, tag }));
+    },
+    updatePropertyIntake(ref: { ticket_number: string; contact: string }, intake: PropertyIntake): Promise<TicketStatus> {
+      return request<TicketStatus>(baseUrl, "/api/v1/tickets/property-intake", post({ ...ref, intake }));
     },
     deleteDocument(ref: { ticket_number: string; contact: string }, documentId: string): Promise<TicketStatus> {
       return request<TicketStatus>(baseUrl, "/api/v1/tickets/documents/delete", post({ ...ref, document_id: documentId }));
@@ -579,6 +691,24 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
     },
     refreshPayment(ref: BookingRef): Promise<Booking> {
       return request(baseUrl, "/api/v1/bookings/pay/refresh", post(ref));
+    },
+    startLogin(phone: string): Promise<LoginCodeSent> {
+      return request(baseUrl, "/api/v1/account/login/start", post({ phone }));
+    },
+    verifyLogin(phone: string, code: string): Promise<AccountSession> {
+      return request(baseUrl, "/api/v1/account/login/verify", post({ phone, code }));
+    },
+    getAccount(token: string): Promise<AccountOverview> {
+      return request(baseUrl, "/api/v1/account", { headers: bearer(token) });
+    },
+    getAccountRequest(token: string, ticketNumber: string): Promise<TicketStatus> {
+      return request(baseUrl, `/api/v1/account/requests/${encodeURIComponent(ticketNumber)}`, { headers: bearer(token) });
+    },
+    updateAccount(token: string, changes: { full_name?: string; email?: string }): Promise<AccountProfile> {
+      return request(baseUrl, "/api/v1/account", { method: "PATCH", headers: { ...bearer(token), "Content-Type": "application/json" }, body: JSON.stringify(changes) });
+    },
+    signOutEverywhere(token: string): Promise<{ ok: boolean }> {
+      return request(baseUrl, "/api/v1/account/logout-all", { method: "POST", headers: bearer(token) });
     },
     chat(message: string, options: ChatOptions = {}): Promise<ChatReply> {
       return request<ChatReply>(baseUrl, "/api/v1/chat", {

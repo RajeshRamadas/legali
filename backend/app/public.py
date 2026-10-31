@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import tickets
+from . import tickets, document_requirements
 from .catalogue import SERVICES, SERVICES_BY_SLUG
 from .db import get_db
 from .models import CLOSED_STATUSES, PROPERTY_TYPES, ServiceRequest, ServiceType
@@ -15,6 +15,7 @@ from .models import CLOSED_STATUSES, PROPERTY_TYPES, ServiceRequest, ServiceType
 router = APIRouter()
 
 class TicketCreate(BaseModel):
+    property_intake: document_requirements.PropertyIntake | None = None
     customer_name: str = Field(min_length=2, max_length=120)
     contact: str = Field(min_length=5, max_length=254, description="Phone number (or email for older clients).")
     email: str | None = Field(default=None, max_length=254)
@@ -72,6 +73,7 @@ def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
         db, customer_name=payload.customer_name.strip(), phone=phone, email=(email or "").strip() or None,
         property_type=payload.property_type, service=service, package=payload.package, location=payload.location.strip(),
         description=payload.description.strip(), source=payload.source,
+        property_intake=payload.property_intake.model_dump() if payload.property_intake else None,
     )
     if payload.conversation_id:
         tickets.link_conversation(db, ticket, payload.conversation_id)
@@ -80,6 +82,7 @@ def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
         "ticket_number": ticket.ticket_number,
         "status": ticket.status,
         "message": "Request received. A specialist will call you to confirm the scope, documents needed and any fees.",
+        "document_request": document_requirements.view(ticket),
     }
 
 @router.post("/api/v1/tickets/lookup")

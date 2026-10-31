@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { PROPERTY_TYPES } from "@homexo/shared";
 import { useStaff } from "../../AdminShell";
 import CaseFile from "../../CaseFile";
+import VerificationPanel from "../../VerificationPanel";
+import VerificationOverview from "../../VerificationOverview";
 import { adminFetch, formatDate, joinable, toLocalInput, type Meeting, type Meta, type StaffUser, type TicketDetail } from "../../api";
 
 const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Record<string, string>) => string> = {
@@ -28,6 +30,8 @@ const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Rec
   report_item_reviewed: (e) => `#${e.new?.tag}: ${e.old?.status} → ${e.new?.status}`,
   final_report_generated: () => "Final report PDF generated for signature",
   report_signed: () => "Signed final report uploaded",
+  intake_updated: () => "Property intake and document request updated",
+  agent_report_drafted: () => "Evidence-based report drafted for advocate review",
   payment_received: (e) => `Fee of ₹${e.new?.amount} paid online${e.new?.method ? ` by ${String(e.new.method).toUpperCase()}` : ""}${e.new?.reference ? ` (${e.new.reference})` : ""}`,
   payment_failed: (e) => `Online payment of ₹${e.new?.amount} failed`,
   payment_refund_due: (e) => `Refund of ₹${e.new?.amount} due: refund it in the Razorpay dashboard${e.new?.reference ? ` (payment ${e.new.reference})` : ""}`,
@@ -125,6 +129,8 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
         <div className="ticket-main">
           <Conversation ticket={ticket} onSend={(message, visibility) => act("/messages", "POST", { message, visibility }, visibility === "internal" ? "Internal note added." : "Message sent to the customer.")} />
 
+          <VerificationOverview ticket={ticket} />
+          <VerificationPanel ticket={ticket} onTicket={setTicket} />
           <CaseFile ticket={ticket} staff={user.role === "admin" ? staff : [user]} onTicket={setTicket} onError={onError} />
 
           <MeetingsCard

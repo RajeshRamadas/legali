@@ -14,3 +14,9 @@ Khata and e-Khata guidance, property-tax records and application follow-up. Serv
 
 ## Legal documents and deeds
 Sale agreement, sale deed, POA, Gift Deed and other property-document drafting or vetting support. Service: Deed Drafting / Registration Support (deed-drafting-registration).
+
+## Automatic document requests for property verification
+
+When a title-verification, legal-due-diligence, developer-land-screening or acquisition-due-diligence request is raised, Documents immediately shows a provisional checklist. No LLM key or issued preliminary report is needed to request these documents. Customers answer questions about property state, transaction, seller authority, development stage and granted-land history to tailor it. Inheritance, POA, company, gift, partition and new-development cases need additional records as applicable. Unknown answers remain questions for the advocate.
+
+The current verified ticket's document_request is the source of truth for missing files. Received means uploaded, not verified. Do not ask again for received, verified or waived items. Public-record tasks belong to the case team. The advocate may revise requirements, and an issued advocate checklist takes precedence. SMS/email document requests are queued; delivery depends on configured providers. Automated checklists and LLM screening are not signed legal opinions or proof of title.

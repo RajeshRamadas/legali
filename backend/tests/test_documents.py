@@ -51,6 +51,7 @@ def test_customer_uploads_tags_and_downloads(client, raise_ticket, local_storage
 
 def test_preliminary_checklist_to_signed_final_report(client, raise_ticket, admin_headers):
     ticket = raise_ticket()
+    client.post("/api/v1/tickets/property-intake", json={"ticket_number": ticket, "contact": CONTACT, "intake": {"state": "Karnataka"}})
     template = _template(client, admin_headers, ticket)
     # Apartment checklist: deeds come from the customer, public records are fetched by Homexo from the portals.
     tags = {i["tag"]: i for i in template["items"]}

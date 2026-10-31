@@ -91,7 +91,7 @@ CHAT_TOPICS = [
     },
     {
         "keywords": ["documents do i need", "which documents", "seller", "checklist"],
-        "reply": "It depends on the property, but usually title deeds, EC, revenue records, approvals, Khata and tax records, and survey documents. A specialist will send you a checklist for your property.",
+        "reply": "For a property-verification request, your property details create a checklist automatically. Open Documents from your request, answer the property questions and upload files under the requested tags. The advocate confirms applicability and any additional records; the case team handles official-record tasks.",
         "service_slug": "general-guidance",
         "suggestions": ["Talk to a specialist", "Package prices"],
     },
@@ -214,6 +214,11 @@ def chat(payload: ChatMessage, request: Request, db: Session = Depends(get_db)):
     }
 
 def rule_based_reply(message: str, ticket_view: dict | None) -> dict:
+    if ticket_view and any(word in message.lower() for word in ("document", "upload", "checklist", "what do you need", "what is missing")):
+        request = ticket_view.get("document_request", {})
+        return {"reply": request.get("prompt", "Open Documents to see the case checklist.") + " Open Documents from your request to upload each file under its tag.",
+                "action": "status", "ticket_number": ticket_view["ticket_number"], "service": None,
+                "suggestions": ["What is missing?", "Track my request"]}
     text = message.strip().lower()
     ticket_match = TICKET_NUMBER_RE.search(message)
     if ticket_match or any(re.search(rf"\b{word}\b", text) for word in ["track", "status", "my request", "my ticket"]):

@@ -50,6 +50,14 @@ RERA_STATUSES = ("ongoing", "completed", "lapsed", "revoked", "withdrawn")
 class Base(DeclarativeBase):
     pass
 
+class VerificationRun(Base):
+    __tablename__ = "verification_runs"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), index=True)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    result: Mapped[dict] = mapped_column(JSONType, nullable=False)
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
@@ -109,6 +117,40 @@ class Customer(TimestampMixin, Base):
     # Last 10 digits of the phone, used to match ticket lookups however the number was typed.
     phone_normalized: Mapped[str | None] = mapped_column(Text)
     preferred_contact_channel: Mapped[str | None] = mapped_column(Text)
+
+class CustomerAccount(TimestampMixin, Base):
+    """A customer who signs in with a code sent to their phone. Their tickets, bookings and payments are the ones
+    raised with the same phone number (customers.phone_normalized), so requests made before signing up show too."""
+    __tablename__ = "customer_accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    # Last 10 digits, like customers.phone_normalized. Proven by a login code.
+    phone_normalized: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    full_name: Mapped[str | None] = mapped_column(Text)
+    email: Mapped[str | None] = mapped_column(Text)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Part of every session token; raising it signs the account out on every device.
+    token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+
+class LoginCode(Base):
+    """A one-time sign-in code sent to a phone. Only a hash of the code is kept."""
+    __tablename__ = "login_codes"
+    __table_args__ = (
+        Index("idx_login_codes_phone_created", "phone_normalized", "created_at"),
+        Index("idx_login_codes_client_created", "client_key", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    phone_normalized: Mapped[str] = mapped_column(Text, nullable=False)
+    code_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    channel: Mapped[str] = mapped_column(Text, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Set when the code signs someone in, or when a newer code replaces it.
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Salted hash of the requester's address (see chat.client_key), to limit codes per address.
+    client_key: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class Property(TimestampMixin, Base):
     __tablename__ = "properties"
@@ -309,6 +351,8 @@ class Document(Base):
     note: Mapped[str | None] = mapped_column(Text)
     scan_status: Mapped[str] = mapped_column(Text, default="pending", nullable=False)
     access_classification: Mapped[str] = mapped_column(Text, default="confidential", nullable=False)
+    # Result of the automatic upload check (app.upload_check): document type, legibility, dates and problems.
+    ai_check: Mapped[dict | None] = mapped_column(JSONType)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class LegalReport(TimestampMixin, Base):

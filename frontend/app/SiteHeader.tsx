@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import AccountLink from "./account/AccountLink";
 
 const NAV = [
   ["/rera", "RERA check"], ["/lawyers", "Find a lawyer"], ["/#packages", "Verify a property"], ["/services#documents", "Documents"],
@@ -28,8 +29,10 @@ export default function SiteHeader() {
           <nav className={`navlinks${menuOpen ? " is-open" : ""}`} id="navlinks" aria-label="Main navigation">
             {NAV.map(([href, label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</Link>)}
             <Link className="nav-only-menu" href="/#track" onClick={() => setMenuOpen(false)}>Track request</Link>
+            <AccountLink className="nav-only-menu" onClick={() => setMenuOpen(false)} />
           </nav>
           <div className="navright">
+            <AccountLink className="nav-account" />
             <Link className="btn small light hide-md" href="/#track">Track request</Link>
             <Link className="btn small" href="/#callback">Get free callback ↗</Link>
             <button className="menu" aria-expanded={menuOpen} aria-controls="navlinks" aria-label={menuOpen ? "Close navigation" : "Open navigation"} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "×" : "☰"}</button>
