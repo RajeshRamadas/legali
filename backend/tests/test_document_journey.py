@@ -81,9 +81,17 @@ def test_upload_check_problems_show_as_flags(client, raise_ticket):
     client.post("/api/v1/tickets/documents", data=data, files={"file": ("deed.pdf", io.BytesIO(PDF), "application/pdf")})
     with SessionLocal() as db:
         doc = db.scalar(select(Document).where(Document.original_filename == "deed.pdf"))
-        doc.ai_check = {"status": "done", "document_type": "Khata certificate", "tag_mismatch": True, "problems": ["Page 2 is cut off."]}
+        # Stored exactly as upload_check.assess stores it: tag_mismatch is never saved, only suggested_tag.
+        doc.ai_check = {"status": "done", "document_type": "Khata certificate", "suggested_tag": "khata", "problems": ["Page 2 is cut off."]}
         db.commit()
     view = journey(client, ticket)
     title = by_key(view["checks"])["title"]
     assert title["flags"] == ["deed.pdf looks like Khata certificate, not Sale deed of the present owner.", "deed.pdf: Page 2 is cut off."]
     assert by_key(view["groups"])["title"]["flagged"]
+
+    # Once the file is filed under the tag the check suggested, the mismatch flag goes without another check.
+    with SessionLocal() as db:
+        doc = db.scalar(select(Document).where(Document.original_filename == "deed.pdf"))
+        doc.ai_check = {**doc.ai_check, "suggested_tag": "sale-deed"}
+        db.commit()
+    assert by_key(journey(client, ticket)["checks"])["title"]["flags"] == ["deed.pdf: Page 2 is cut off."]

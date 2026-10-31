@@ -136,10 +136,6 @@ Provider calls are mocked with `httpx.MockTransport` or monkeypatching; no test 
 
 - **Not tested live.** No credentialed call to Anthropic has run in development; the first real run should be on a
   known case with a reviewer watching quotes, discards and cost.
-- **Upload-check mismatch flag in the journey map.** `document_journey._flags` reads `tag_mismatch` from
-  `documents.ai_check`, but that key is computed only in `upload_check.view()` and is never stored, so the "looks like X,
-  not Y" flag does not appear on journey checks. Customers still see the mismatch under the file itself. Fix: compute
-  it in `_flags` the same way `view()` does.
 - **Synchronous runs.** A case run holds the HTTP request (and a row lock) for the whole pipeline; scanned cases can take
   minutes. Needs a worker queue before production. The staff re-check also runs inline.
 - **No cross-checks, RERA match, typed schemas, confidence or gold set yet** (VR-15 to VR-18); being built in the
