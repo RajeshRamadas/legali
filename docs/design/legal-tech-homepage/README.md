@@ -8,6 +8,11 @@ an original legal-tech interpretation for Homexo's property-review workflows.
 ## Design
 
 - Warm ivory, ink, lavender and citron accents, with large editorial headings.
+- Subtle grid and ambient colour in the hero, softer card corners, stronger
+  selected-tab contrast, and restrained transitions with reduced-motion support.
+- Document status cards, a connected ownership timeline and Previous/Next
+  controls make the illustrative review easier to explore. The final stage
+  offers a restart, and stage changes are announced to screen readers.
 - A central interactive workspace replaces the architectural-photo hero.
 - Five real, keyboard-accessible preview tabs: documents, ownership chain,
   cross-document comparison, legal context and advocate review.
@@ -38,15 +43,19 @@ assets were added.
   panels without page-level horizontal overflow.
 - Arrow/Home/End navigation, report-dialog focus, intake/package selection,
   light/dark theme, mobile navigation/Escape and RERA search are checked.
+- Guided controls, restart, ownership timeline and reduced-motion behavior are
+  additionally checked at 1440, 390 and 320 pixels.
 - Route navigation removes the homepage palette; no client exceptions were seen.
 - Safari and Firefox have not been checked.
 
 ## Screenshots
 
+- [Refined desktop preview](refined-desktop.png)
 - [Desktop, light](home-light-1440.png)
 - [Desktop, dark](home-dark-1440.png)
 - [Mobile, light](home-light-390.png)
 - [Mobile, dark](home-dark-390.png)
+- [Ownership timeline](title-chain.png)
 - [Cross-document example](cross-checks.png)
 - [Legal-context example](legal-context.png)
 - [Full homepage](home-light-1440-full.png)

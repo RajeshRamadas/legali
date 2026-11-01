@@ -37,10 +37,17 @@ export default function PublicHero() {
             </ServiceButton>
             <SampleReportButton />
           </div>
-          <p className="hp-hero-footnote">
-            A tailored checklist. Evidence-linked findings. A human legal
-            opinion.
-          </p>
+          <ul className="hp-hero-assurances" aria-label="Your property review">
+            <li>
+              <Icon name="file" size={15} /> A tailored checklist
+            </li>
+            <li>
+              <Icon name="search" size={15} /> Evidence-linked findings
+            </li>
+            <li>
+              <Icon name="law" size={15} /> A human legal opinion
+            </li>
+          </ul>
         </div>
         <PropertyReviewPreview />
         <div className="hp-returning">

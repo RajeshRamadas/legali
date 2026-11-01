@@ -75,7 +75,7 @@
   gap: 14px;
   padding: 14px 23px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 10px;
   font: 650 13px/1.45 var(--font);
   cursor: pointer;
   transition:
@@ -221,7 +221,25 @@
 }
 .hp-hero {
   padding-top: 62px;
-  background: var(--public-bg);
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 12% 22%, #b5a2ed1c, transparent 45%),
+    radial-gradient(ellipse at 90% 42%, #d4ef8c24, transparent 43%),
+    var(--public-bg);
+}
+.hp-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 580px;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(transparent, #0002 35%, transparent);
 }
 .hp-hero-copy {
   max-width: 1000px;
@@ -251,9 +269,9 @@
 }
 .hp-home h1 {
   font-size: clamp(44px, 5.8vw, 82px);
-  font-weight: 750;
-  line-height: 1.08;
-  letter-spacing: -4.7px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -4.2px;
   margin: 0 0 25px;
 }
 .hp-home h1 em {
@@ -273,11 +291,25 @@
   justify-content: center;
   gap: 13px;
 }
-.hp-home .hp-hero-footnote {
-  margin: 19px 0 0;
-  font-size: 10px;
-  color: var(--ink-3);
-  line-height: 1.8;
+.hp-hero-assurances {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px 23px;
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.hp-hero-assurances li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.hp-hero-assurances svg {
+  color: var(--primary-text);
+  flex: none;
 }
 .hp-returning {
   display: flex;
@@ -339,16 +371,22 @@
   padding: 13px 15px;
   min-height: 49px;
   border: 1px solid var(--line);
-  border-radius: 7px;
-  background: transparent;
+  border-radius: 10px;
+  background: var(--surface);
   color: var(--ink-2);
+  transition:
+    background 180ms,
+    color 180ms,
+    border-color 180ms;
+  cursor: pointer;
   font: 600 11px/1.5 var(--font);
   text-align: left;
 }
 .lt-stage-tabs > button[aria-selected="true"] {
-  background: var(--lt-lavender);
-  border-color: var(--lt-lavender);
-  color: var(--ink);
+  background: var(--lt-frame);
+  border-color: var(--lt-frame);
+  color: #e9ff83;
+  box-shadow: 0 4px 12px #192c1714;
 }
 .lt-stage-tabs > button:hover {
   border-color: var(--primary-text);
@@ -364,9 +402,11 @@
 .lt-workspace {
   background: var(--lt-frame);
   border: 1px solid var(--lt-frame);
-  border-radius: 14px;
-  padding: 9px;
-  box-shadow: 0 18px 45px #192c1712;
+  border-radius: 20px;
+  padding: 10px;
+  box-shadow:
+    0 32px 65px -25px #192c1740,
+    0 0 0 6px #6750c807;
 }
 .lt-workspace-top {
   display: flex;
@@ -415,7 +455,7 @@
   overflow: hidden;
   background: #f3f2ed;
   color: #20251d;
-  min-height: 424px;
+  min-height: 515px;
 }
 .lt-workspace-content:focus-visible {
   outline-offset: 3px;
@@ -810,7 +850,7 @@
 .hp-workflow-grid > li {
   padding: 29px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 20px;
   background: var(--surface);
 }
 .hp-workflow-grid > li:nth-child(2) {
@@ -926,14 +966,17 @@
   flex-direction: column;
   padding: 30px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 18px;
+  background: var(--surface);
   transition:
     transform 0.2s,
-    border-color 0.2s;
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .hp-service:hover {
   transform: translateY(-4px);
-  border-color: var(--ink-2);
+  border-color: var(--primary);
+  box-shadow: 0 15px 32px -20px #6750c860;
 }
 .hp-service:first-child {
   background: var(--lt-frame);
@@ -981,7 +1024,8 @@
   gap: 20px;
   padding: 24px 28px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 18px;
+  background: var(--primary-50);
   margin-top: 25px;
 }
 .hp-assistant-strip > div {
@@ -1434,7 +1478,9 @@
 }
 .hp-final {
   padding: 75px 0;
-  background: var(--lt-frame);
+  background:
+    radial-gradient(ellipse at 85% 100%, #4f6344, transparent 65%),
+    var(--lt-frame);
   color: #f4f5ea;
 }
 .hp-final .hp-container {
@@ -1595,6 +1641,205 @@
   background: #2b3828;
   border-color: #3a4936;
 }
+/* Guided sample: document status and a connected ownership timeline. */
+.lt-record-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 18px 0;
+}
+.lt-record-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e0e3d8;
+  border-radius: 9px;
+  background: #fafbf7;
+}
+.lt-summary-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #e9efdd;
+  color: #4e6530;
+  flex: none;
+}
+.lt-summary-icon.pending {
+  background: #f9eed8;
+  color: #815918;
+}
+.lt-record-summary strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+}
+.lt-record-summary small {
+  display: block;
+  color: #58634f;
+  font-size: 9px;
+  line-height: 1.5;
+  margin-top: 3px;
+}
+.lt-title-timeline {
+  list-style: none;
+  padding: 20px 0 0;
+  margin: 0;
+}
+.lt-title-timeline li {
+  position: relative;
+  display: flex;
+  gap: 15px;
+  padding-bottom: 23px;
+}
+.lt-title-timeline li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 31px;
+  bottom: 0;
+  left: 16px;
+  border-left: 1px dashed #bdc8af;
+}
+.lt-timeline-node {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  border-radius: 50%;
+  border: 1px solid #d6dfcb;
+  background: #eff4e7;
+  color: #556b39;
+  flex: none;
+  z-index: 1;
+}
+.lt-timeline-node.amber {
+  background: #fff5de;
+  border-color: #ebd5a8;
+  color: #8e611c;
+}
+.lt-title-timeline small {
+  display: block;
+  color: #67735d;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.lt-title-timeline strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.lt-title-timeline li > div > span {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #627052;
+}
+.lt-tour-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.lt-tour-position {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 12px;
+  color: var(--ink);
+}
+.lt-tour-position > span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+.lt-tour-position > span > span {
+  color: var(--ink-2);
+  font-weight: 400;
+}
+.lt-tour-position strong {
+  font-weight: 600;
+}
+.lt-tour-buttons {
+  display: flex;
+  gap: 8px;
+}
+.lt-tour-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 44px;
+  padding: 10px 16px;
+  font: 600 11px/1.5 var(--font);
+  cursor: pointer;
+}
+.lt-tour-buttons button:hover:not(:disabled) {
+  background: var(--primary-50);
+  border-color: var(--primary);
+}
+.lt-tour-buttons button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.lt-tour-back svg {
+  transform: rotate(180deg);
+}
+.lt-case-document,
+.lt-findings {
+  animation: lt-panel-in 240ms ease-out both;
+}
+@keyframes lt-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 700px) {
+  .hp-hero-assurances {
+    gap: 11px 16px;
+    max-width: 330px;
+    margin-inline: auto;
+    font-size: 10px;
+  }
+  .lt-workspace-content {
+    min-height: 0;
+  }
+  .lt-tour-position {
+    gap: 8px;
+    font-size: 10px;
+  }
+  .lt-tour-buttons {
+    gap: 5px;
+  }
+  .lt-tour-buttons button {
+    gap: 8px;
+    font-size: 10px;
+    padding: 10px;
+  }
+  .lt-record-summary > div {
+    padding: 10px;
+    gap: 8px;
+  }
+  .lt-record-summary strong {
+    font-size: 19px;
+  }
+}
+
 @media (max-width: 1100px) {
   .hp-container,
   .hp-home .wrap,

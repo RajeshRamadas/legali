@@ -205,7 +205,7 @@ export default function PropertyReviewPreview() {
               <small>This is a fictional case.</small>
             </div>
           </aside>
-          <div className="lt-case-document">
+          <div className="lt-case-document" key={`document-${selected}`}>
             <div className="lt-document-overline">
               <span>STEP 0{selected + 1} / 05</span>
               <span>
@@ -215,6 +215,31 @@ export default function PropertyReviewPreview() {
             </div>
             <h2>{stage.title}</h2>
             <p>{stage.subtitle}</p>
+            {selected === 0 && (
+              <div
+                className="lt-record-summary"
+                aria-label="Example document checklist status"
+              >
+                <div>
+                  <span className="lt-summary-icon">
+                    <Icon name="file" size={18} />
+                  </span>
+                  <span>
+                    <strong>01</strong>
+                    <small>Record received</small>
+                  </span>
+                </div>
+                <div>
+                  <span className="lt-summary-icon pending">
+                    <Icon name="alert" size={18} />
+                  </span>
+                  <span>
+                    <strong>02</strong>
+                    <small>Still requested</small>
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="lt-document-sheet">
               <div className="lt-sheet-title">
                 <span>
@@ -239,28 +264,39 @@ export default function PropertyReviewPreview() {
                   <i />
                   <i className="short" />
                 </div>
+              ) : selected === 1 ? (
+                <ol
+                  className="lt-title-timeline"
+                  aria-label="Illustrative ownership chain"
+                >
+                  {stage.rows.map((row, index) => (
+                    <li key={row.label}>
+                      <span className={`lt-timeline-node ${row.tone || ""}`}>
+                        <Icon
+                          name={row.tone === "amber" ? "alert" : "users"}
+                          size={16}
+                        />
+                      </span>
+                      <div>
+                        <small>Transfer 0{index + 1}</small>
+                        <strong>{row.label}</strong>
+                        <span>{row.value}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               ) : (
                 <div className="lt-evidence-list">
                   {stage.rows.map((row, index) => (
                     <div key={row.label}>
                       <span className={`lt-evidence-icon ${row.tone || ""}`}>
                         <Icon
-                          name={
-                            row.tone === "amber"
-                              ? "alert"
-                              : selected === 1
-                                ? "users"
-                                : stage.icon
-                          }
+                          name={row.tone === "amber" ? "alert" : stage.icon}
                           size={17}
                         />
                       </span>
                       <div>
-                        <small>
-                          {selected === 1
-                            ? `Transfer 0${index + 1}`
-                            : `Review item 0${index + 1}`}
-                        </small>
+                        <small>{`Review item 0${index + 1}`}</small>
                         <strong>{row.label}</strong>
                         <span>{row.value}</span>
                       </div>
@@ -274,7 +310,11 @@ export default function PropertyReviewPreview() {
               </div>
             </div>
           </div>
-          <aside className="lt-findings" aria-label="Example finding">
+          <aside
+            className="lt-findings"
+            aria-label="Example finding"
+            key={`finding-${selected}`}
+          >
             <div className="lt-finding-label">
               <Icon name="spark" size={16} /> Review insight
             </div>
@@ -303,6 +343,34 @@ export default function PropertyReviewPreview() {
             <Icon name="shield" size={14} /> Evidence first. Advocate reviewed.
           </span>
           <span>Interactive example · not a live case or legal opinion</span>
+        </div>
+      </div>
+      <div className="lt-tour-controls" aria-label="Sample review controls">
+        <div className="lt-tour-position" aria-live="polite" aria-atomic="true">
+          <span>
+            0{selected + 1}
+            <span> / 05</span>
+          </span>
+          <strong>{stage.label}</strong>
+        </div>
+        <div className="lt-tour-buttons">
+          <button
+            type="button"
+            className="lt-tour-back"
+            aria-label="Previous review stage"
+            disabled={selected === 0}
+            onClick={() => setSelected(selected - 1)}
+          >
+            <Icon name="send" size={16} />
+          </button>
+          <button
+            type="button"
+            className="lt-tour-next"
+            onClick={() => setSelected((selected + 1) % stages.length)}
+          >
+            {selected === stages.length - 1 ? "Restart example" : "Next stage"}
+            <Icon name="send" size={16} />
+          </button>
         </div>
       </div>
       <div className="lt-story-caption">
