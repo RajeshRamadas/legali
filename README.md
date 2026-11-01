@@ -174,3 +174,5 @@ Before production, implement:
 8. Legal review of service descriptions and authorization requirements for accessing government records.
 
 See `docs/requirements.md`, `docs/architecture.md`, `docs/api-contract.md`, `docs/implementation-plan.md` and `docs/security-checklist.md`.
+
+The new web look and feel (Homexo UI: one design system for the public site, customer portal, staff workspace and AI assistant) is specified in `docs/design/homexo-ui/README.md`, with mockups and screenshots in the same folder.
