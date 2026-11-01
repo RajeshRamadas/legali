@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import ChatWidget from "../ChatWidget";
-import SiteFooter from "../SiteFooter";
-import SiteHeader from "../SiteHeader";
 import { BUNDLES, LIFECYCLE } from "../content";
 
 export const metadata: Metadata = {
@@ -15,14 +12,14 @@ const enquire = (slug: string) => `/?service=${slug}#callback`;
 export default function DevelopersPage() {
   return (
     <>
-      <SiteHeader />
+
       <main>
         <section className="developer-intro" id="developers">
           <div className="wrap">
             <div className="developer-hero">
               <div className="developer-copy">
                 <div className="eyebrow">For real estate developers</div>
-                <h1 className="serif" style={{ fontSize: "clamp(36px,4.6vw,56px)", lineHeight: 1.05, margin: "10px 0 16px" }}>From land acquisition to registered ownership.</h1>
+                <h1 className="heading" style={{ fontSize: "clamp(36px,4.6vw,56px)", lineHeight: 1.05, margin: "10px 0 16px" }}>From land acquisition to registered ownership.</h1>
                 <p>Coordinate legal due diligence, high-volume registrations and post-registration records through one managed workflow, built for development teams and their buyers.</p>
                 <div className="hero-actions">
                   <a className="btn gold" href="#developer-bundles">Explore developer services ↗</a>
@@ -58,7 +55,7 @@ export default function DevelopersPage() {
 
         <section className="section developer-bundles" id="developer-bundles">
           <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Developer product bundles</div><h2 className="serif">Deploy the whole lifecycle,<br />or start with one part.</h2></div><p>Modular services for acquisition, legal, sales and post-sale operations. Scope and capacity are confirmed for each engagement.</p></div>
+            <div className="section-head"><div><div className="eyebrow">Developer product bundles</div><h2 className="heading">Deploy the whole lifecycle,<br />or start with one part.</h2></div><p>Modular services for acquisition, legal, sales and post-sale operations. Scope and capacity are confirmed for each engagement.</p></div>
             <div className="bundle-grid">
               {BUNDLES.map((bundle, i) => (
                 <article className={`bundle-card${bundle.featured ? " featured" : ""}`} key={bundle.name}>
@@ -85,13 +82,13 @@ export default function DevelopersPage() {
 
         <section className="final-cta">
           <div className="wrap">
-            <div><div className="eyebrow" style={{ color: "#cce4d7" }}>For development teams</div><h2>Tell us about your project.</h2><p>Share the location, parcel or unit volume and timeline, and we&apos;ll scope the engagement with you.</p></div>
+            <div><div className="eyebrow hx-tone-63647bec" >For development teams</div><h2>Tell us about your project.</h2><p>Share the location, parcel or unit volume and timeline, and we&apos;ll scope the engagement with you.</p></div>
             <Link className="btn gold" href={enquire("bulk-registration-operations")}>Talk to our team ↗</Link>
           </div>
         </section>
       </main>
-      <SiteFooter />
-      <ChatWidget />
+
+
     </>
   );
 }

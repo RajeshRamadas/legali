@@ -4,7 +4,7 @@
 // documents relate (map) and the plain-language verification checklist. Data comes from document_request.journey.
 import { useRef, useState, type ReactNode } from "react";
 import type { CheckStatus, DocumentJourney, JourneyCheck, ReportItem } from "@homexo/shared";
-import "./journey.css";
+import "../ui/views/documents-journey.css";
 
 export const CHECK_TEXT: Record<CheckStatus, { icon: string; label: string }> = {
   passed: { icon: "✓", label: "Verified" },

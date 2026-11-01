@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { PROPERTY_TYPES } from "@homexo/shared";
 import { useStaff } from "../../AdminShell";
@@ -49,7 +50,8 @@ const TEMPLATE_TEXT: Record<string, string> = {
   urgent_task: "urgent task alert",
 };
 
-export default function TicketPage({ params }: { params: { ticketNumber: string } }) {
+export default function TicketPage() {
+  const params = useParams<{ ticketNumber: string }>();
   const { user, onError } = useStaff();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [meta, setMeta] = useState<Meta | null>(null);

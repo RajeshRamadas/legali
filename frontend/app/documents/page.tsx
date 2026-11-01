@@ -5,14 +5,14 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, describeUploadCheck, formatBytes, normalizeTag, type AccountRequest, type CustomerDocument, type DocumentJourney, type ReportItem, type TicketStatus } from "@homexo/shared";
 import PropertyIntakeFields, { EMPTY_INTAKE } from "../PropertyIntakeFields";
 import { api } from "../api";
-import "./documents.css";
-import CustomerNav from "../account/CustomerNav";
+import "../ui/views/documents-documents.css";
+import {TicketStatusCard} from "../TrackRequest";
 import { signOut, useSession, type Session } from "../account/session";
 import { openDocuments, readRef, type Ref } from "./ref";
 import { CheckList, DocumentMap, MapLegend, Stepper, revealCheck } from "./Journey";
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx";
-const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
+const dateFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
 
 export default function DocumentsPage() {
   const [ref, setRef] = useState<Ref | null>(null);
@@ -44,7 +44,7 @@ export default function DocumentsPage() {
 
   return (
     <>
-      <CustomerNav />
+
       <main>
         <section className="dc-band">
           <div className="wrap">
@@ -62,18 +62,18 @@ export default function DocumentsPage() {
               <label>Phone or email<input required placeholder="Used when you raised it" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></label>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="btn" disabled={loading}>{loading ? "Opening…" : "Open documents"}</button>
-              <p className="dc-muted" style={{ margin: 0 }}>Or <Link href="/account" style={{ color: "var(--forest2)", fontWeight: 800 }}>sign in with your phone</Link> to see all your requests.</p>
+              <p className="dc-muted" style={{ margin: 0 }}>Or <Link className="hx-tone-b2722ad7" href="/account" style={{ fontWeight: 800 }}>sign in with your phone</Link> to see all your requests.</p>
             </form>
           ) : (
-            <Repository ticket={ticket} reference={ref} onChange={setTicket} />
+            <Repository key={ticket.ticket_number} ticket={ticket} reference={ref} onChange={updated=>{setTicket(updated);window.dispatchEvent(new Event("hx-account-refresh"))}} />
           )}
         </div>
       </main>
-      <footer className="footer">
-        <div className="wrap" style={{ fontSize: 11, color: "#a4bcb2", lineHeight: 1.7 }}>
-          Files are kept in Homexo's private cloud storage and seen only by your case team. Download links expire after a few minutes. When you upload, the first pages are checked automatically by an AI service for document type, readability and dates, so we can tell you quickly if something needs fixing. An advocate still reviews every document.
+      <aside className="hx-context-note">
+        <div className="wrap hx-tone-78cc9b2f" style={{ fontSize: 11, lineHeight: 1.7 }}>
+          Files are kept in Homexo&apos;s private cloud storage and seen only by your case team. Download links expire after a few minutes. When you upload, the first pages are checked automatically by an AI service for document type, readability and dates, so we can tell you quickly if something needs fixing. An advocate still reviews every document.
         </div>
-      </footer>
+      </aside>
     </>
   );
 }
@@ -93,7 +93,7 @@ function AccountRequests({ session, loading, error, onOpen }: { session: Session
       <p className="dc-muted">Requests raised with {session.profile.phone}.</p>
       {(error || loadError) && <p className="dc-error" role="alert">{error || loadError}</p>}
       {requests === null && !loadError && <p className="dc-muted">Loading…</p>}
-      {requests?.length === 0 && <p className="dc-muted">No property requests on this number yet. <Link href="/#callback" style={{ color: "var(--forest2)", fontWeight: 800 }}>Request a callback</Link> to start one.</p>}
+      {requests?.length === 0 && <p className="dc-muted">No property requests on this number yet. <Link className="hx-tone-b2722ad7" href="/#callback" style={{ fontWeight: 800 }}>Request a callback</Link> to start one.</p>}
       <ul className="dc-files">
         {requests?.map((r) => (
           <li key={r.ticket_number}>
@@ -111,6 +111,8 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [skipped, setSkipped] = useState<string[]>([]);
+  const messagesRef=useRef<HTMLDetailsElement>(null);
+  useEffect(()=>{if(location.hash==="#messages"&&messagesRef.current){messagesRef.current.open=true;messagesRef.current.scrollIntoView({block:"start"})}},[]);
   const report = ticket.report;
   const request = ticket.document_request;
   const journey = request?.journey;
@@ -173,6 +175,7 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
         <span className={`status-pill status-${ticket.status}`}>{ticket.status_label}</span>
       </div>
       {(error || notice) && <p className={error ? "dc-error" : "dc-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
+      <details className="hx-card hx-case-messages" id="messages" ref={messagesRef}><summary>Messages and case updates</summary><TicketStatusCard ticket={ticket} contact={reference.contact} onUpdate={onChange}/></details>
       {journey && <Stepper journey={journey} />}
 
       {report?.signed_report_url && (

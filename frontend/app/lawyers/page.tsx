@@ -156,7 +156,7 @@ export default function FindLawyerPage() {
           {error && <p className="lw-error" role="alert">{error}</p>}
           {results?.length === 0 && (
             <div className="lw-empty">
-              No lawyers match these filters yet. {filtered ? "Try clearing a filter, or " : ""}<Link href="/#callback" style={{ color: "var(--forest2)", fontWeight: 800 }}>ask us to find one for you</Link>.
+              No lawyers match these filters yet. {filtered ? "Try clearing a filter, or " : ""}<Link className="hx-tone-b2722ad7" href="/#callback" style={{ fontWeight: 800 }}>ask us to find one for you</Link>.
             </div>
           )}
           <div className="lw-list">{results?.map((l) => <Card key={l.slug} lawyer={l} />)}</div>

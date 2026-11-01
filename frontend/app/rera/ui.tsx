@@ -19,8 +19,8 @@ const num = new Intl.NumberFormat("en-IN");
 export const n = (value: number | null | undefined) => (value === null || value === undefined ? "–" : num.format(value));
 export const pct = (value: number | null | undefined) => (value === null || value === undefined ? "–" : `${value}%`);
 export const rupees = (value: number | null | undefined) => (value ? `₹${num.format(value)}` : "–");
-const monthYear = new Intl.DateTimeFormat("en-IN", { month: "short", year: "numeric" });
-const longDate = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
+const monthYear = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "short", year: "numeric" });
+const longDate = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
 export const month = (iso: string | null) => (iso ? monthYear.format(new Date(iso)) : "–");
 export const day = (iso: string | null) => (iso ? longDate.format(new Date(iso)) : "–");
 

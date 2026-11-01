@@ -2,6 +2,8 @@
 
 **Related:** [requirements.md](requirements.md), [design.md](design.md).
 
+**Status:** the files below are in PR #21, which is not merged to `main` yet.
+
 ## Files
 
 | File | What it does |

@@ -8,7 +8,7 @@
 .agent-lead-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start}
 .agent-score{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-weight:800;font-size:13px;background:#eceeec;color:#55605b}
 .agent-score.score-4,.agent-score.score-5{background:#e4f3e9;color:#24734d}
-.agent-why{background:#f6f7f5;border-radius:8px;padding:8px 10px}
+.agent-why{background:var(--surface-2);border-radius:8px;padding:8px 10px}
 .agent-lead-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
 .agent-topic{font-size:11px;padding:3px 8px;border-radius:999px;background:#eef1f6;color:#4a5568}
 .agent-spacer{flex:1}
@@ -20,13 +20,13 @@
 .ai-review li{font-size:12px;line-height:1.45}
 .ai-claim{border-left:3px solid #c9d9cf;padding-left:8px}
 .ai-claim.bad{border-left-color:#d9826f}
-.ai-claim q{display:block;color:var(--muted);font-style:italic;margin-top:2px}
+.ai-claim q{display:block;color:var(--ink-2);font-style:italic;margin-top:2px}
 .ai-claim .mark{font-weight:800;margin-right:4px}
 .ai-claim .mark.ok{color:#24734d}.ai-claim .mark.no{color:#b04a37}
 .ai-warnings{background:#fff4dc;color:#7a5200;border-radius:8px;padding:8px 10px;font-size:12px;margin:8px 0}
 .ai-warnings p{margin:0}.ai-warnings p+p{margin-top:4px}
 .ai-ok{background:#e8f4ec;color:#24684a;border-radius:8px;padding:8px 10px;font-size:12px;margin:8px 0}
 .ai-sources a{word-break:break-all}
-.admin-form .ai-confirm{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;margin-top:6px;text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink);background:#f6f7f5;border-radius:8px;padding:10px}
+.admin-form .ai-confirm{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;margin-top:6px;text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink);background:var(--surface-2);border-radius:8px;padding:10px}
 .admin-form .ai-confirm input{appearance:auto;-webkit-appearance:checkbox;width:16px;height:16px;flex:none;margin:1px 0 0;padding:0}
 @media(max-width:640px){.agent-lead-head{grid-template-columns:auto minmax(0,1fr)}.agent-lead-head .admin-pill{grid-column:2;justify-self:start}}

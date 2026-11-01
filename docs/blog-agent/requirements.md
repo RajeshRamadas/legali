@@ -1,6 +1,6 @@
 # AI case-to-blog desk: requirements
 
-**Status:** proposal plus first build (branch `claude/project-thread-1ma5m8`), 2026-11-01. Waiting on Rajesh's review.
+**Status:** agreed requirements, 2026-11-01. The code is in PR #21 (not merged yet), so "Built" below means built and tested in that PR.
 **Related:** [design.md](design.md) (how it works), [implementation.md](implementation.md) (file by file, setup, cost).
 
 Each requirement has an ID and a status: **Built** (in this branch, covered by tests), **Partial** (built with a stated

@@ -4,12 +4,12 @@ import { GetHelp, Meter, ProjectCard, SampleNotice, Stat, Unavailable, Verdict, 
 
 export const revalidate = 300;
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
 const load = (slug: string) => loadOr404(() => serverApi.getReraDeveloper(slug));
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const d = await load(params.slug);
+  const d = await load((await params).slug);
   if (!d) return { title: "Developer track record · Homexo Legal" };
   return {
     title: `${d.name}: RERA projects and delivery record · Homexo Legal`,
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function DeveloperPage({ params }: Params) {
-  const d = await load(params.slug);
+  const d = await load((await params).slug);
   if (!d) return <Unavailable />;
   const r = d.record;
   const ongoing = d.projects.filter((p) => p.status === "ongoing");
