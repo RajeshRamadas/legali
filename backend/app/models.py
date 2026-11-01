@@ -49,6 +49,12 @@ REPORT_ITEM_STATUSES = ("pending", "received", "verified", "rejected", "waived")
 PAYMENT_STATUSES = ("created", "paid", "refund_due", "refunded")
 PAYMENT_PROVIDERS = ("razorpay", "test")
 PAYMENT_KINDS = ("checkout", "link")
+# Case management (case_management.py): the case is the ticket; these add its team, tasks, close-out and fee.
+CASE_TASK_STATUSES = ("open", "done", "cancelled")
+CASE_TASK_SOURCES = ("manual", "playbook")
+CASE_MEMBER_ROLES = ("associate", "paralegal", "reviewer")
+CLOSURE_OUTCOMES = ("delivered", "withdrawn", "not_viable", "duplicate", "other")
+FEE_STATUSES = ("none", "quoted", "paid", "waived")
 RERA_STATUSES = ("ongoing", "completed", "lapsed", "revoked", "withdrawn")
 
 class Base(DeclarativeBase):
@@ -241,6 +247,8 @@ class ServiceRequest(TimestampMixin, Base):
         Index("idx_requests_status_created", "status", "created_at"),
         Index("idx_requests_customer_created", "customer_id", "created_at"),
         Index("idx_requests_service", "service_type_id"),
+        Index("idx_requests_status_due", "status", "due_at"),
+        CheckConstraint(_check_in("fee_status", FEE_STATUSES), name="ck_service_requests_fee_status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -261,6 +269,19 @@ class ServiceRequest(TimestampMixin, Base):
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Case management. First response: the first staff action the customer sees (message, status change, assignment).
+    first_response_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_response_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closure_outcome: Mapped[str | None] = mapped_column(Text)
+    closure_summary: Mapped[str | None] = mapped_column(Text)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The fee for the legal work (consultation booking fees stay in payments).
+    fee_status: Mapped[str] = mapped_column(Text, default="none", server_default=text("'none'"), nullable=False)
+    fee_quote_paise: Mapped[int | None] = mapped_column(Integer)
+    fee_paid_paise: Mapped[int | None] = mapped_column(Integer)
+    fee_reference: Mapped[str | None] = mapped_column(Text)
+    fee_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fee_note: Mapped[str | None] = mapped_column(Text)
 
     customer: Mapped[Customer] = relationship(lazy="joined")
     prop: Mapped[Property | None] = relationship(lazy="joined")
@@ -272,6 +293,8 @@ class ServiceRequest(TimestampMixin, Base):
     conversation: Mapped[Conversation | None] = relationship()
     documents: Mapped[list["Document"]] = relationship(order_by="Document.created_at", lazy="selectin")
     report: Mapped["LegalReport | None"] = relationship(lazy="selectin")
+    tasks: Mapped[list["CaseTask"]] = relationship(back_populates="service_request", order_by="CaseTask.created_at", lazy="selectin", cascade="all, delete-orphan")
+    members: Mapped[list["CaseMember"]] = relationship(order_by="CaseMember.added_at", lazy="selectin", cascade="all, delete-orphan")
 
     @property
     def active_assignment(self) -> "Assignment | None":
@@ -293,6 +316,51 @@ class Assignment(Base):
 
     service_request: Mapped[ServiceRequest] = relationship(back_populates="assignments")
     agent: Mapped[User] = relationship(foreign_keys=[agent_user_id], lazy="joined")
+
+class CaseMember(Base):
+    """A staff member helping on a case besides its owner (the active Assignment). Members can open the case."""
+    __tablename__ = "case_members"
+    __table_args__ = (
+        CheckConstraint(_check_in("role", CASE_MEMBER_ROLES), name="ck_case_members_role"),
+        Index("idx_case_members_user_active", "user_id", postgresql_where=text("removed_at IS NULL"), sqlite_where=text("removed_at IS NULL")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    added_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(foreign_keys=[user_id], lazy="joined")
+
+class CaseTask(Base):
+    """A to-do on a case. Playbook tasks are added and ticked off by case_management.sync as the case moves on."""
+    __tablename__ = "case_tasks"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", CASE_TASK_STATUSES), name="ck_case_tasks_status"),
+        CheckConstraint(_check_in("source", CASE_TASK_SOURCES), name="ck_case_tasks_source"),
+        Index("idx_case_tasks_request", "service_request_id"),
+        Index("idx_case_tasks_assignee_open", "assignee_user_id", "due_at", postgresql_where=text("status = 'open'"), sqlite_where=text("status = 'open'")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    assignee_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(Text, default="open", nullable=False)
+    source: Mapped[str] = mapped_column(Text, default="manual", nullable=False)
+    playbook_key: Mapped[str | None] = mapped_column(Text)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    completed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_user_id], lazy="joined")
+    service_request: Mapped["ServiceRequest"] = relationship(back_populates="tasks", lazy="joined")
 
 class TicketEvent(Base):
     __tablename__ = "ticket_events"

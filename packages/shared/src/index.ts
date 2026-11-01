@@ -180,6 +180,16 @@ export type CustomerReport = {
   signed_at: string | null;
 };
 
+// Mirrors customer_progress in backend/app/case_management.py: the case's steps, what the customer must do next, the due date and the fee.
+export type CaseMilestone = { key: "received" | "scoped" | "assigned" | "documents" | "signed" | "closed"; label: string; done: boolean; current: boolean };
+export type CaseProgress = {
+  milestones: CaseMilestone[];
+  next_step: string | null;
+  due_at: string | null;
+  fee: { status: "quoted" | "paid" | "waived"; status_label: string; quote: number | null; paid: number | null; paid_at: string | null } | null;
+  closed: { outcome_label: string | null; summary: string | null; at: string | null } | null;
+};
+
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
   document_request?: DocumentRequest;
@@ -196,6 +206,7 @@ export type TicketStatus = {
   documents: CustomerDocument[];
   report: CustomerReport | null;
   can_upload: boolean;
+  progress?: CaseProgress;
 };
 
 // Mirrors the chat endpoint in backend/app/chat.py.
@@ -348,6 +359,7 @@ export type AccountRequest = {
   next_meeting: CustomerMeeting | null;
   // A short line when the customer has something to do, e.g. "Documents to upload".
   needs_you: string | null;
+  progress?: CaseProgress;
 };
 export type AccountPayment = Pick<BookingPayment, "status" | "amount" | "paid_at" | "method" | "reference" | "can_pay"> & {
   ticket_number: string;

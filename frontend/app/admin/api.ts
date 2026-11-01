@@ -86,7 +86,37 @@ export type TicketSummary = {
   updated_at: string;
 };
 
+// Mirrors staff_case_view and task_view in backend/app/case_management.py.
+export type CaseTask = {
+  id: string; title: string; notes: string | null; status: "open" | "done" | "cancelled"; source: "manual" | "playbook"; playbook_key: string | null;
+  assignee: StaffRef; due_at: string | null; overdue: boolean; created_at: string; completed_at: string | null;
+  case?: { ticket_number: string; service_name: string; customer_name: string; status: string; priority: string };
+};
+export type CaseDeadlines = { due_at: string | null; overdue: boolean; first_response_due_at: string | null; first_response_at: string | null; first_response_missed: boolean };
+export type CaseFee = { status: "none" | "quoted" | "paid" | "waived"; status_label: string; quote: number | null; paid: number | null; paid_at: string | null; reference: string | null; note: string | null };
+export type CaseView = {
+  milestones: { key: string; label: string; done: boolean; current: boolean }[];
+  current_milestone: string;
+  deadlines: CaseDeadlines;
+  owner: StaffRef;
+  team: { user: { id: string; name: string }; role: "associate" | "paralegal" | "reviewer"; role_label: string; added_at: string }[];
+  tasks: CaseTask[];
+  open_tasks: number;
+  overdue_tasks: number;
+  fee: CaseFee;
+  closure: { can_close: boolean; blockers: string[]; warnings: string[] } | null;
+  closed: { outcome: string | null; outcome_label: string | null; summary: string | null; at: string | null } | null;
+  allowed_statuses: string[];
+  outcomes: { value: string; label: string }[];
+};
+export type BoardCard = TicketSummary & { milestone: string; deadlines: CaseDeadlines; open_tasks: number; overdue_tasks: number; fee_status: CaseFee["status"]; team: string[] };
+export type Board = {
+  columns: { key: string; label: string; cards: BoardCard[] }[];
+  counts: { open: number; overdue: number; due_this_week: number; first_response_missed: number; overdue_tasks: number; closed_30_days: number };
+};
+
 export type TicketDetail = TicketSummary & {
+  case: CaseView;
   document_request?: DocumentRequest;
   verification_workflow?: { run_id: string; approval: { name: string; at: string; notes: string; sources: string[] } | null } | null;
   description: string;
@@ -173,6 +203,18 @@ export function toLocalInput(date: Date): string {
 
 // Join opens from 15 minutes before the start until the end.
 export {joinable} from "../ui/utils";
+
+const day = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
+export const formatDay = (iso: string) => day.format(new Date(iso));
+
+// "in 3d", "2h late": how far a due date is from now.
+export function dueIn(iso: string, now = Date.now()): string {
+  const minutes = Math.round((new Date(iso).getTime() - now) / 60000);
+  const late = minutes < 0;
+  const m = Math.abs(minutes);
+  const span = m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
+  return late ? `${span} late` : `in ${span}`;
+}
 
 export function timeAgo(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);

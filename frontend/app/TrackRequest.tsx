@@ -5,6 +5,7 @@ import type { TicketStatus } from "@homexo/shared";
 import Link from "next/link";
 import { api } from "./api";
 import { openDocuments } from "./documents/ref";
+import CaseProgress from "./CaseProgress";
 
 const dateFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -36,6 +37,7 @@ export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: Ticket
         <span className={`status-pill status-${ticket.status}`}>{ticket.status_label}</span>
       </div>
       <p className="ticket-service">{ticket.service_name}{ticket.package ? ` · ${ticket.package}` : ""}</p>
+      {ticket.progress && <CaseProgress progress={ticket.progress} />}
       <ol className="ticket-timeline">
         {ticket.history.map((event) => (
           <li key={`${event.status}-${event.at}`}>

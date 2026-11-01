@@ -1,7 +1,7 @@
 """AI case-to-blog desk: case scan runs, case leads, and review fields on posts
 
-Revision ID: 0014_blog_agent
-Revises: 0013_more_property_types
+Revision ID: 0015_blog_agent
+Revises: 0014_case_management
 Create Date: 2026-11-01 05:00:00
 
 """
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = '0014_blog_agent'
-down_revision: Union[str, Sequence[str], None] = '0013_more_property_types'
+revision: str = '0015_blog_agent'
+down_revision: Union[str, Sequence[str], None] = '0014_case_management'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
