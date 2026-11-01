@@ -132,3 +132,28 @@ LOGIN_CODES_PER_PHONE_PER_HOUR = int(os.getenv("LOGIN_CODES_PER_PHONE_PER_HOUR",
 LOGIN_CODES_PER_CLIENT_PER_HOUR = int(os.getenv("LOGIN_CODES_PER_CLIENT_PER_HOUR", "20"))
 # How long a customer stays signed in on a device.
 CUSTOMER_SESSION_DAYS = int(os.getenv("CUSTOMER_SESSION_DAYS", "30"))
+
+# AI case-to-blog desk (app.blog_agent, docs/blog-agent/). Finds recent property-law rulings with Claude's web search,
+# drafts blog posts from the source, checks every quoted fact in code, and leaves them as drafts for an admin.
+# It never publishes. Needs ANTHROPIC_API_KEY. BLOG_AGENT_ENABLED runs a scan every BLOG_AGENT_INTERVAL_HOURS inside the
+# API process; leave it off and use `python -m app.blog_agent run` from cron, or the "Find new cases" button, instead.
+BLOG_AGENT_ENABLED = os.getenv("BLOG_AGENT_ENABLED", "false").lower() == "true"
+BLOG_AGENT_INTERVAL_HOURS = float(os.getenv("BLOG_AGENT_INTERVAL_HOURS", "24"))
+# Scanning reads many short pages; writing a legal summary is where accuracy matters most.
+BLOG_AGENT_SEARCH_MODEL = os.getenv("BLOG_AGENT_SEARCH_MODEL", "claude-sonnet-5-5")
+BLOG_AGENT_WRITE_MODEL = os.getenv("BLOG_AGENT_WRITE_MODEL", "claude-opus-5-5")
+BLOG_AGENT_LOOKBACK_DAYS = int(os.getenv("BLOG_AGENT_LOOKBACK_DAYS", "14"))
+BLOG_AGENT_MAX_LEADS = int(os.getenv("BLOG_AGENT_MAX_LEADS", "8"))
+# After a scheduled scan, draft this many of the new leads scored 4 or 5 for relevance. 0 leaves drafting to admins.
+BLOG_AGENT_AUTO_DRAFTS = int(os.getenv("BLOG_AGENT_AUTO_DRAFTS", "2"))
+BLOG_AGENT_MAX_SEARCHES = int(os.getenv("BLOG_AGENT_MAX_SEARCHES", "8"))
+BLOG_AGENT_MAX_FETCHES = int(os.getenv("BLOG_AGENT_MAX_FETCHES", "4"))
+BLOG_AGENT_DOMAINS = [d.strip().lower() for d in os.getenv("BLOG_AGENT_DOMAINS", ",".join([
+    "livelaw.in", "barandbench.com", "verdictum.in", "latestlaws.com", "scobserver.in",
+    "indiankanoon.org", "sci.gov.in", "judgments.ecourts.gov.in", "karnatakajudiciary.kar.nic.in", "hck.gov.in",
+    "rera.karnataka.gov.in", "ncdrc.nic.in",
+    "thehindu.com", "deccanherald.com", "thehindubusinessline.com", "economictimes.indiatimes.com", "livemint.com",
+    "moneycontrol.com", "hindustantimes.com", "timesofindia.indiatimes.com", "newindianexpress.com",
+])).split(",") if d.strip()]
+# Server-side refusal fallback (Claude API only). Set to "off" on Bedrock, Vertex AI or Foundry.
+BLOG_AGENT_FALLBACKS = os.getenv("BLOG_AGENT_FALLBACKS", "default")

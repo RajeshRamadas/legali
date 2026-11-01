@@ -36,6 +36,10 @@ MEETING_STATUSES = ("scheduled", "completed", "cancelled")
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 POST_TYPES = ("article", "case_study")
 POST_STATUSES = ("draft", "published")
+POST_ORIGINS = ("manual", "ai")
+CASE_SCAN_TRIGGERS = ("schedule", "admin", "cli")
+CASE_SCAN_STATUSES = ("running", "done", "failed")
+CASE_LEAD_STATUSES = ("new", "drafting", "drafted", "dismissed", "failed")
 UPLOADER_TYPES = ("customer", "staff", "system")
 # draft: the lawyer is writing the preliminary report. issued: the customer sees it and uploads the documents asked for.
 # final_generated: the final PDF is made and waits to be printed and signed. signed: the signed scan is uploaded.
@@ -578,6 +582,7 @@ class Post(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint(_check_in("post_type", POST_TYPES), name="ck_posts_type"),
         CheckConstraint(_check_in("status", POST_STATUSES), name="ck_posts_status"),
+        CheckConstraint(_check_in("origin", POST_ORIGINS), name="ck_posts_origin"),
         Index("idx_posts_published", "status", "published_at"),
     )
 
@@ -595,8 +600,63 @@ class Post(TimestampMixin, Base):
     author_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
     # Set the first time the post is published and kept if it is unpublished and published again.
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # "ai" posts were drafted by app.blog_agent; they need a person to confirm the review before the first publish.
+    origin: Mapped[str] = mapped_column(Text, default="manual", server_default="manual", nullable=False)
+    # Sources (with their stored text), claims with quotes and the code checks. See docs/blog-agent/design.md.
+    ai_review: Mapped[dict | None] = mapped_column(JSONType)
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    author: Mapped[User | None] = relationship(lazy="joined")
+    author: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[author_user_id])
+    reviewed_by: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[reviewed_by_user_id])
+
+class CaseScanRun(Base):
+    """One search for new court rulings by app.blog_agent."""
+    __tablename__ = "case_scan_runs"
+    __table_args__ = (
+        CheckConstraint(_check_in("trigger", CASE_SCAN_TRIGGERS), name="ck_case_scan_runs_trigger"),
+        CheckConstraint(_check_in("status", CASE_SCAN_STATUSES), name="ck_case_scan_runs_status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    trigger: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="running", nullable=False)
+    started_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    added: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    model: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    usage: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+
+class CaseLead(TimestampMixin, Base):
+    """A court ruling or news report found by a scan, waiting for an admin to draft or dismiss it."""
+    __tablename__ = "case_leads"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", CASE_LEAD_STATUSES), name="ck_case_leads_status"),
+        Index("idx_case_leads_status", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("case_scan_runs.id", ondelete="SET NULL"))
+    # Normalised (no fragment, no tracking parameters, no trailing slash) so the same page is never stored twice.
+    url: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    # Court + case number, lower case without spaces, so a ruling reported by two sites is stored once.
+    case_key: Mapped[str | None] = mapped_column(Text, unique=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    court: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    case_number: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    decision_date: Mapped[date | None] = mapped_column(Date)
+    source_name: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    why_it_matters: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    topics: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    relevance: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="new", nullable=False)
+    post_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("posts.id", ondelete="SET NULL"))
+    # Why it was dismissed, or why drafting failed.
+    note: Mapped[str | None] = mapped_column(Text)
 
 class ReraProject(TimestampMixin, Base):
     """A project registered with Karnataka RERA, loaded by app.rera_import (or app.rera_sample in development).
