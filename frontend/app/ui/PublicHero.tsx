@@ -8,6 +8,30 @@ export default function PublicHero() {
   return (
     <section className="hp-hero" aria-labelledby="home-title">
       <div className="hp-container">
+        <div className="hp-hero-art hp-hero-art-papers" aria-hidden="true">
+          <div className="hp-art-paper">
+            <Icon name="file" size={24} />
+            <i />
+            <i />
+            <i />
+          </div>
+          <div className="hp-art-paper">
+            <Icon name="home" size={28} />
+            <span>Property records</span>
+            <i />
+            <i />
+          </div>
+          <span className="hp-art-caption">Start with the evidence</span>
+        </div>
+        <div className="hp-hero-art hp-hero-art-opinion" aria-hidden="true">
+          <div className="hp-art-orbit">
+            <Icon name="law" size={37} />
+            <span>
+              <Icon name="spark" size={18} />
+            </span>
+          </div>
+          <span className="hp-art-caption">Move forward with clarity</span>
+        </div>
         <div className="hp-hero-copy">
           <p className="hp-hero-label">
             <span>
@@ -18,7 +42,9 @@ export default function PublicHero() {
           <h1 id="home-title">
             Big property decisions.
             <br />
-            <em>Small print, understood.</em>
+            <em>
+              Small print, <span className="hp-title-mark">understood.</span>
+            </em>
           </h1>
           <p className="hp-hero-description">
             Bring your documents, questions and what-ifs. Get a clear path from

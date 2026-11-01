@@ -39,7 +39,7 @@ export default function HomeSteps() {
           {steps.map((step, index) => (
             <li key={step.kind}>
               <div className="hp-step-title">
-                <span>{index + 1}</span>
+                <span>0{index + 1}</span>
                 <h3>{step.title}</h3>
               </div>
               <p>{step.text}</p>

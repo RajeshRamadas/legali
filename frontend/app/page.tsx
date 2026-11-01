@@ -130,13 +130,65 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="hp-services-grid">
-            {services.map((s) => (
+            {services.map((s, index) => (
               <Link href={s.href} className="hp-service" key={s.title}>
+                <span className="hp-service-number" aria-hidden="true">
+                  0{index + 1}
+                </span>
                 <span className="hp-service-icon">
                   <Icon name={s.icon} size={24} />
                 </span>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
+                {index === 0 && (
+                  <div
+                    className="hp-service-art hp-review-art"
+                    aria-hidden="true"
+                  >
+                    <div className="hp-art-records">
+                      <span>
+                        <Icon name="file" size={18} />
+                        Title records
+                      </span>
+                      <span>
+                        <Icon name="search" size={18} />
+                        Cross-checks
+                      </span>
+                      <span>
+                        <Icon name="law" size={18} />
+                        Legal context
+                      </span>
+                    </div>
+                    <span className="hp-art-connector">
+                      <Icon name="send" size={24} />
+                    </span>
+                    <div className="hp-art-report">
+                      <Icon name="shield" size={27} />
+                      <strong>A reasoned review</strong>
+                      <span>Findings · gaps · next steps</span>
+                      <i />
+                      <i />
+                    </div>
+                  </div>
+                )}
+                {index === 1 && (
+                  <div
+                    className="hp-service-art hp-advocate-art"
+                    aria-hidden="true"
+                  >
+                    <div className="hp-art-avatar">
+                      <Icon name="users" size={37} />
+                    </div>
+                    <div className="hp-art-conversation">
+                      <span>Your questions, heard.</span>
+                      <strong>Your next step, explained.</strong>
+                      <div>
+                        <span>Property law</span>
+                        <span>Personal guidance</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <span className="hp-text-link">
                   {s.label}
                   <Icon name="send" size={17} />
