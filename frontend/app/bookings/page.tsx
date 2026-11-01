@@ -74,7 +74,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
           {booking.can_change && <button onClick={() => setMode("move")}>Reschedule</button>}
           {booking.can_change && <button onClick={() => setMode("cancel")}>Cancel booking</button>}
           {booking.can_review && <button onClick={() => setMode("review")}>Rate this consultation</button>}
-          {booking.lawyer.slug && !upcoming(booking) && <Link href={`/lawyers/${booking.lawyer.slug}`} style={{ color: "var(--forest2)", fontWeight: 800 }}>Book again</Link>}
+          {booking.lawyer.slug && !upcoming(booking) && <Link className="hx-tone-b2722ad7" href={`/lawyers/${booking.lawyer.slug}`} style={{ fontWeight: 800 }}>Book again</Link>}
           {upcoming(booking) && !booking.can_change && <span className="lw-fine">To change this booking now, please call us.</span>}
           {!upcoming(booking) && <button onClick={onForget}>Remove from this list</button>}
         </div>
@@ -83,7 +83,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
         <div>
           <SlotPicker slug={booking.lawyer.slug} selected={slot?.starts_at ?? null} onSelect={setSlot} />
           <div className="lw-actions" style={{ alignItems: "center" }}>
-            <button className="btn small" style={{ color: "white" }} disabled={!slot || busy} onClick={() => slot && run(() => api.rescheduleBooking(ref, slot.starts_at))}>
+            <button className="btn small hx-tone-3714a207"  disabled={!slot || busy} onClick={() => slot && run(() => api.rescheduleBooking(ref, slot.starts_at))}>
               {slot ? `Move to ${slot.day}, ${slot.label}` : "Pick a new time"}
             </button>
             <button onClick={() => setMode("")}>Back</button>
@@ -94,7 +94,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
         <form className="lw-form" onSubmit={(e) => { e.preventDefault(); run(() => api.cancelBooking(ref, reason.trim())); }}>
           <label>Reason (optional, shared with the lawyer)<input maxLength={400} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
           <div className="lw-actions" style={{ alignItems: "center" }}>
-            <button className="btn small" style={{ color: "white" }} disabled={busy}>Cancel this consultation</button>
+            <button className="btn small hx-tone-3714a207"  disabled={busy}>Cancel this consultation</button>
             <button type="button" onClick={() => setMode("")}>Keep it</button>
           </div>
         </form>
@@ -106,7 +106,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
           </div>
           <label>Your review (optional, shown on the lawyer’s profile with your first name)<textarea rows={3} maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} /></label>
           <div className="lw-actions" style={{ alignItems: "center" }}>
-            <button className="btn small" style={{ color: "white" }} disabled={!rating || busy}>Submit rating</button>
+            <button className="btn small hx-tone-3714a207"  disabled={!rating || busy}>Submit rating</button>
             <button type="button" onClick={() => setMode("")}>Back</button>
           </div>
         </form>
@@ -179,7 +179,7 @@ export default function BookingsPage() {
       <div className="wrap lw-bookings">
         <section className="lw-list" aria-live="polite">
           {entries !== null && entries.length === 0 && (
-            <div className="lw-empty">No bookings on this browser yet. <Link href="/lawyers" style={{ color: "var(--forest2)", fontWeight: 800 }}>Find a lawyer</Link> to book a consultation.</div>
+            <div className="lw-empty">No bookings on this browser yet. <Link className="hx-tone-b2722ad7" href="/lawyers" style={{ fontWeight: 800 }}>Find a lawyer</Link> to book a consultation.</div>
           )}
           {sorted.map((entry) => (
             <BookingCard

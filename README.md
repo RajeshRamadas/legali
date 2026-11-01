@@ -176,3 +176,7 @@ Before production, implement:
 See `docs/requirements.md`, `docs/architecture.md`, `docs/api-contract.md`, `docs/implementation-plan.md` and `docs/security-checklist.md`.
 
 The new web look and feel (Homexo UI: one design system for the public site, customer portal, staff workspace and AI assistant) is specified in `docs/design/homexo-ui/README.md`, with mockups and screenshots in the same folder.
+
+### Homexo UI website
+
+The approved Homexo UI design is implemented across the public pages, customer portal and staff workspace, with light/dark themes and a full-page `/assistant`. `/ui` is a noindex component showcase; `/design-demo` retains the isolated reference demo. Setup, route behaviour and validation are documented in [the UI implementation notes](docs/design/homexo-ui/implementation.md). Run this website through Next.js (`npm run web`), not a static file server.

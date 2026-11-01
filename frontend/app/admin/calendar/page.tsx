@@ -6,8 +6,8 @@ import { useStaff } from "../AdminShell";
 import { adminFetch, formatTime, joinable, type Meeting, type StaffUser } from "../api";
 
 const DAY = 86400000;
-const dayHead = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" });
-const rangeFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
+const dayHead = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" });
+const rangeFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
 
 function startOfWeek(date: Date): Date {
   const monday = new Date(date);
@@ -29,6 +29,7 @@ function startsIn(meeting: Meeting, now: number): string {
 export default function CalendarPage() {
   const { user, onError } = useStaff();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  useEffect(()=>{const day=new URLSearchParams(location.search).get("day");if(day&&/^\d{4}-\d{2}-\d{2}$/.test(day)){const date=new Date(day+"T12:00:00+05:30");if(!Number.isNaN(date.getTime()))setWeekStart(startOfWeek(date))}},[]);
   const [lawyer, setLawyer] = useState(user.role === "admin" ? "all" : "me");
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [meetings, setMeetings] = useState<Meeting[] | null>(null);

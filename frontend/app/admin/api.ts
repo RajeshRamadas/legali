@@ -172,9 +172,7 @@ export function toLocalInput(date: Date): string {
 }
 
 // Join opens from 15 minutes before the start until the end.
-export function joinable(meeting: { status: string; starts_at: string; ends_at: string; meet_link: string | null }, now = Date.now()): boolean {
-  return meeting.status === "scheduled" && !!meeting.meet_link && now >= new Date(meeting.starts_at).getTime() - 15 * 60000 && now <= new Date(meeting.ends_at).getTime();
-}
+export {joinable} from "../ui/utils";
 
 export function timeAgo(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);

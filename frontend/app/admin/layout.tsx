@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import AdminShell from "./AdminShell";
-import "./admin.css";
+import "../ui/views/admin-admin.css";
 
 export const metadata: Metadata = {
   title: "Homexo Legal · Staff workspace",
