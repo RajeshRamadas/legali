@@ -55,7 +55,7 @@ Admin dashboard and agent workspace should be added as authenticated role-based 
 
 - Git
 - Docker + Docker Compose
-- Node.js 20+ and npm
+- Node.js 20.9+ and npm (Node.js 22 or 24 LTS recommended)
 - Python 3.11+ if running the API outside Docker
 
 ## Run locally

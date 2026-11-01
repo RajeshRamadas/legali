@@ -2,7 +2,8 @@ import Link from "next/link";
 import LawyerShell from "../../lawyers/LawyerShell";
 
 // Razorpay sends customers here after paying on a payment page (the app's payment links).
-export default function PaidPage({ searchParams }: { searchParams: { razorpay_payment_link_status?: string } }) {
+export default async function PaidPage({ searchParams: query }: { searchParams: Promise<{ razorpay_payment_link_status?: string }> }) {
+  const searchParams = await query;
   const paid = searchParams.razorpay_payment_link_status === "paid";
   return (
     <LawyerShell>

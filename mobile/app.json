@@ -23,6 +23,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "homexo"
+    "scheme": "homexo",
+    "plugins": [
+      "expo-status-bar"
+    ]
   }
 }

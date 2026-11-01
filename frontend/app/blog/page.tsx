@@ -13,7 +13,8 @@ export const metadata: Metadata = {
 
 const PAGE_SIZE = 12;
 
-export default async function BlogIndex({ searchParams }: { searchParams: { type?: string; tag?: string; page?: string } }) {
+export default async function BlogIndex({ searchParams: queryParams }: { searchParams: Promise<{ type?: string; tag?: string; page?: string }> }) {
+  const searchParams = await queryParams;
   const type = (["article", "case_study"] as const).find((t) => t === searchParams.type) as PostType | undefined;
   const tag = searchParams.tag?.slice(0, 40) || undefined;
   const page = Math.max(1, Number(searchParams.page) || 1);
