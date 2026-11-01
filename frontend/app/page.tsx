@@ -11,7 +11,6 @@ import { PACKAGES } from "./content";
 import { ProjectCard, RiskBar, SampleNotice, n, pct, rupees } from "./rera/ui";
 import "./rera/rera.css";
 import "./home.css";
-import "./home-fresh.css";
 
 export const revalidate = 300;
 

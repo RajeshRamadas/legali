@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import "@fontsource-variable/plus-jakarta-sans";
 import "./globals.css";
-import "./theme.css";
 
 export const metadata: Metadata = {
   title: "Homexo Legal — Property Verification, Registration & Developer Operations",
