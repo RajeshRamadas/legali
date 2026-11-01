@@ -13,7 +13,8 @@ export const metadata: Metadata = {
 
 const PAGE_SIZE = 12;
 
-export default async function BlogIndex({ searchParams }: { searchParams: { type?: string; tag?: string; page?: string } }) {
+export default async function BlogIndex({ searchParams: queryParams }: { searchParams: Promise<{ type?: string; tag?: string; page?: string }> }) {
+  const searchParams = await queryParams;
   const type = (["article", "case_study"] as const).find((t) => t === searchParams.type) as PostType | undefined;
   const tag = searchParams.tag?.slice(0, 40) || undefined;
   const page = Math.max(1, Number(searchParams.page) || 1);
@@ -37,7 +38,7 @@ export default async function BlogIndex({ searchParams }: { searchParams: { type
       <section className="blog-hero">
         <div className="wrap">
           <div className="eyebrow">Insights</div>
-          <h1 className="serif">Property law, explained from real files.</h1>
+          <h1 className="heading">Property law, explained from real files.</h1>
           <p>Guides to the documents behind a safe purchase, and case studies from the properties our advocates have verified.</p>
           <nav className="blog-tabs" aria-label="Filter posts">
             {POST_TYPE_TABS.map((tab) => <Link key={tab.label} href={tab.href} className={tab.value === (type ?? null) && !tag ? "on" : undefined}>{tab.label}</Link>)}

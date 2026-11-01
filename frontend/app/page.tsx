@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { createApiClient, DEFAULT_API_BASE_URL, formatFee, type LawyerCard, type PostSummary, type ReraProjectCard, type ReraSummary } from "@homexo/shared";
 import CallbackSection from "./CallbackSection";
-import ChatWidget from "./ChatWidget";
 import Faq from "./Faq";
-import HomeHero from "./HomeHero";
+import PublicHero from "./ui/PublicHero";
 import ServiceButton, { AskButton } from "./ServiceButton";
-import SiteFooter from "./SiteFooter";
-import SiteHeader from "./SiteHeader";
 import { PACKAGES } from "./content";
 import { ProjectCard, RiskBar, SampleNotice, n, pct, rupees } from "./rera/ui";
-import "./rera/rera.css";
-import "./home.css";
+import "./ui/views/rera-rera.css";
+import "./ui/views/home.css";
 
 export const revalidate = 300;
 
@@ -68,48 +65,30 @@ export default async function HomePage() {
 
   return (
     <>
-      <SiteHeader />
-      <main id="home" className="hx">
-        <section className="hx-hero">
-          <div className="wrap hx-hero-grid">
-            <div className="hx-hero-copy">
-              <div className="eyebrow">Verified advocates · Fixed fees · Every step tracked</div>
-              <h1 className="serif">Legal work, done<br />in a few <em>easy steps.</em></h1>
-              <p className="hero-copy">Check a RERA project, book a verified lawyer, verify a property or get a document. Pay one fixed fee and follow every step from your phone.</p>
-              <HomeHero />
-              <div className="trustline"><span>Answers in seconds from our assistant</span><span>Video consults on Google Meet</span><span>Updates on WhatsApp</span></div>
-            </div>
-            <div className="hx-journey-wrap">
-              <div className="hx-journey" aria-label="An example request, step by step">
-                <div className="hx-journey-head">
-                  <div><span className="tiny-label">Example request</span><b>Flat purchase, Whitefield</b></div>
-                  <span className="hx-pill ok"><i />On track</span>
-                </div>
-                <ol>
-                  <li className="done"><span className="dot"><Icon name="check" size={14} /></span><div><b>Asked the assistant</b><small>“Is this flat safe to buy?” It suggested Shield Pro.</small></div></li>
-                  <li className="done"><span className="dot"><Icon name="check" size={14} /></span><div className="split"><div><b>Paid the fixed fee</b><small>Shield Pro · receipt on the request</small></div><span className="serif amount">₹9,999</span></div></li>
-                  <li className="now"><span className="dot"><Icon name="video" size={14} /></span><div className="split"><div><b>Call with your advocate</b><small>Today, 4:00 pm · Google Meet</small></div><span className="btn small" aria-hidden="true">Join call</span></div></li>
-                  <li><span className="dot" /><div><b>Title review &amp; verdict</b><small>EC and title chain in progress</small></div></li>
-                </ol>
-                <div className="hx-journey-foot"><span className="hx-icon sm"><Icon name="file" size={18} /></span><div><b>Case documents</b><small>Sale deed and EC uploaded · 1 item still needed</small></div></div>
-              </div>
-              <div className="floating-note"><strong>One place for everything</strong>Chat, payment, calls, documents and status.</div>
-            </div>
-          </div>
-        </section>
 
-        <section className="stats">
-          <div className="wrap stats-grid">
-            <div className="stat"><b>{lawyers.length ? `From ${formatFee(Math.min(...lawyers.map((l) => l.consultation_fee)))}` : "Video calls"}</b><span>Consultation with a verified advocate</span></div>
-            <div className="stat"><b>From ₹4,999</b><span>Property verification package</span></div>
-            <div className="stat"><b>Free</b><span>RERA project check</span></div>
-            <div className="stat"><b>One number</b><span>Track every request with it</span></div>
+      <main id="home" className="hx">
+        <PublicHero lawyer={lawyers[0]} flagged={flagged} sample={rera?.data.sample}/>
+
+
+
+
+        <section className="section hx-tiles-section" id="services">
+          <div className="wrap">
+            <div className="section-head"><div><div className="eyebrow">Everything in one place</div><h2 className="heading">Start anywhere.<br />It all connects.</h2></div><p>Every request gets one number, so a chat, a booking, a payment and a document all end up on the same case.</p></div>
+            <div className="hx-tiles">
+              {TILES.map((tile) => {
+                const body = <><span className="hx-icon"><Icon name={tile.icon} /></span><b>{tile.title}</b><p>{tile.text}</p><span className="hx-tile-cta">{tile.cta} →</span></>;
+                return tile.ask
+                  ? <AskButton className="hx-tile" key={tile.title}>{body}</AskButton>
+                  : <Link className="hx-tile" href={tile.href} key={tile.title}>{body}</Link>;
+              })}
+            </div>
           </div>
         </section>
 
         <section className="section hx-rera rr" id="rera">
           <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Free RERA project check · Karnataka</div><h2 className="serif">Check a project<br />before you pay a rupee.</h2></div><p>See whether a registration is valid, how late a project is against the date first promised, how much has sold, and how its developer has delivered before.</p></div>
+            <div className="section-head"><div><div className="eyebrow">Free RERA project check · Karnataka</div><h2 className="heading">Check a project<br />before you pay a rupee.</h2></div><p>See whether a registration is valid, how late a project is against the date first promised, how much has sold, and how its developer has delivered before.</p></div>
             <form className="rr-search" action="/rera" role="search">
               <input name="q" placeholder="Project name, RERA number, developer, locality or PIN code" aria-label="Search RERA projects" />
               <button className="btn">Check project</button>
@@ -128,10 +107,10 @@ export default async function HomePage() {
                   <div className="hx-panel hx-rera-market">
                     <div className="hx-rera-market-head"><h3>What the RERA register says</h3><small>Figures as of {new Date(rera.as_of).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</small></div>
                     <div className="hx-mini-stats">
-                      <div><b className="serif">{n(rera.market.projects)}</b><span>RERA projects</span></div>
-                      <div><b className="serif">{rupees(rera.market.median_price_per_sqft)}</b><span>Median / sq ft</span></div>
-                      <div><b className="serif">{pct(rera.market.late_pct)}</b><span>Running late</span></div>
-                      <div><b className="serif">{pct(rera.delivery.on_time_pct)}</b><span>Delivered on time</span></div>
+                      <div><b className="heading">{n(rera.market.projects)}</b><span>RERA projects</span></div>
+                      <div><b className="heading">{rupees(rera.market.median_price_per_sqft)}</b><span>Median / sq ft</span></div>
+                      <div><b className="heading">{pct(rera.market.late_pct)}</b><span>Running late</span></div>
+                      <div><b className="heading">{pct(rera.delivery.on_time_pct)}</b><span>Delivered on time</span></div>
                     </div>
                     <h4>Warning signs across all projects</h4>
                     <RiskBar risk={rera.risk} />
@@ -155,11 +134,11 @@ export default async function HomePage() {
 
         <section className="section hx-steps" id="how-it-works">
           <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">How it works</div><h2 className="serif">Three steps.<br />No office visits.</h2></div><p>Whatever you need, the path is the same: tell us, book and pay, then follow along until it is done.</p></div>
+            <div className="section-head"><div><div className="eyebrow">How it works</div><h2 className="heading">Three steps.<br />No office visits.</h2></div><p>Whatever you need, the path is the same: tell us, book and pay, then follow along until it is done.</p></div>
             <div className="hx-steps-grid">
               {STEPS.map((step, i) => (
                 <article className="hx-step" key={step.title}>
-                  <div className="hx-step-top"><span className="serif">{i + 1}</span><span className="hx-pill">{step.badge}</span></div>
+                  <div className="hx-step-top"><span className="heading">{i + 1}</span><span className="hx-pill">{step.badge}</span></div>
                   <h3>{step.title}</h3>
                   <p>{step.text}</p>
                   {i === 0 && <div className="hx-demo"><span className="me">Do I need an EC before buying a resale flat?</span><span className="bot">Yes. An EC shows loans or claims on the property. Shield Starter covers it.</span></div>}
@@ -171,31 +150,19 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="section hx-tiles-section" id="services">
-          <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">Everything in one place</div><h2 className="serif">Start anywhere.<br />It all connects.</h2></div><p>Every request gets one number, so a chat, a booking, a payment and a document all end up on the same case.</p></div>
-            <div className="hx-tiles">
-              {TILES.map((tile) => {
-                const body = <><span className="hx-icon"><Icon name={tile.icon} /></span><b>{tile.title}</b><p>{tile.text}</p><span className="hx-tile-cta">{tile.cta} →</span></>;
-                return tile.ask
-                  ? <AskButton className="hx-tile" key={tile.title}>{body}</AskButton>
-                  : <Link className="hx-tile" href={tile.href} key={tile.title}>{body}</Link>;
-              })}
-            </div>
-          </div>
-        </section>
 
-        {lawyers.length > 0 && (
+
+        {(
           <section className="section hx-lawyers" id="lawyers">
             <div className="wrap">
-              <div className="section-head"><div><div className="eyebrow">Book a video consultation</div><h2 className="serif">Talk to a verified advocate.</h2></div><Link className="btn light" href="/lawyers">See all lawyers →</Link></div>
-              <div className="hx-lawyer-grid">
+              <div className="section-head"><div><div className="eyebrow">Book a video consultation</div><h2 className="heading">Talk to a verified advocate.</h2></div><Link className="btn light" href="/lawyers">See all lawyers →</Link></div>
+              <div className="hx-lawyer-grid">{lawyers.length===0&&<p>Find an advocate for your property. <Link className="hx-text-link" href="/lawyers">Browse lawyers and available times</Link>.</p>}
                 {lawyers.map((lawyer) => (
                   <article className="hx-lawyer" key={lawyer.slug}>
-                    <div className="hx-lawyer-top"><span className="hx-avatar serif">{lawyer.initials}</span><div><h3><Link href={`/lawyers/${lawyer.slug}`}>{lawyer.name}</Link></h3><p>{lawyer.headline}</p></div></div>
+                    <div className="hx-lawyer-top"><span className="hx-avatar">{lawyer.initials}</span><div><h3><Link href={`/lawyers/${lawyer.slug}`}>{lawyer.name}</Link></h3><p>{lawyer.headline}</p></div></div>
                     <small>{lawyer.experience_years} years · {lawyer.locality ? `${lawyer.locality}, ` : ""}{lawyer.city} · {lawyer.languages.join(", ")}</small>
                     <div className="hx-lawyer-foot">
-                      <div><b className="serif">{formatFee(lawyer.consultation_fee)}</b>{lawyer.next_available ? <span>Next: {lawyer.next_available.day}, {lawyer.next_available.label}</span> : <span className="none">No open slots soon</span>}</div>
+                      <div><b className="heading">{formatFee(lawyer.consultation_fee)}</b>{lawyer.next_available ? <span>Next: {lawyer.next_available.day}, {lawyer.next_available.label}</span> : <span className="none">No open slots soon</span>}</div>
                       <Link className="btn small" href={`/lawyers/${lawyer.slug}`}>Book</Link>
                     </div>
                   </article>
@@ -209,7 +176,7 @@ export default async function HomePage() {
           <div className="wrap hx-split">
             <div>
               <div className="eyebrow">Buying a property?</div>
-              <h2 className="serif">One flat fee.<br />Clear scope.</h2>
+              <h2 className="heading">One flat fee.<br />Clear scope.</h2>
               <p>Each package ends in a plain-English Go / Investigate / Do Not Proceed verdict. Stamp duty, registration fees and government charges are billed at actuals.</p>
               <Link className="hx-more" href="/services">See everything we verify →</Link>
             </div>
@@ -217,7 +184,7 @@ export default async function HomePage() {
               {PACKAGES.map((pkg) => (
                 <div className={`hx-package${pkg.popular ? " popular" : ""}`} key={pkg.name}>
                   <div className="hx-package-name"><b>{pkg.name}</b>{pkg.popular && <span className="hx-pill gold">Most chosen</span>}<small>{pkg.summary}</small></div>
-                  <div className="hx-package-price"><b className="serif">{pkg.price}</b><small>{pkg.delivery.replace(/^Delivery in /, "")}</small></div>
+                  <div className="hx-package-price"><b className="heading">{pkg.price}</b><small>{pkg.delivery.replace(/^Delivery in /, "")}</small></div>
                   <ServiceButton className={`btn small${pkg.popular ? "" : " light"}`} request={{ slug: pkg.slug, pkg: pkg.name, message: `${pkg.name} selected. Request a callback so we can confirm scope, documents and payment.` }}>Choose</ServiceButton>
                 </div>
               ))}
@@ -228,7 +195,7 @@ export default async function HomePage() {
         <section className="hx-dev" id="developers">
           <div className="wrap">
             <div className="hx-dev-band">
-              <div><div className="eyebrow">For real estate developers</div><h2 className="serif">From land acquisition to registered ownership.</h2><p>Land screening, acquisition due diligence, bulk registration and mutation follow-up, each tracked in one workflow.</p></div>
+              <div><div className="eyebrow">For real estate developers</div><h2 className="heading">From land acquisition to registered ownership.</h2><p>Land screening, acquisition due diligence, bulk registration and mutation follow-up, each tracked in one workflow.</p></div>
               <Link className="btn gold" href="/developers">Explore developer services ↗</Link>
             </div>
           </div>
@@ -236,11 +203,11 @@ export default async function HomePage() {
 
         <CallbackSection />
 
-        {posts.length > 0 && (
+        {(
           <section className="section hx-posts" id="insights">
             <div className="wrap">
-              <div className="section-head"><div><div className="eyebrow">Insights</div><h2 className="serif">Know before you sign.</h2></div><Link className="btn light" href="/blog">All articles →</Link></div>
-              <div className="hx-post-grid">
+              <div className="section-head"><div><div className="eyebrow">Insights</div><h2 className="heading">Know before you sign.</h2></div><Link className="btn light" href="/blog">All articles →</Link></div>
+              <div className="hx-post-grid">{posts.length===0&&<p>Explore property guides and case studies in <Link href="/blog">Insights</Link>.</p>}
                 {posts.map((post) => (
                   <Link className="hx-post" href={`/blog/${post.slug}`} key={post.slug}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -257,8 +224,8 @@ export default async function HomePage() {
           <div className="wrap faq-grid">
             <div>
               <div className="eyebrow">FAQs</div>
-              <h2 className="serif" style={{ fontSize: 42, color: "var(--forest)", margin: "10px 0 14px" }}>Questions before you begin?</h2>
-              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.7 }}>Ask the assistant any time, or request a callback if you are unsure which service fits.</p>
+              <h2 className="heading hx-tone-b0e08465" style={{ fontSize: 42, margin: "10px 0 14px" }}>Questions before you begin?</h2>
+              <p className="hx-tone-ae860f94" style={{ fontSize: 12, lineHeight: 1.7 }}>Ask the assistant any time, or request a callback if you are unsure which service fits.</p>
               <a className="btn" href="#callback">Ask a specialist →</a>
             </div>
             <Faq />
@@ -267,13 +234,13 @@ export default async function HomePage() {
 
         <section className="final-cta">
           <div className="wrap">
-            <div><div className="eyebrow" style={{ color: "#cce4d7" }}>Not sure where to start?</div><h2>Check first. Decide with confidence.</h2><p>Ask a question, book a lawyer or leave your number and we will call you back.</p></div>
+            <div><div className="eyebrow hx-tone-63647bec" >Not sure where to start?</div><h2>Check first. Decide with confidence.</h2><p>Ask a question, book a lawyer or leave your number and we will call you back.</p></div>
             <a className="btn gold" href="#callback">Get a free callback ↗</a>
           </div>
         </section>
       </main>
-      <SiteFooter />
-      <ChatWidget />
+
+
     </>
   );
 }

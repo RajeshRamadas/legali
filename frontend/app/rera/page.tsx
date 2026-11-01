@@ -14,7 +14,8 @@ const PAGE_SIZE = 20;
 const SORTS: [ReraSort, string][] = [["name", "Name"], ["risk", "Most warning signs"], ["deadline", "Due soonest"], ["newest", "Newest registration"], ["units", "Largest"], ["price_low", "Price: low to high"]];
 type Params = { q?: string; district?: string; locality?: string; status?: string; type?: string; risk?: string; sort?: string; page?: string };
 
-export default async function ReraIndex({ searchParams }: { searchParams: Params }) {
+export default async function ReraIndex({ searchParams: query }: { searchParams: Promise<Params> }) {
+  const searchParams = await query;
   const search: ReraSearch = {
     q: searchParams.q?.slice(0, 120) || undefined,
     district: searchParams.district || undefined,

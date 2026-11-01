@@ -58,7 +58,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
   const editable = !!report && report.status !== "signed";
 
   return (
-    <section className="admin-card casefile">
+    <section className="admin-card casefile" id="documents">
       <div className="casefile-head">
         <div>
           <h2>Documents and legal report</h2>
@@ -246,7 +246,7 @@ function ReportEditor({ ticket, template, staff, busy, onSave, onCancel }: {
         </label>
       )}
 
-      <div className="casefile-editor-head"><b>Documents required</b><small>The tag is what the customer files uploads under. It can't change once the item is saved.</small></div>
+      <div className="casefile-editor-head"><b>Documents required</b><small>The tag is what the customer files uploads under. It can&apos;t change once the item is saved.</small></div>
       <ol className="casefile-edit-items">
         {items.map((item, index) => (
           <li key={item.id ?? `new-${index}`}>
@@ -386,7 +386,7 @@ function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onUpload
           <input placeholder="Note" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
           <button className="btn small" disabled={!file || busy === "upload"}>{busy === "upload" ? "Uploading…" : "Upload"}</button>
         </form>
-        {ticket.documents.length === 0 ? <p className="muted">The customer hasn't shared anything yet.</p> : (
+        {ticket.documents.length === 0 ? <p className="muted">The customer hasn&apos;t shared anything yet.</p> : (
           <ul className="casefile-docs">
             {ticket.documents.map((d) => (
               <li key={d.id}>

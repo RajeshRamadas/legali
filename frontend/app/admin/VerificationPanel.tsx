@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { adminFetch, formatDate, type TicketDetail } from "./api";
-import "./verification.css";
+import "../ui/views/admin-verification.css";
 import PropertyIntakeFields, { EMPTY_INTAKE } from "../PropertyIntakeFields";
 
 type Evidence = { document_id: string; page: number; quote: string };

@@ -4,12 +4,12 @@ import { GetHelp, Meter, ProjectCard, RiskBadge, SampleNotice, Unavailable, Unit
 
 export const revalidate = 300;
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
 const load = (slug: string) => loadOr404(() => serverApi.getReraProject(slug));
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const p = await load(params.slug);
+  const p = await load((await params).slug);
   if (!p) return { title: "RERA project check · Homexo Legal" };
   return {
     title: `${p.name}, ${p.locality.name}: RERA status and warning signs · Homexo Legal`,
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function ProjectPage({ params }: Params) {
-  const p = await load(params.slug);
+  const p = await load((await params).slug);
   if (!p) return <Unavailable />;
   const done = p.status === "completed";
   const timeline = [

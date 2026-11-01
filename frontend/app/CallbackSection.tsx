@@ -24,7 +24,7 @@ export default function CallbackSection() {
   const [created, setCreated] = useState<{ ticket: string; contact: string; name: string; message: string } | null>(null);
   const [trackPrefill, setTrackPrefill] = useState({ ticket: "", contact: "", key: 0 });
   const [toast, setToast] = useState("");
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   function notify(text: string) {
     setToast(text);

@@ -4,12 +4,12 @@ import { GetHelp, MarketStats, ProjectCard, RiskBar, SampleNotice, SupplyChart, 
 
 export const revalidate = 300;
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
 const load = (slug: string) => loadOr404(() => serverApi.getReraLocality(slug));
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const l = await load(params.slug);
+  const l = await load((await params).slug);
   if (!l) return { title: "Locality report · Homexo Legal" };
   return {
     title: `${l.name} property market: RERA projects, prices and delays · Homexo Legal`,
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function LocalityPage({ params }: Params) {
-  const l = await load(params.slug);
+  const l = await load((await params).slug);
   if (!l) return <Unavailable />;
   const ongoing = l.projects.filter((p) => p.status === "ongoing");
   const rest = l.projects.filter((p) => p.status !== "ongoing");

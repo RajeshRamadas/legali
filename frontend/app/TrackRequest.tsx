@@ -7,7 +7,7 @@ import { api } from "./api";
 import { openDocuments } from "./documents/ref";
 import CaseProgress from "./CaseProgress";
 
-const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+const dateFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 // With `contact`, the customer can also reply to the case team from the card.
 export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: TicketStatus; contact?: string; onUpdate?: (ticket: TicketStatus) => void }) {

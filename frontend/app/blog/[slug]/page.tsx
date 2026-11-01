@@ -8,7 +8,7 @@ import { formatPostDate, serverApi } from "../posts";
 
 export const revalidate = 60;
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
 async function load(slug: string): Promise<PublicPost | null> {
   try {
@@ -20,7 +20,7 @@ async function load(slug: string): Promise<PublicPost | null> {
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const post = await load(params.slug);
+  const post = await load((await params).slug);
   if (!post) return { title: "Insights · Homexo Legal" };
   return {
     title: `${post.title} · Homexo Legal`,
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function PostPage({ params }: Params) {
-  const post = await load(params.slug);
+  const post = await load((await params).slug);
   if (!post) return <section className="wrap blog-list"><p className="blog-empty">This post can’t be loaded right now. Please try again shortly.</p></section>;
   const isCase = post.post_type === "case_study";
   const jsonLd = {
@@ -50,7 +50,7 @@ export default async function PostPage({ params }: Params) {
         <header className="wrap post-head">
           <Link className="post-back" href={isCase ? "/blog?type=case_study" : "/blog?type=article"}>← {isCase ? "Case studies" : "Articles"}</Link>
           <span className={`post-type type-${post.post_type}`}>{post.type_label}</span>
-          <h1 className="serif">{post.title}</h1>
+          <h1 className="heading">{post.title}</h1>
           {post.excerpt && <p className="post-lede">{post.excerpt}</p>}
           <small>{post.author} · {formatPostDate(post.published_at)} · {post.reading_minutes} min read</small>
         </header>
@@ -71,12 +71,12 @@ export default async function PostPage({ params }: Params) {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       </article>
       <section className="wrap post-cta">
-        <div><div className="eyebrow">Buying or building?</div><h2 className="serif">Have our advocates check the documents before you pay.</h2></div>
+        <div><div className="eyebrow">Buying or building?</div><h2 className="heading">Have our advocates check the documents before you pay.</h2></div>
         <Link className="btn gold" href="/#callback">Get a free callback ↗</Link>
       </section>
       {post.related.length > 0 && (
         <section className="wrap blog-list">
-          <h2 className="related-title serif">More {isCase ? "case studies" : "articles"}</h2>
+          <h2 className="related-title">More {isCase ? "case studies" : "articles"}</h2>
           <div className="blog-grid">{post.related.map((p) => <PostCard key={p.id} post={p} />)}</div>
         </section>
       )}

@@ -10,7 +10,7 @@ export default function PostCard({ post, lead = false }: { post: PostSummary; le
         : <div className="post-cover-fallback" aria-hidden><span>{post.post_type === "case_study" ? "Case file" : "Guide"}</span></div>}
       <div className="post-card-body">
         <span className={`post-type type-${post.post_type}`}>{post.type_label}</span>
-        <h2 className="serif">{post.title}</h2>
+        <h2 className="heading">{post.title}</h2>
         {post.excerpt && <p>{post.excerpt}</p>}
         <small>{formatPostDate(post.published_at)} · {post.reading_minutes} min read</small>
       </div>
