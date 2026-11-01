@@ -11,7 +11,7 @@ import SlotPicker from "../SlotPicker";
 import { saveBooking } from "../store";
 
 const DAY_NAMES: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
-const reviewDate = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
+const reviewDate = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
 const emptyForm = { name: "", phone: "", email: "", issue: "" };
 
 export default function LawyerPage({ params }: { params: { slug: string } }) {
@@ -62,7 +62,7 @@ export default function LawyerPage({ params }: { params: { slug: string } }) {
     <LawyerShell>
       <div className="wrap lw-profile">
         <div>
-          <Link href="/lawyers" className="admin-back" style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "var(--forest2)", marginBottom: 14 }}>← All lawyers</Link>
+          <Link href="/lawyers" className="admin-back hx-tone-b2722ad7" style={{ display: "inline-block", fontSize: 12, fontWeight: 800, marginBottom: 14 }}>← All lawyers</Link>
           <section className="lw-panel">
             <div className="lw-hero">
               <div className="lw-avatar big" aria-hidden>{lawyer.initials}</div>

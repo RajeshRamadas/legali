@@ -58,7 +58,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
   const editable = !!report && report.status !== "signed";
 
   return (
-    <section className="admin-card casefile">
+    <section className="admin-card casefile" id="documents">
       <div className="casefile-head">
         <div>
           <h2>Documents and legal report</h2>
