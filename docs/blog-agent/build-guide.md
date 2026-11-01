@@ -65,7 +65,7 @@ Add to `backend/app/config.py`, each read from the environment:
    Because `Post` now has two foreign keys to `users`, give both relationships `foreign_keys=[...]`.
 3. Add `CaseScanRun` (`case_scan_runs`) and `CaseLead` (`case_leads`) with the columns in design.md §4. `case_leads.url` is unique;
    `case_leads.case_key` is unique when it is set. Add check constraints for every status and trigger column.
-4. Write `backend/migrations/versions/0014_blog_agent.py`, revising the current head (`0013_more_property_types` at the time of writing;
+4. Write `backend/migrations/versions/0015_blog_agent.py`, revising the current head (`0014_case_management` at the time of writing;
    use whatever `alembic heads` shows). Use `op.batch_alter_table('posts')` for the new post columns. Write a full `downgrade()`.
 
 **Check (Postgres):**

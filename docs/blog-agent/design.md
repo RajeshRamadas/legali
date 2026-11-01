@@ -47,7 +47,7 @@ Default allow-list (`BLOG_AGENT_DOMAINS`, comma-separated):
 
 The draft step prefers the judgment (Indian Kanoon or the court site) over a news report, and cites both when it uses both.
 
-## 4. Data model (migration `0014_blog_agent`)
+## 4. Data model (migration `0015_blog_agent`)
 
 **`case_scan_runs`**: `id`, `trigger` (`schedule`|`admin`|`cli`), `status` (`running`|`done`|`failed`), `started_by_user_id`,
 `started_at`, `finished_at`, `found`, `added`, `model`, `usage` (JSON: input/output tokens, web searches), `error`.

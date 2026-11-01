@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from . import accounts, admin, cases, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera, verification, verification_workflow
+from . import accounts, admin, blog_agent, cases, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera, verification, verification_workflow
 from .bootstrap import sync_reference_data
 from .db import SessionLocal
 from .models import ReraProject
@@ -18,9 +18,11 @@ async def lifespan(_: FastAPI):
         sync_reference_data(db)
         if config.RERA_SAMPLE_WHEN_EMPTY and db.scalars(select(ReraProject.id).limit(1)).first() is None:
             load_sample(db)
-    worker = asyncio.create_task(notify.worker_loop()) if config.NOTIFY_WORKER_ENABLED else None
+    workers = [asyncio.create_task(notify.worker_loop())] if config.NOTIFY_WORKER_ENABLED else []
+    if config.BLOG_AGENT_ENABLED:
+        workers.append(asyncio.create_task(blog_agent.worker_loop()))
     yield
-    if worker:
+    for worker in workers:
         worker.cancel()
         with suppress(asyncio.CancelledError):
             await worker
@@ -47,6 +49,7 @@ app.include_router(cases.router)
 app.include_router(meetings.router)
 app.include_router(lawyers.router)
 app.include_router(posts.router)
+app.include_router(blog_agent.router)
 app.include_router(documents.router)
 app.include_router(payments.router)
 app.include_router(rera.router)

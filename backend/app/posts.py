@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from . import blog_agent
 from .db import get_db
 from .models import POST_STATUSES, POST_TYPES, AuditLog, Post, User, utcnow
 from .security import require_admin
@@ -67,6 +68,8 @@ class PostUpdate(BaseModel):
     cover_image_url: str | None = Field(default=None, max_length=1000)
     tags: list[str] | None = Field(default=None, max_length=8)
     highlights: list[Highlight] | None = Field(default=None, max_length=8)
+    # AI drafts: the admin confirms they checked the post against its sources. Needed to publish one the first time.
+    review_confirmed: bool = False
 
     _image_url = field_validator("cover_image_url")(lambda cls, v: _clean_image_url(v))
     _tags = field_validator("tags")(lambda cls, v: _clean_tags(v))
@@ -99,10 +102,19 @@ def _summary(post: Post) -> dict:
         "reading_minutes": _reading_minutes(post.body),
         "published_at": post.published_at.isoformat() if post.published_at else None,
         "updated_at": post.updated_at.isoformat(),
+        "origin": post.origin,
     }
 
 def _detail(post: Post) -> dict:
     return {**_summary(post), "body": post.body, "highlights": post.highlights}
+
+def _admin_detail(post: Post) -> dict:
+    return {
+        **_detail(post),
+        "ai_review": blog_agent.public_review(post.ai_review),
+        "reviewed_by": post.reviewed_by.display_name if post.reviewed_by else None,
+        "reviewed_at": post.reviewed_at.isoformat() if post.reviewed_at else None,
+    }
 
 def _audit(db: Session, user: User, action: str, post: Post, **metadata) -> None:
     db.add(AuditLog(actor_user_id=user.id, action=action, entity_type="post", entity_id=post.id, metadata_={"slug": post.slug, **metadata}))
@@ -180,7 +192,7 @@ def _admin_get(db: Session, post_id: uuid.UUID) -> Post:
 
 @router.get("/admin/posts/{post_id}")
 def admin_get_post(post_id: uuid.UUID, _: User = Depends(require_admin), db: Session = Depends(get_db)):
-    return _detail(_admin_get(db, post_id))
+    return _admin_detail(_admin_get(db, post_id))
 
 @router.post("/admin/posts", status_code=201)
 def create_post(payload: PostCreate, user: User = Depends(require_admin), db: Session = Depends(get_db)):
@@ -203,7 +215,7 @@ def create_post(payload: PostCreate, user: User = Depends(require_admin), db: Se
     _audit(db, user, "post.created", post, status=post.status)
     db.commit()
     db.refresh(post)
-    return _detail(post)
+    return _admin_detail(post)
 
 @router.patch("/admin/posts/{post_id}")
 def update_post(post_id: uuid.UUID, payload: PostUpdate, user: User = Depends(require_admin), db: Session = Depends(get_db)):
@@ -220,6 +232,12 @@ def update_post(post_id: uuid.UUID, payload: PostUpdate, user: User = Depends(re
     if changes.get("highlights") is not None:
         post.highlights = changes["highlights"]
     old_status = post.status
+    if changes.get("status") == "published" and post.origin == "ai" and post.reviewed_at is None:
+        # An AI draft goes live only after a person says they checked it against its sources.
+        if not payload.review_confirmed:
+            raise HTTPException(status_code=409, detail="This is an AI draft. Check it against its sources and confirm the review before publishing.")
+        post.reviewed_by_user_id, post.reviewed_at = user.id, utcnow()
+        _audit(db, user, "post.review_confirmed", post, warnings=((post.ai_review or {}).get("checks") or {}).get("warnings", []))
     if changes.get("status"):
         _set_status(post, changes["status"])
     post.updated_at = utcnow()
@@ -227,7 +245,7 @@ def update_post(post_id: uuid.UUID, payload: PostUpdate, user: User = Depends(re
     _audit(db, user, action, post)
     db.commit()
     db.refresh(post)
-    return _detail(post)
+    return _admin_detail(post)
 
 @router.delete("/admin/posts/{post_id}", status_code=204)
 def delete_post(post_id: uuid.UUID, user: User = Depends(require_admin), db: Session = Depends(get_db)):

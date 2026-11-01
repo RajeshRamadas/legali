@@ -6,6 +6,7 @@ import type { PostList, PostType } from "@homexo/shared";
 import { useStaff } from "../AdminShell";
 import { adminFetch, timeAgo } from "../api";
 import { TEMPLATES } from "./templates";
+import "./blog-agent.css";
 
 export default function BlogAdminPage() {
   const { user, onError } = useStaff();
@@ -35,6 +36,7 @@ export default function BlogAdminPage() {
       <header className="admin-head">
         <div><div className="eyebrow">Website</div><h1>Blog</h1></div>
         <div className="blog-new">
+          <Link className="btn small light" href="/admin/blog/cases">Case finder (AI)</Link>
           {(Object.keys(TEMPLATES) as PostType[]).map((t) => (
             <Link key={t} className={`btn small${t === "case_study" ? " light" : ""}`} href={`/admin/blog/new?type=${t}`}>New {TEMPLATES[t].label.toLowerCase()}</Link>
           ))}
@@ -57,7 +59,10 @@ export default function BlogAdminPage() {
             <Link key={post.id} href={`/admin/blog/${post.id}`} className="admin-row post-row">
               <span><b>{post.title}</b><small>/blog/{post.slug}</small></span>
               <span>{post.type_label}</span>
-              <span><span className={`admin-pill pill-post-${post.status}`}>{post.status === "published" ? "Published" : "Draft"}</span></span>
+              <span>
+                <span className={`admin-pill pill-post-${post.status}`}>{post.status === "published" ? "Published" : "Draft"}</span>
+                {post.origin === "ai" && <> <span className="admin-pill pill-ai">AI draft</span></>}
+              </span>
               <span><small>{timeAgo(post.updated_at)} · {post.author}</small></span>
             </Link>
           ))}
