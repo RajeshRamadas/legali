@@ -11,10 +11,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from . import config, google_calendar, tickets, whatsapp
+from . import case_management, config, google_calendar, tickets, whatsapp
 from .db import get_db
 from .models import (
-    CLOSED_STATUSES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, Customer, LawyerProfile, Meeting, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
+    CLOSED_STATUSES, CLOSURE_OUTCOMES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, CaseMember, Customer, LawyerProfile, Meeting, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
 )
 from .security import create_access_token, current_staff, hash_password, require_admin, verify_password
 
@@ -29,6 +29,11 @@ class TicketUpdate(BaseModel):
     priority: Literal[PRIORITIES] | None = None  # type: ignore[valid-type]
     note: str | None = Field(default=None, max_length=1000, description="Shown to the customer with the status change.")
     priority_note: str | None = Field(default=None, max_length=300, description="Staff only: why it's urgent. Sent to the assignee with the urgent alert.")
+    outcome: Literal[CLOSURE_OUTCOMES] | None = Field(default=None, description="How the case ended, when closing it.")  # type: ignore[valid-type]
+    closure_summary: str | None = Field(default=None, max_length=2000, description="Staff only: what was done, when closing.")
+    override_reason: str | None = Field(default=None, max_length=500, description="Admins only: close as Completed despite closure check blockers.")
+    due_at: datetime | None = Field(default=None, description="New case due date.")
+    due_reason: str | None = Field(default=None, max_length=300, description="Why the due date moved. Required with due_at.")
 
 class AssignmentRequest(BaseModel):
     agent_id: uuid.UUID | None = Field(description="Agent to assign, or null to unassign.")
@@ -91,6 +96,8 @@ def _visible_tickets(user: User):
         query = query.where(or_(
             exists().where(Assignment.service_request_id == ServiceRequest.id, Assignment.agent_user_id == user.id, Assignment.unassigned_at.is_(None)),
             exists().where(Meeting.service_request_id == ServiceRequest.id, Meeting.lawyer_user_id == user.id, Meeting.status != "cancelled"),
+            # Case team members (associates, paralegals, reviewers) open the cases they help on.
+            exists().where(CaseMember.service_request_id == ServiceRequest.id, CaseMember.user_id == user.id, CaseMember.removed_at.is_(None)),
         ))
     return query
 
@@ -185,10 +192,17 @@ def get_ticket(ticket_number: str, user: User = Depends(current_staff), db: Sess
 @router.patch("/admin/tickets/{ticket_number}")
 def update_ticket(ticket_number: str, payload: TicketUpdate, user: User = Depends(current_staff), db: Session = Depends(get_db)):
     ticket = _get_ticket(db, user, ticket_number)
-    if payload.status:
-        old = ticket.status
-        tickets.change_status(db, ticket, payload.status, user, (payload.note or "").strip() or None)
-        tickets.audit(db, user, "ticket.status_changed", ticket.id, old=old, new=payload.status)
+    if payload.status and payload.status != ticket.status:
+        _move(db, ticket, payload, user)
+    if payload.due_at is not None:
+        reason = (payload.due_reason or "").strip()
+        if not reason:
+            raise HTTPException(status_code=422, detail="due_reason: Say why the due date is moving.")
+        due = payload.due_at if payload.due_at.tzinfo else payload.due_at.replace(tzinfo=timezone.utc)
+        old_due = tickets.aware(ticket.due_at).isoformat() if ticket.due_at else None
+        ticket.due_at = due
+        tickets.add_event(db, ticket, "due_date_changed", user, old={"due_at": old_due}, new={"due_at": due.isoformat()}, reason=reason)
+        tickets.audit(db, user, "case.due_changed", ticket.id, due_at=due.isoformat())
     if payload.priority and payload.priority != ticket.priority:
         note = (payload.priority_note or "").strip() or None
         tickets.add_event(db, ticket, "priority_changed", user, old={"priority": ticket.priority}, new={"priority": payload.priority}, reason=note)
@@ -199,6 +213,33 @@ def update_ticket(ticket_number: str, payload: TicketUpdate, user: User = Depend
     ticket.updated_at = utcnow()
     db.commit()
     return _detail(db, ticket)
+
+def _move(db: Session, ticket: ServiceRequest, payload: TicketUpdate, user: User) -> None:
+    """A staff status change: only allowed moves, closure checks before Completed, a reason to reopen."""
+    old, new = ticket.status, payload.status
+    note = (payload.note or "").strip() or None
+    if new not in case_management.allowed_statuses(ticket):
+        hint = "A closed case can only be reopened." if old in CLOSED_STATUSES else f"From {tickets.staff_status_label(old)} you can't move to {tickets.staff_status_label(new)}."
+        raise HTTPException(status_code=409, detail=hint)
+    if new == "reopened" and not note:
+        raise HTTPException(status_code=422, detail="note: Say why the case is being reopened.")
+    override = (payload.override_reason or "").strip() or None
+    if new == "completed":
+        check = case_management.closure_check(ticket)
+        if not check["can_close"]:
+            if not override:
+                raise HTTPException(status_code=409, detail="Can't close yet: " + " ".join(check["blockers"]))
+            if not user.is_admin:
+                raise HTTPException(status_code=403, detail="Only an admin can close a case despite the closure checks.")
+    tickets.change_status(db, ticket, new, user, note)
+    if new in CLOSED_STATUSES:
+        cancelled = case_management.close_out(ticket, payload.outcome, (payload.closure_summary or "").strip() or None)
+        tickets.add_event(db, ticket, "case_closed", user, new={"outcome": ticket.closure_outcome, "cancelled_tasks": len(cancelled), "override": bool(override and new == "completed")},
+                          reason=override if new == "completed" and override else ticket.closure_summary)
+    elif old in CLOSED_STATUSES:
+        case_management.reopen(ticket)
+        case_management.sync(ticket)
+    tickets.audit(db, user, "ticket.status_changed", ticket.id, old=old, new=new, **({"override": override} if override and new == "completed" else {}))
 
 @router.post("/admin/tickets/{ticket_number}/assignment")
 def assign_ticket(ticket_number: str, payload: AssignmentRequest, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
