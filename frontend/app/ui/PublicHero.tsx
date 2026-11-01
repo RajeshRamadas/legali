@@ -1,104 +1,160 @@
+import Image from "next/image";
 import Link from "next/link";
-import type { LawyerCard, ReraProjectCard } from "@homexo/shared";
-import HomeHero from "../HomeHero";
+import ServiceButton from "../ServiceButton";
 import Icon from "./Icon";
-export default function PublicHero({
-  lawyer,
-  flagged,
-  sample = false,
-}: {
-  lawyer?: LawyerCard;
-  flagged?: ReraProjectCard | null;
-  sample?: boolean;
-}) {
+import SampleReportButton from "./SampleReportButton";
+
+export default function PublicHero() {
   return (
-    <>
-      <section className="hx-new-hero">
-        <div className="hx-hero-text">
-          <span className="hx-badge violet">
-            Bangalore · property law online
-          </span>
-          <h1>
-            Property lawyers,
-            <br />
-            on <em>demand.</em>
-          </h1>
-          <p>
-            Check a RERA project, book a verified advocate and verify a
-            property, all for one fixed fee. Follow every step from your phone.
+    <section className="hp-hero" aria-labelledby="home-title">
+      <div className="hp-container hp-hero-grid">
+        <div className="hp-hero-copy">
+          <p className="hp-eyebrow">
+            <span /> Property due diligence · Karnataka
           </p>
-          <div className="hx-hero-buttons">
-            <Link href="/lawyers" className="hx-button dark pill">
-              Book a lawyer
-            </Link>
-            <Link href="/rera" className="hx-button pill">
-              Check a RERA project
-            </Link>
+          <h1 id="home-title">
+            Know your property.
+            <br />
+            <em>Before you buy.</em>
+          </h1>
+          <p className="hp-hero-description">
+            A clear review of your property documents, the risks that matter,
+            and the next steps — reviewed by an advocate.
+          </p>
+          <div className="hp-actions">
+            <ServiceButton
+              className="hp-button hp-primary"
+              request={{
+                slug: "title-verification",
+                message:
+                  "Let's start your property review. Share a few details so we can confirm the scope and documents.",
+              }}
+            >
+              Start property review <Icon name="send" size={19} />
+            </ServiceButton>
+            <SampleReportButton />
           </div>
-          <HomeHero />
+          <ul className="hp-assurances">
+            <li>
+              <span>
+                <Icon name="file" size={19} />
+              </span>
+              Clear document
+              <br />
+              checklist
+            </li>
+            <li>
+              <span>
+                <Icon name="search" size={19} />
+              </span>
+              Evidence-linked
+              <br />
+              findings
+            </li>
+            <li>
+              <span>
+                <Icon name="law" size={19} />
+              </span>
+              Advocate-reviewed
+              <br />
+              opinion
+            </li>
+          </ul>
         </div>
-        <div
-          className="hx-hero-collage"
-          aria-label="Property legal services overview"
-        >
-          <div className="hx-portrait one">
-            <span />
+        <div className="hp-hero-visual">
+          <div className="hp-architecture" aria-hidden="true">
+            <Image
+              src="/images/property-architecture.webp"
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 760px) 100vw, 45vw"
+            />
           </div>
-          <div className="hx-portrait two">
-            <span />
+          <div className="hp-paper hp-paper-back" aria-hidden="true">
+            <span>PROPERTY RECORDS</span>
+            <i />
+            <i />
+            <i />
+            <i />
           </div>
-          <Link
-            href={lawyer ? `/lawyers/${lawyer.slug}` : "/lawyers"}
-            className="hx-floating lawyer"
+          <div className="hp-paper hp-paper-front" aria-hidden="true">
+            <span>SALE DEED</span>
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+          </div>
+          <aside
+            className="hp-review"
+            aria-label="Illustrative property review"
           >
-            <strong>{lawyer?.name ?? "Find your advocate"}</strong>
-            <small>
-              {lawyer?.headline ?? "Property title and RERA specialists"}
-            </small>
-            <span className="hx-badge green">
-              {lawyer?.next_available
-                ? `${lawyer.next_available.day} · ${lawyer.next_available.label}`
-                : "Browse available times"}
-            </span>
-          </Link>
-          <Link href="/#packages" className="hx-floating package">
-            <strong>Shield Pro</strong>
-            <span className="hx-badge violet">₹9,999 fixed</span>
-            <small>Property due diligence</small>
-          </Link>
-          <div className="hx-floating review">
-            <span className="hx-approved-mark">
-              <Icon name="check" />
+            <div className="hp-review-heading">
+              <h2>Property review</h2>
+              <span className="hp-sample-label">Illustrative sample</span>
+            </div>
+            <div className="hp-review-row">
+              <span className="hp-status-icon received">
+                <Icon name="check" size={17} />
+              </span>
+              <div>
+                <strong>Sale deed</strong>
+                <small>Received</small>
+              </div>
+              <Icon name="chev" size={15} />
+            </div>
+            <div className="hp-review-row">
+              <span className="hp-status-icon reviewing">
+                <Icon name="search" size={17} />
+              </span>
+              <div>
+                <strong>Title chain</strong>
+                <small>Under review</small>
+              </div>
+              <Icon name="chev" size={15} />
+            </div>
+            <div className="hp-review-row">
+              <span className="hp-status-icon requested">
+                <Icon name="file" size={17} />
+              </span>
+              <div>
+                <strong>Encumbrance certificate</strong>
+                <small>Requested</small>
+              </div>
+              <Icon name="chev" size={15} />
+            </div>
+            <div className="hp-review-notice">
+              <Icon name="alert" size={18} />
+              <div>
+                <strong>Documents needed</strong>
+                <p>
+                  Please share the remaining records to continue the review.
+                </p>
+              </div>
+            </div>
+          </aside>
+          <div className="hp-next-step">
+            <span className="hp-next-icon">
+              <Icon name="upload" size={25} />
             </span>
             <div>
-              <strong>Title review · example</strong>
-              <small>One case. Every step tracked.</small>
+              <span className="hp-sample-label">Illustrative sample</span>
+              <small>Your next step</small>
+              <strong>Upload your sale deed</strong>
             </div>
           </div>
-          <Link href="/rera" className="hx-floating project">
-            <strong>{flagged?.name ?? "Check before you book"}</strong>
-            <small>{sample ? "Sample RERA data" : "Karnataka RERA"}</small>
-            <span className="hx-badge amber">
-              {flagged ? "Inspect warning signs" : "Review project records"}
-            </span>
-          </Link>
         </div>
-      </section>
-      <div className="hx-trust-strip">
-        {[
-          ["shield", "Verified advocates"],
-          ["rupee", "Fixed fees"],
-          ["video", "Google Meet calls"],
-          ["chat", "WhatsApp updates"],
-          ["card", "UPI & cards"],
-          ["rera", "Karnataka RERA data"],
-        ].map(([icon, text]) => (
-          <span key={text}>
-            <Icon name={icon as "shield"} />
-            {text}
-          </span>
-        ))}
       </div>
-    </>
+      <div className="hp-container hp-returning">
+        <span>Already have a case?</span>
+        <Link href="/documents">
+          Upload documents <Icon name="chev" size={14} />
+        </Link>
+        <Link href="#track">
+          Track your request <Icon name="chev" size={14} />
+        </Link>
+      </div>
+    </section>
   );
 }

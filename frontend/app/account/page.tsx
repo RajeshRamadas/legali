@@ -62,6 +62,15 @@ export default function AccountPage() {
   );
 }
 
+// "Step 3 of 6 · Lawyer assigned" from the case milestones (customer_progress in backend/app/case_management.py).
+function caseStage(r: AccountRequest): string {
+  const steps = r.progress?.milestones;
+  if (!steps) return r.status_label;
+  const at = steps.findIndex((m) => m.current);
+  if (at < 0) return r.status_label;
+  return `${r.status_label} · step ${at + 1} of ${steps.length}: ${steps[at].label}`;
+}
+
 function Overview({ session }: { session: Session }) {
   const router = useRouter();
   const [data, setData] = useState<AccountOverview | null>(null);
@@ -299,9 +308,11 @@ function Overview({ session }: { session: Session }) {
                         r.kind === "consultation" ? r.title : r.service_name
                       }
                       subtitle={`${r.ticket_number} · started ${dateFormat.format(new Date(r.created_at))}`}
-                      stage={r.status_label}
+                      stage={caseStage(r)}
                       progress={
-                        r.report && r.report.progress.total
+                        r.progress
+                          ? r.progress.milestones.filter((m) => m.done).length / r.progress.milestones.length
+                          : r.report && r.report.progress.total
                           ? r.report.progress.done / r.report.progress.total
                           : closed(r)
                             ? 1

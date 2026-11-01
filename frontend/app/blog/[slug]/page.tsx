@@ -8,7 +8,7 @@ import { formatPostDate, serverApi } from "../posts";
 
 export const revalidate = 60;
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
 async function load(slug: string): Promise<PublicPost | null> {
   try {
@@ -20,7 +20,7 @@ async function load(slug: string): Promise<PublicPost | null> {
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const post = await load(params.slug);
+  const post = await load((await params).slug);
   if (!post) return { title: "Insights · Homexo Legal" };
   return {
     title: `${post.title} · Homexo Legal`,
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function PostPage({ params }: Params) {
-  const post = await load(params.slug);
+  const post = await load((await params).slug);
   if (!post) return <section className="wrap blog-list"><p className="blog-empty">This post can’t be loaded right now. Please try again shortly.</p></section>;
   const isCase = post.post_type === "case_study";
   const jsonLd = {

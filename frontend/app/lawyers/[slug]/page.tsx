@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatFee, type Booking, type BookingRef, type LawyerProfile, type LawyerSlot } from "@homexo/shared";
 import { api } from "../../api";
@@ -14,7 +15,8 @@ const DAY_NAMES: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", 
 const reviewDate = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
 const emptyForm = { name: "", phone: "", email: "", issue: "" };
 
-export default function LawyerPage({ params }: { params: { slug: string } }) {
+export default function LawyerPage() {
+  const params = useParams<{ slug: string }>();
   const [lawyer, setLawyer] = useState<LawyerProfile | null>(null);
   const [loadError, setLoadError] = useState("");
   const [slot, setSlot] = useState<(LawyerSlot & { day: string }) | null>(null);

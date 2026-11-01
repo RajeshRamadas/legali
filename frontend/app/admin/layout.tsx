@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import AdminShell from "./AdminShell";
 import "../ui/views/admin-admin.css";
+import "./cases.css";
 
 export const metadata: Metadata = {
   title: "Homexo Legal · Staff workspace",
   robots: { index: false, follow: false },
 };
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return <AdminShell>{children}</AdminShell>;
 }

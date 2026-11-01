@@ -71,7 +71,7 @@ export default function DocumentsPage() {
       </main>
       <aside className="hx-context-note">
         <div className="wrap hx-tone-78cc9b2f" style={{ fontSize: 11, lineHeight: 1.7 }}>
-          Files are kept in Homexo's private cloud storage and seen only by your case team. Download links expire after a few minutes. When you upload, the first pages are checked automatically by an AI service for document type, readability and dates, so we can tell you quickly if something needs fixing. An advocate still reviews every document.
+          Files are kept in Homexo&apos;s private cloud storage and seen only by your case team. Download links expire after a few minutes. When you upload, the first pages are checked automatically by an AI service for document type, readability and dates, so we can tell you quickly if something needs fixing. An advocate still reviews every document.
         </div>
       </aside>
     </>

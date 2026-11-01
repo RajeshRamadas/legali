@@ -1,6 +1,6 @@
 # AI case-to-blog desk: implementation
 
-**Related:** [requirements.md](requirements.md), [design.md](design.md).
+**Related:** [requirements.md](requirements.md), [design.md](design.md), [build-guide.md](build-guide.md) (step-by-step build order with checks).
 
 **Status:** the files below are in PR #21, which is not merged to `main` yet.
 
@@ -11,7 +11,7 @@
 | `backend/app/blog_agent.py` | Scan (web search) → leads; draft (web fetch) → AI post; schedule loop; CLI; admin API under `/api/v1/admin/blog-agent` and `POST /api/v1/admin/posts/{id}/recheck`. |
 | `backend/app/blog_checks.py` | Code checks: quote matching, dates/amounts/sections/case numbers vs sources, copying score, warnings. |
 | `backend/app/posts.py` | Admin post responses include `origin`, `ai_review` (without stored source text), `reviewed_by`, `reviewed_at`; publish gate (`review_confirmed`). |
-| `backend/app/models.py`, `migrations/versions/0014_blog_agent.py` | `case_scan_runs`, `case_leads`, new post columns. |
+| `backend/app/models.py`, `migrations/versions/0015_blog_agent.py` | `case_scan_runs`, `case_leads`, new post columns. |
 | `backend/app/config.py` | `BLOG_AGENT_*` settings (below). |
 | `backend/app/main.py` | Registers the router; starts the schedule loop when `BLOG_AGENT_ENABLED=true`. |
 | `backend/tests/test_blog_agent.py` | Faked Claude client: scan filtering and de-duplication, pause/resume, drafting and checks, publish gate, recheck, failures, scheduled run. |
@@ -63,7 +63,7 @@ Fetched pages count as input tokens. Each run stores its tokens and searches, an
 ## Testing
 
 - `cd backend && pytest tests/test_blog_agent.py tests/test_posts.py` passes on SQLite and on Postgres 16 (`TEST_DATABASE_URL`).
-- On Postgres 16: `alembic upgrade head`, `downgrade 0013_more_property_types`, `upgrade head`, and `alembic check` reports no drift.
+- On Postgres 16: `alembic upgrade head`, `downgrade 0014_case_management`, `upgrade head`, and `alembic check` reports no drift.
 - `npx tsc --noEmit` in `frontend/` passes.
 - **Not yet run against the live Claude API** (no key in the build container). Before turning the schedule on, run one manual scan and one draft from `/admin/blog/cases` and read the result.
 

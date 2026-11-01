@@ -1,0 +1,51 @@
+/* Case management screens: case panel, tasks, team (ticket page) and the case board.
+   Uses the Homexo UI tokens (ui/tokens.css), so light and dark themes both work. */
+.case-steps{list-style:none;margin:0 0 16px;padding:0;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.case-steps li{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--surface-2);font-size:11px;font-weight:700;color:var(--ink-3);line-height:1.25}
+.case-steps li span{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line);background:var(--surface);font-size:10px;color:#fff}
+.case-steps li.done{background:var(--primary-50);color:var(--primary-text)}.case-steps li.done span{background:var(--primary);border-color:var(--primary)}
+.case-steps li.current{background:var(--amber-50);color:var(--amber-ink);box-shadow:inset 0 0 0 1px var(--amber)}.case-steps li.current span{border-color:var(--amber)}
+.case-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.case-facts>div{display:grid;gap:2px;align-content:start;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
+.case-facts small{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--ink-3)}
+.case-facts b{font-size:13px;color:var(--ink)}.case-facts em{font-style:normal;font-size:11px;color:var(--ink-3)}
+.case-facts .late{border-color:transparent;background:var(--red-50)}.case-facts .late em,.case-facts .late b{color:var(--red-ink)}
+.case-facts .warn{border-color:transparent;background:var(--amber-50)}.case-facts .warn b{color:var(--amber-ink)}
+.case-facts .admin-link{justify-self:start;margin-top:2px}
+.case-inline{margin-top:12px}
+.case-closed-note{margin:12px 0 0;padding:10px 12px;border-radius:var(--radius-sm);background:var(--surface-2);font-size:12px;color:var(--ink)}
+.case-closure{margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--amber-50);display:grid;gap:6px}
+.case-closure>small{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--amber-ink)}
+.case-closure ul{margin:0;padding-left:16px;font-size:12px;line-height:1.5;color:var(--ink-2)}.case-closure li.blocker{color:var(--red-ink);font-weight:700}
+.task-list{list-style:none;margin:0;padding:0;display:grid}
+.task-list li{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.task-list li:first-child{border-top:0}
+.task-list li>div{flex:1;min-width:0}.task-list b{display:block;font-size:13px;font-weight:700;color:var(--ink)}.task-list small{display:block;font-size:11px;color:var(--ink-3);margin-top:2px}.task-list small a{color:var(--primary-text);font-weight:700}
+.task-list p{margin:4px 0 0;font-size:12px;color:var(--ink-2);white-space:pre-wrap}
+.task-list li.late small{color:var(--red-ink);font-weight:700}
+.task-check{flex:none;align-self:flex-start;width:18px;height:18px;min-height:0;min-width:0;margin-top:1px;border-radius:5px;border:1.5px solid var(--ink-3);background:var(--surface);padding:0;cursor:pointer}.task-check:hover:not(:disabled){border-color:var(--primary);background:var(--primary-50)}
+.task-state{flex:none;width:18px;text-align:center;font-size:12px;color:var(--primary)}.task-state.cancelled{color:var(--ink-3)}
+.task-list.finished b{color:var(--ink-3);font-weight:600}
+.task-toggle{margin-top:10px}
+.case-team{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.case-team li{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--ink)}.case-team b{font-weight:700}.case-team small{font-size:11px;color:var(--ink-3);margin-right:auto}
+.team-add .form-row{grid-template-columns:1fr 120px}.team-add{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.board-stats{grid-template-columns:repeat(6,1fr)}
+.admin-stat.alert b{color:var(--red-ink)}
+.board-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.board-columns{display:grid;grid-template-columns:repeat(5,minmax(190px,1fr));gap:10px;overflow-x:auto;padding-bottom:6px}
+.board-column{display:grid;align-content:start;gap:8px;padding:10px;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--line);min-height:220px}
+.board-column h2{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:2px 2px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-2)}
+.board-column h2 span{font-size:10px;padding:2px 7px;border-radius:var(--radius-pill);background:var(--surface);color:var(--ink-3)}
+.board-empty{margin:4px 2px;font-size:12px;color:var(--ink-3)}
+.board-card{display:grid;gap:5px;padding:10px 11px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--primary);color:var(--ink);box-shadow:var(--shadow)}
+.board-card:hover{border-color:var(--primary-100);border-left-color:var(--primary)}
+.board-card.late{border-left-color:var(--red)}.board-card.urgent{box-shadow:inset 0 0 0 1px var(--red-50),var(--shadow)}
+.board-card-top{display:flex;justify-content:space-between;align-items:center;gap:6px}.board-card-top b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-card small{font-size:11px;color:var(--ink-3);overflow-wrap:anywhere}
+.board-meta{display:flex;flex-wrap:wrap;gap:4px}.board-meta .admin-pill{font-size:10px;padding:3px 7px}
+.flag{font-size:10px;font-weight:700;padding:3px 6px;border-radius:6px;background:var(--surface-2);color:var(--ink-2)}.flag.late{background:var(--red-50);color:var(--red-ink)}.flag.warn{background:var(--amber-50);color:var(--amber-ink)}
+.board-owner{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px!important}
+.board-tasks .task-list{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));column-gap:24px}.board-tasks .task-list li:nth-child(-n+3){border-top:0}
+@media(max-width:1280px){.board-stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:980px){.case-steps{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr))}.case-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.board-stats{grid-template-columns:repeat(2,1fr)}.board-columns{grid-template-columns:repeat(5,minmax(240px,82vw));scroll-snap-type:x mandatory}.board-column{scroll-snap-align:start}.case-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-head:has(.admin-toggle){flex-direction:column;align-items:flex-start}.board-tasks .task-list{grid-template-columns:1fr}}

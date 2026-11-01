@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, document_requirements
+from . import case_files, case_management, config, document_requirements
 from .models import (
     CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
@@ -57,6 +57,7 @@ def add_event(db: Session, ticket: ServiceRequest, event_type: str, actor: User 
     event = TicketEvent(service_request_id=ticket.id, actor_user_id=actor.id if actor else None, event_type=event_type, old_value=old, new_value=new, reason=reason)
     db.add(event)
     ticket.events.append(event)
+    case_management.note_event(ticket, event_type, actor)
 
 def queue_notifications(db: Session, ticket: ServiceRequest, template_key: str, body: str) -> None:
     """Record outgoing customer notifications. A delivery worker or provider integration sends queued rows."""
@@ -205,6 +206,7 @@ def customer_view(ticket: ServiceRequest) -> dict:
         "report": case_files.customer_report_view(ticket),
         "document_request": document_requirements.view(ticket),
         "can_upload": ticket.status not in CLOSED_STATUSES,
+        "progress": case_management.customer_progress(ticket),
     }
 
 def _staff_ref(user: User | None) -> dict | None:
@@ -262,6 +264,7 @@ def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> d
             for m in ticket.conversation.messages
         ] if ticket.conversation else [],
         "verification_workflow": (ticket.structured_answers or {}).get("agent_report"),
+        "case": case_management.staff_case_view(ticket),
         "notifications": [
             {
                 "channel": n.channel, "template": n.template_key, "recipient": n.recipient, "to": "staff" if n.user_id else "customer",

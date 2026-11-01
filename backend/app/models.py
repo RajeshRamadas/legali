@@ -36,6 +36,10 @@ MEETING_STATUSES = ("scheduled", "completed", "cancelled")
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 POST_TYPES = ("article", "case_study")
 POST_STATUSES = ("draft", "published")
+POST_ORIGINS = ("manual", "ai")
+CASE_SCAN_TRIGGERS = ("schedule", "admin", "cli")
+CASE_SCAN_STATUSES = ("running", "done", "failed")
+CASE_LEAD_STATUSES = ("new", "drafting", "drafted", "dismissed", "failed")
 UPLOADER_TYPES = ("customer", "staff", "system")
 # draft: the lawyer is writing the preliminary report. issued: the customer sees it and uploads the documents asked for.
 # final_generated: the final PDF is made and waits to be printed and signed. signed: the signed scan is uploaded.
@@ -45,6 +49,12 @@ REPORT_ITEM_STATUSES = ("pending", "received", "verified", "rejected", "waived")
 PAYMENT_STATUSES = ("created", "paid", "refund_due", "refunded")
 PAYMENT_PROVIDERS = ("razorpay", "test")
 PAYMENT_KINDS = ("checkout", "link")
+# Case management (case_management.py): the case is the ticket; these add its team, tasks, close-out and fee.
+CASE_TASK_STATUSES = ("open", "done", "cancelled")
+CASE_TASK_SOURCES = ("manual", "playbook")
+CASE_MEMBER_ROLES = ("associate", "paralegal", "reviewer")
+CLOSURE_OUTCOMES = ("delivered", "withdrawn", "not_viable", "duplicate", "other")
+FEE_STATUSES = ("none", "quoted", "paid", "waived")
 RERA_STATUSES = ("ongoing", "completed", "lapsed", "revoked", "withdrawn")
 
 class Base(DeclarativeBase):
@@ -237,6 +247,8 @@ class ServiceRequest(TimestampMixin, Base):
         Index("idx_requests_status_created", "status", "created_at"),
         Index("idx_requests_customer_created", "customer_id", "created_at"),
         Index("idx_requests_service", "service_type_id"),
+        Index("idx_requests_status_due", "status", "due_at"),
+        CheckConstraint(_check_in("fee_status", FEE_STATUSES), name="ck_service_requests_fee_status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -257,6 +269,19 @@ class ServiceRequest(TimestampMixin, Base):
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Case management. First response: the first staff action the customer sees (message, status change, assignment).
+    first_response_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_response_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closure_outcome: Mapped[str | None] = mapped_column(Text)
+    closure_summary: Mapped[str | None] = mapped_column(Text)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The fee for the legal work (consultation booking fees stay in payments).
+    fee_status: Mapped[str] = mapped_column(Text, default="none", server_default=text("'none'"), nullable=False)
+    fee_quote_paise: Mapped[int | None] = mapped_column(Integer)
+    fee_paid_paise: Mapped[int | None] = mapped_column(Integer)
+    fee_reference: Mapped[str | None] = mapped_column(Text)
+    fee_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fee_note: Mapped[str | None] = mapped_column(Text)
 
     customer: Mapped[Customer] = relationship(lazy="joined")
     prop: Mapped[Property | None] = relationship(lazy="joined")
@@ -268,6 +293,8 @@ class ServiceRequest(TimestampMixin, Base):
     conversation: Mapped[Conversation | None] = relationship()
     documents: Mapped[list["Document"]] = relationship(order_by="Document.created_at", lazy="selectin")
     report: Mapped["LegalReport | None"] = relationship(lazy="selectin")
+    tasks: Mapped[list["CaseTask"]] = relationship(back_populates="service_request", order_by="CaseTask.created_at", lazy="selectin", cascade="all, delete-orphan")
+    members: Mapped[list["CaseMember"]] = relationship(order_by="CaseMember.added_at", lazy="selectin", cascade="all, delete-orphan")
 
     @property
     def active_assignment(self) -> "Assignment | None":
@@ -289,6 +316,51 @@ class Assignment(Base):
 
     service_request: Mapped[ServiceRequest] = relationship(back_populates="assignments")
     agent: Mapped[User] = relationship(foreign_keys=[agent_user_id], lazy="joined")
+
+class CaseMember(Base):
+    """A staff member helping on a case besides its owner (the active Assignment). Members can open the case."""
+    __tablename__ = "case_members"
+    __table_args__ = (
+        CheckConstraint(_check_in("role", CASE_MEMBER_ROLES), name="ck_case_members_role"),
+        Index("idx_case_members_user_active", "user_id", postgresql_where=text("removed_at IS NULL"), sqlite_where=text("removed_at IS NULL")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    added_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(foreign_keys=[user_id], lazy="joined")
+
+class CaseTask(Base):
+    """A to-do on a case. Playbook tasks are added and ticked off by case_management.sync as the case moves on."""
+    __tablename__ = "case_tasks"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", CASE_TASK_STATUSES), name="ck_case_tasks_status"),
+        CheckConstraint(_check_in("source", CASE_TASK_SOURCES), name="ck_case_tasks_source"),
+        Index("idx_case_tasks_request", "service_request_id"),
+        Index("idx_case_tasks_assignee_open", "assignee_user_id", "due_at", postgresql_where=text("status = 'open'"), sqlite_where=text("status = 'open'")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    assignee_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(Text, default="open", nullable=False)
+    source: Mapped[str] = mapped_column(Text, default="manual", nullable=False)
+    playbook_key: Mapped[str | None] = mapped_column(Text)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    completed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_user_id], lazy="joined")
+    service_request: Mapped["ServiceRequest"] = relationship(back_populates="tasks", lazy="joined")
 
 class TicketEvent(Base):
     __tablename__ = "ticket_events"
@@ -578,6 +650,7 @@ class Post(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint(_check_in("post_type", POST_TYPES), name="ck_posts_type"),
         CheckConstraint(_check_in("status", POST_STATUSES), name="ck_posts_status"),
+        CheckConstraint(_check_in("origin", POST_ORIGINS), name="ck_posts_origin"),
         Index("idx_posts_published", "status", "published_at"),
     )
 
@@ -595,8 +668,63 @@ class Post(TimestampMixin, Base):
     author_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
     # Set the first time the post is published and kept if it is unpublished and published again.
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # "ai" posts were drafted by app.blog_agent; they need a person to confirm the review before the first publish.
+    origin: Mapped[str] = mapped_column(Text, default="manual", server_default="manual", nullable=False)
+    # Sources (with their stored text), claims with quotes and the code checks. See docs/blog-agent/design.md.
+    ai_review: Mapped[dict | None] = mapped_column(JSONType)
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    author: Mapped[User | None] = relationship(lazy="joined")
+    author: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[author_user_id])
+    reviewed_by: Mapped[User | None] = relationship(lazy="joined", foreign_keys=[reviewed_by_user_id])
+
+class CaseScanRun(Base):
+    """One search for new court rulings by app.blog_agent."""
+    __tablename__ = "case_scan_runs"
+    __table_args__ = (
+        CheckConstraint(_check_in("trigger", CASE_SCAN_TRIGGERS), name="ck_case_scan_runs_trigger"),
+        CheckConstraint(_check_in("status", CASE_SCAN_STATUSES), name="ck_case_scan_runs_status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    trigger: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="running", nullable=False)
+    started_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    found: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    added: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    model: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    usage: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+
+class CaseLead(TimestampMixin, Base):
+    """A court ruling or news report found by a scan, waiting for an admin to draft or dismiss it."""
+    __tablename__ = "case_leads"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", CASE_LEAD_STATUSES), name="ck_case_leads_status"),
+        Index("idx_case_leads_status", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("case_scan_runs.id", ondelete="SET NULL"))
+    # Normalised (no fragment, no tracking parameters, no trailing slash) so the same page is never stored twice.
+    url: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    # Court + case number, lower case without spaces, so a ruling reported by two sites is stored once.
+    case_key: Mapped[str | None] = mapped_column(Text, unique=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    court: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    case_number: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    decision_date: Mapped[date | None] = mapped_column(Date)
+    source_name: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    why_it_matters: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    topics: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    relevance: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="new", nullable=False)
+    post_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("posts.id", ondelete="SET NULL"))
+    # Why it was dismissed, or why drafting failed.
+    note: Mapped[str | None] = mapped_column(Text)
 
 class ReraProject(TimestampMixin, Base):
     """A project registered with Karnataka RERA, loaded by app.rera_import (or app.rera_sample in development).

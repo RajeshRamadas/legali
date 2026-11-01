@@ -180,6 +180,16 @@ export type CustomerReport = {
   signed_at: string | null;
 };
 
+// Mirrors customer_progress in backend/app/case_management.py: the case's steps, what the customer must do next, the due date and the fee.
+export type CaseMilestone = { key: "received" | "scoped" | "assigned" | "documents" | "signed" | "closed"; label: string; done: boolean; current: boolean };
+export type CaseProgress = {
+  milestones: CaseMilestone[];
+  next_step: string | null;
+  due_at: string | null;
+  fee: { status: "quoted" | "paid" | "waived"; status_label: string; quote: number | null; paid: number | null; paid_at: string | null } | null;
+  closed: { outcome_label: string | null; summary: string | null; at: string | null } | null;
+};
+
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
   document_request?: DocumentRequest;
@@ -196,6 +206,7 @@ export type TicketStatus = {
   documents: CustomerDocument[];
   report: CustomerReport | null;
   can_upload: boolean;
+  progress?: CaseProgress;
 };
 
 // Mirrors the chat endpoint in backend/app/chat.py.
@@ -348,6 +359,7 @@ export type AccountRequest = {
   next_meeting: CustomerMeeting | null;
   // A short line when the customer has something to do, e.g. "Documents to upload".
   needs_you: string | null;
+  progress?: CaseProgress;
 };
 export type AccountPayment = Pick<BookingPayment, "status" | "amount" | "paid_at" | "method" | "reference" | "can_pay"> & {
   ticket_number: string;
@@ -392,11 +404,69 @@ export type PostSummary = {
   reading_minutes: number;
   published_at: string | null;
   updated_at: string;
+  origin: "manual" | "ai"; // "ai": drafted by the case desk; needs a confirmed review before the first publish
 };
 
 export type Post = PostSummary & {
   body: string; // Markdown
   highlights: { label: string; value: string }[];
+};
+
+// AI case-to-blog desk (admin only). See docs/blog-agent/.
+export type AiClaim = { claim: string; quote: string; source_url: string; supported: boolean };
+export type AiReview = {
+  lead_id: string;
+  model: string;
+  drafted_at: string;
+  case: { name: string; court: string; case_number: string; decision_date: string };
+  sources: { url: string; title: string; chars: number }[];
+  claims: AiClaim[];
+  checks: { claims: number; unsupported: number; unverified_figures: string[]; overlap: number; warnings: string[]; checked_at: string };
+};
+export type AdminPost = Post & { ai_review: AiReview | null; reviewed_by: string | null; reviewed_at: string | null };
+
+export type CaseLeadStatus = "new" | "drafting" | "drafted" | "dismissed" | "failed";
+export type CaseLead = {
+  id: string;
+  url: string;
+  title: string;
+  court: string;
+  case_number: string;
+  decision_date: string | null;
+  source_name: string;
+  summary: string;
+  why_it_matters: string;
+  topics: string[];
+  relevance: number; // 1-5
+  status: CaseLeadStatus;
+  post_id: string | null;
+  note: string | null; // dismiss reason or why drafting failed
+  created_at: string;
+  updated_at: string;
+};
+export type CaseScanRun = {
+  id: string;
+  trigger: "schedule" | "admin" | "cli";
+  status: "running" | "done" | "failed";
+  started_at: string;
+  finished_at: string | null;
+  found: number;
+  added: number;
+  model: string;
+  usage: { input_tokens?: number; output_tokens?: number; web_search_requests?: number };
+  error: string | null;
+};
+export type BlogAgentStatus = {
+  available: boolean;
+  scheduled: boolean;
+  interval_hours: number;
+  auto_drafts: number;
+  lookback_days: number;
+  search_model: string;
+  write_model: string;
+  domains: string[];
+  running: boolean;
+  runs: CaseScanRun[];
 };
 
 export type PublicPost = Post & { related: PostSummary[] };

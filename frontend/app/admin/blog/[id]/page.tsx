@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { Post, PostType } from "@homexo/shared";
+import type { AdminPost, AiReview, PostType } from "@homexo/shared";
 import Markdown from "../../../Markdown";
 import { useStaff } from "../../AdminShell";
 import { adminFetch, formatDate } from "../../api";
 import { TEMPLATES } from "../templates";
+import "../blog-agent.css";
 
 type Form = {
   post_type: PostType;
@@ -25,7 +26,7 @@ function fromTemplate(type: PostType): Form {
   return { post_type: type, title: "", slug: "", excerpt: t.excerpt, cover_image_url: "", tags: "", highlights: t.highlights.map((h) => ({ ...h })), body: t.body };
 }
 
-function fromPost(post: Post): Form {
+function fromPost(post: AdminPost): Form {
   return {
     post_type: post.post_type, title: post.title, slug: post.slug, excerpt: post.excerpt, cover_image_url: post.cover_image_url ?? "",
     tags: post.tags.join(", "), highlights: post.highlights.map((h) => ({ ...h })), body: post.body,
@@ -51,7 +52,8 @@ export default function PostEditorPage() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const isNew = id === "new";
-  const [post, setPost] = useState<Post | null>(null);
+  const [post, setPost] = useState<AdminPost | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
   const [form, setForm] = useState<Form | null>(isNew ? fromTemplate(searchParams.get("type") === "case_study" ? "case_study" : "article") : null);
   const [saved, setSaved] = useState<string>(form ? JSON.stringify(form) : "");
   const [view, setView] = useState<"write" | "preview">("write");
@@ -61,7 +63,7 @@ export default function PostEditorPage() {
 
   useEffect(() => {
     if (isNew || user.role !== "admin") return;
-    adminFetch<Post>(`/admin/posts/${id}`).then((p) => {
+    adminFetch<AdminPost>(`/admin/posts/${id}`).then((p) => {
       setPost(p);
       const f = fromPost(p);
       setForm(f);
@@ -93,16 +95,34 @@ export default function PostEditorPage() {
     setNotice("");
     setBusy(true);
     try {
-      const body = JSON.stringify({ ...payload(form!), ...(status ? { status } : {}) });
+      const review = status === "published" && needsReview ? { review_confirmed: true } : {};
+      const body = JSON.stringify({ ...payload(form!), ...(status ? { status } : {}), ...review });
       const result = isNew
-        ? await adminFetch<Post>("/admin/posts", { method: "POST", body })
-        : await adminFetch<Post>(`/admin/posts/${post!.id}`, { method: "PATCH", body });
+        ? await adminFetch<AdminPost>("/admin/posts", { method: "POST", body })
+        : await adminFetch<AdminPost>(`/admin/posts/${post!.id}`, { method: "PATCH", body });
       const f = fromPost(result);
       setPost(result);
       setForm(f);
       setSaved(JSON.stringify(f));
       setNotice(status === "published" ? "Published. It’s live on the website." : status === "draft" && post?.status === "published" ? "Unpublished. It’s hidden from the website." : "Saved.");
       if (isNew) router.replace(`/admin/blog/${result.id}`);
+    } catch (e) {
+      setError(onError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recheck() {
+    if (!post) return;
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      if (dirty) await save();
+      const result = await adminFetch<AdminPost>(`/admin/posts/${post.id}/recheck`, { method: "POST" });
+      setPost(result);
+      setNotice("Checks run again on the saved text.");
     } catch (e) {
       setError(onError(e));
     } finally {
@@ -124,6 +144,8 @@ export default function PostEditorPage() {
   }
 
   const published = post?.status === "published";
+  // AI drafts need a person to confirm they checked the sources before the first publish.
+  const needsReview = post?.origin === "ai" && !post.reviewed_at;
   const template = TEMPLATES[form.post_type];
 
   return (
@@ -135,6 +157,7 @@ export default function PostEditorPage() {
           <h1>{form.title.trim() || "Untitled"}</h1>
           <div className="ticket-badges">
             <span className={`admin-pill pill-post-${post?.status ?? "draft"}`}>{published ? "Published" : "Draft"}</span>
+            {post?.origin === "ai" && <span className="admin-pill pill-ai">AI draft</span>}
             {post?.published_at && <small className="muted">First published {formatDate(post.published_at)}</small>}
             {dirty && <small className="needs-reply">Unsaved changes</small>}
           </div>
@@ -144,7 +167,7 @@ export default function PostEditorPage() {
           <button className="btn small light" disabled={busy || (!dirty && !isNew)} onClick={() => save()}>{published ? "Save changes" : "Save draft"}</button>
           {published
             ? <button className="btn small light" disabled={busy} onClick={() => save("draft")}>Unpublish</button>
-            : <button className="btn small" disabled={busy} onClick={() => save("published")}>Publish</button>}
+            : <button className="btn small" disabled={busy || (needsReview && !confirmed)} title={needsReview && !confirmed ? "Tick the review box in the AI review panel first" : undefined} onClick={() => save("published")}>Publish</button>}
         </div>
       </header>
       {(error || notice) && <p className={error ? "admin-error" : "admin-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
@@ -167,6 +190,11 @@ export default function PostEditorPage() {
         </section>
 
         <aside className="post-editor-side">
+          {post?.ai_review && (
+            <AiReviewPanel review={post.ai_review} reviewedBy={post.reviewed_by} reviewedAt={post.reviewed_at} confirmed={confirmed}
+              onConfirm={setConfirmed} onRecheck={recheck} busy={busy} />
+          )}
+
           <section className="admin-card admin-form">
             <h2>Settings</h2>
             <label>Type
@@ -207,5 +235,47 @@ export default function PostEditorPage() {
         </aside>
       </div>
     </>
+  );
+}
+
+function AiReviewPanel({ review, reviewedBy, reviewedAt, confirmed, onConfirm, onRecheck, busy }: {
+  review: AiReview; reviewedBy: string | null; reviewedAt: string | null; confirmed: boolean;
+  onConfirm: (value: boolean) => void; onRecheck: () => void; busy: boolean;
+}) {
+  const { checks } = review;
+  return (
+    <section className="admin-card admin-form ai-review">
+      <h2>AI review <button type="button" className="admin-link" disabled={busy} onClick={onRecheck}>Re-run checks</button></h2>
+      <small className="admin-footnote">
+        Drafted by {review.model} from {review.sources.length} source{review.sources.length === 1 ? "" : "s"}. Checks last run {formatDate(checks.checked_at)}.
+        Each fact below must match a quote in the source text; that is checked in code.
+      </small>
+      {checks.warnings.length
+        ? <div className="ai-warnings" role="status">{checks.warnings.map((w) => <p key={w}>⚠ {w}</p>)}</div>
+        : <div className="ai-ok">All {checks.claims} facts match their sources, and every date, amount and section is in the sources.</div>}
+      {checks.unverified_figures.length > 0 && (
+        <small className="admin-footnote">Not found in the sources: <code>{checks.unverified_figures.join(", ")}</code></small>
+      )}
+      <ul>
+        {review.claims.map((c, i) => (
+          <li key={i} className={`ai-claim${c.supported ? "" : " bad"}`}>
+            <span className={`mark ${c.supported ? "ok" : "no"}`}>{c.supported ? "✓" : "✗"}</span>{c.claim}
+            {c.quote && <q>{c.quote}</q>}
+          </li>
+        ))}
+      </ul>
+      <small className="admin-footnote">Wording shared with the sources: {Math.round(checks.overlap * 100)}%.</small>
+      <ul className="ai-sources">
+        {review.sources.map((s) => <li key={s.url}><a href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a></li>)}
+      </ul>
+      {reviewedAt
+        ? <small className="admin-footnote">Review confirmed by {reviewedBy ?? "an admin"} on {formatDate(reviewedAt)}.</small>
+        : (
+          <label className="ai-confirm">
+            <input type="checkbox" checked={confirmed} onChange={(e) => onConfirm(e.target.checked)} />
+            I read this draft against the sources, fixed or removed anything marked ✗ or not found, and it gives no legal advice.
+          </label>
+        )}
+    </section>
   );
 }
