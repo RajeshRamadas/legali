@@ -2,6 +2,8 @@
 
 1 Nov 2026 · Rajesh · Status: design agreed for build; implementation is in PR #20 (not merged yet)
 
+To build it step by step, follow the [build guide](build-guide.md).
+
 ## Summary
 
 Every Homexo ticket becomes a managed case: it moves through six milestones from request to signed report, has an owner and a case team, a task list, deadlines that show when they slip, a fee that is quoted and collected, and a closure step that will not close a case while work is still owed.
