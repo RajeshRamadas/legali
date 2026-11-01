@@ -1,0 +1,151 @@
+/*
+  Homexo "Fresh" design layer (docs/design/fresh-look.md).
+  Loaded after globals.css. It redefines the colour tokens (the old token names are kept as
+  aliases so every page picks up the new palette) and restyles the shared components and the
+  home page. Page-specific CSS files still hold some hard-coded greens; phase 2 of the plan
+  moves those onto the tokens below.
+*/
+
+:root {
+  /* New semantic tokens */
+  --brand: #4f46e5;          /* indigo: primary actions, links */
+  --brand-strong: #4338ca;
+  --brand-2: #7c3aed;        /* violet: second gradient stop */
+  --brand-3: #06b6d4;        /* cyan: highlights */
+  --accent: #ff8a3d;         /* saffron: "most chosen", attention */
+  --accent-soft: #fff1e6;
+  --success: #12a87a;
+  --success-soft: #e3f8f0;
+  --night: #0b1026;          /* dark bands and footer */
+  --night-2: #151b3d;
+  --surface: #ffffff;
+  --surface-2: #f6f7fb;
+  --surface-3: #eef0fb;
+  --text: #0f172a;
+  --text-2: #475067;
+  --border: #e6e8f0;
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #9333ea 100%);
+  --gradient-text: linear-gradient(100deg, #4f46e5 0%, #7c3aed 50%, #0891b2 100%);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, .05), 0 4px 14px rgba(15, 23, 42, .05);
+  --shadow-md: 0 10px 30px rgba(30, 27, 75, .08), 0 2px 6px rgba(30, 27, 75, .05);
+  --shadow-lg: 0 30px 70px rgba(30, 27, 75, .16), 0 6px 18px rgba(30, 27, 75, .06);
+  --shadow-brand: 0 10px 24px rgba(79, 70, 229, .32);
+  --font: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Old token names, remapped so existing pages follow the new palette */
+  --forest: #1e1b4b;
+  --forest2: #4f46e5;
+  --mint: #e0e7ff;
+  --mint2: #eef2ff;
+  --cream: #f6f7fb;
+  --paper: #ffffff;
+  --gold: #ff8a3d;
+  --ink: #0f172a;
+  --muted: #5b6478;
+  --line: #e6e8f0;
+  --coral: #e5484d;
+  --shadow: var(--shadow-lg);
+}
+
+/* ---------- Base ---------- */
+body { font-family: var(--font); background: var(--surface-2); color: var(--text); -webkit-font-smoothing: antialiased; }
+::selection { background: #c7d2fe; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.wrap { width: min(1200px, calc(100% - 48px)); }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--brand); }
+.eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--gradient); box-shadow: 0 0 0 4px rgba(79, 70, 229, .12); }
+/* "serif" was the Georgia display face; it now means the bold display sans */
+.serif { font-family: var(--font); font-weight: 800; letter-spacing: -.035em; }
+h1, h2, h3, h4 { font-family: var(--font); }
+
+/* ---------- Buttons ---------- */
+.btn { border-radius: 999px; padding: 13px 22px; font-size: 14px; font-weight: 700; background: var(--gradient); border: 0; color: #fff; box-shadow: var(--shadow-brand); transition: transform .2s, box-shadow .2s, filter .2s; }
+.btn:hover { background: var(--gradient); filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 14px 30px rgba(79, 70, 229, .38); }
+.btn.light { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.btn.light:hover { background: var(--surface); border-color: #c7cbe0; box-shadow: var(--shadow-md); filter: none; }
+.btn.gold { background: #fff; color: var(--night); box-shadow: 0 10px 24px rgba(0, 0, 0, .18); }
+.btn.gold:hover { background: #fff; }
+.btn.small { padding: 10px 16px; font-size: 13px; }
+
+/* ---------- Header ---------- */
+.topline { background: var(--night); color: #c7cbe6; font-size: 12.5px; padding: 8px 0; }
+.topline strong { color: #fff; }
+.topline a strong { background: var(--gradient-text); -webkit-background-clip: text; background-clip: text; color: transparent; filter: brightness(1.6); }
+.header { background: rgba(255, 255, 255, .78); backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px); border-bottom: 1px solid rgba(230, 232, 240, .8); }
+.navrow { height: 72px; gap: 18px; }
+.brand { color: var(--text); font-weight: 800; letter-spacing: -.03em; font-size: 19px; white-space: nowrap; }
+.brandmark { background: var(--gradient); color: #fff; font-family: var(--font); font-weight: 800; border-radius: 12px; box-shadow: var(--shadow-brand); }
+.brand small { font-size: 9.5px; letter-spacing: .14em; font-weight: 700; }
+.navlinks { gap: 2px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.navlinks a { padding: 8px 12px; border-radius: 999px; white-space: nowrap; transition: background .15s, color .15s; }
+.navlinks a:hover { color: var(--text); background: var(--surface-3); }
+.navright { gap: 8px; }
+.navright .btn { white-space: nowrap; }
+.menu { color: var(--text); }
+
+/* Callback + tracking */
+.callback-band { background: var(--surface); border-color: var(--border); padding: 72px 0; }
+.callback-grid h2, .track-grid h2, .modal-box h2 { font-family: var(--font); font-weight: 800; letter-spacing: -.035em; color: var(--text); font-size: 34px; }
+.callback-grid p, .track-grid p, .modal-box p { font-size: 15px; color: var(--text-2); }
+.callback-form { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; gap: 14px; }
+.field label { font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--text-2); }
+.field input, .field select, .field textarea { border-color: var(--border); border-radius: 12px; padding: 13px 14px; font-size: 14px; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(79, 70, 229, .14); }
+.form-note { font-size: 12px; color: var(--muted); }
+.track-band { background: var(--surface-2); border-color: var(--border); padding: 72px 0; }
+
+/* FAQ */
+.faq { background: var(--surface-2); }
+.faq h2.serif { color: var(--text) !important; letter-spacing: -.04em; }
+.faq p { font-size: 15px !important; }
+.faq-item { border-color: var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); }
+.faq-q { color: var(--text); font-size: 15px; font-weight: 700; padding: 18px 20px; }
+.faq-q span { color: var(--brand); }
+.faq-a { font-size: 14.5px; color: var(--text-2); padding: 0 20px 18px; }
+
+/* Final call to action: a gradient card */
+.final-cta { background: var(--surface-2); padding: 0 0 96px; }
+.final-cta .wrap { position: relative; overflow: hidden; isolation: isolate; background: var(--gradient); border-radius: 28px; padding: 52px; box-shadow: var(--shadow-lg); }
+.final-cta .wrap::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(40% 80% at 100% 0%, rgba(6, 182, 212, .45), transparent 70%), radial-gradient(30% 60% at 0% 100%, rgba(255, 138, 61, .35), transparent 70%); }
+.final-cta .eyebrow { color: #e0e7ff !important; }
+.final-cta .eyebrow::before { background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, .2); }
+.final-cta h2 { font-family: var(--font); font-weight: 800; letter-spacing: -.04em; font-size: clamp(30px, 4vw, 46px); }
+.final-cta p { color: #e0e7ff; font-size: 16px; }
+
+/* Footer */
+.footer { background: var(--night); color: #a9aed0; padding: 64px 0 28px; }
+.footer .brand small { color: #8d93b8 !important; }
+.footer p { color: #a9aed0; font-size: 14px; max-width: 320px; }
+.footer h4 { font-size: 13px; letter-spacing: .02em; }
+.footer a:not(.brand) { font-size: 14px; color: #a9aed0; transition: color .15s; }
+.footer a:not(.brand):hover { color: #fff; }
+.copyright { border-color: rgba(255, 255, 255, .08); font-size: 12px; color: #7d83a8; }
+
+/* Chat assistant */
+.chat-fab { background: var(--night); box-shadow: 0 14px 34px rgba(11, 16, 38, .35); font-weight: 700; }
+.chat-fab-icon { background: var(--gradient); color: #fff; }
+.chat-panel { border-radius: 24px; box-shadow: var(--shadow-lg); }
+.chat-head { background: var(--night); }
+.chat-head small { color: #a9aed0; }
+.chat-msg p { font-size: 14px; }
+.chat-msg.user p { background: var(--gradient); }
+.chat-action, .chat-suggestions button { border-color: #c7d2fe; color: var(--brand-strong); }
+.toast { background: var(--night); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1240px) { .brand small { display: none; } }
+@media (max-width: 1180px) { .navlinks a { padding: 8px 9px; font-size: 13.5px; } }
+@media (max-width: 740px) {
+  .wrap { width: min(100% - 32px, 560px); }
+  .navlinks { background: #fff; padding: 10px 16px 18px; box-shadow: var(--shadow-lg); }
+  .navlinks a { border-radius: 12px; padding: 13px 12px; border-bottom: 0; }
+  .hero-copy { font-size: 16px; }
+  .topline { font-size: 12px; }
+  .section { padding: 64px 0; }
+  .final-cta .wrap { padding: 30px 24px; border-radius: 22px; }
+  .final-cta .wrap { flex-direction: column; align-items: flex-start; }
+  .callback-form { padding: 16px; }
+}
