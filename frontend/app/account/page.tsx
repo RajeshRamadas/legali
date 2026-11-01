@@ -9,6 +9,7 @@ import { openDocuments } from "../documents/ref";
 import "../documents/documents.css";
 import { saveBooking } from "../lawyers/store";
 import "./account.css";
+import CaseProgress from "../CaseProgress";
 import CustomerNav from "./CustomerNav";
 import { signOut, updateProfile, useSession, type Session } from "./session";
 import SignInForm from "./SignInForm";
@@ -97,6 +98,7 @@ function Overview({ session }: { session: Session }) {
                   <div><b>{r.kind === "consultation" ? r.title : r.service_name}</b><small>{r.ticket_number}{r.package ? ` · ${r.package}` : ""} · {dateFormat.format(new Date(r.created_at))}</small></div>
                   <span className={`status-pill status-${r.status}`}>{r.status_label}</span>
                 </div>
+                {r.progress && <CaseProgress progress={r.progress} compact />}
                 <div className="ac-facts">
                   {r.next_meeting && <span>Meeting {r.next_meeting.when}</span>}
                   {r.report && <span>{r.report.status_label}{r.report.signed ? "" : ` (${r.report.progress.done} of ${r.report.progress.total})`}</span>}

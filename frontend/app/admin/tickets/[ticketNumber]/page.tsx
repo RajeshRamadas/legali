@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PROPERTY_TYPES } from "@homexo/shared";
 import { useStaff } from "../../AdminShell";
 import CaseFile from "../../CaseFile";
+import { CaseOverview, FeeCard, TasksCard, TeamCard } from "../../CasePanel";
 import VerificationPanel from "../../VerificationPanel";
 import VerificationOverview from "../../VerificationOverview";
 import { adminFetch, formatDate, joinable, toLocalInput, type Meeting, type Meta, type StaffUser, type TicketDetail } from "../../api";
@@ -36,6 +37,18 @@ const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Rec
   payment_failed: (e) => `Online payment of ₹${e.new?.amount} failed`,
   payment_refund_due: (e) => `Refund of ₹${e.new?.amount} due: refund it in the Razorpay dashboard${e.new?.reference ? ` (payment ${e.new.reference})` : ""}`,
   payment_refunded: (e) => `₹${e.new?.amount} refunded`,
+  case_closed: (e) => `Case closed: ${String(e.new?.outcome ?? "").replace(/_/g, " ")}${e.new?.override ? " (closure checks overridden)" : ""}${Number(e.new?.cancelled_tasks) ? `, ${e.new?.cancelled_tasks} open tasks cancelled` : ""}`,
+  due_date_changed: (e) => `Due date moved${e.old?.due_at ? ` from ${formatDate(e.old.due_at)}` : ""} to ${formatDate(e.new?.due_at ?? "")}`,
+  task_added: (e) => `Task added for ${e.new?.assignee}: ${e.new?.title}`,
+  task_done: (e) => `Task done: ${e.new?.title}`,
+  task_cancelled: (e) => `Task cancelled: ${e.new?.title}`,
+  task_reopened: (e) => `Task reopened: ${e.new?.title}`,
+  member_added: (e) => `${e.new?.name} joined the case team as ${e.new?.role}`,
+  member_removed: (e) => `${e.old?.name} left the case team`,
+  fee_quoted: (e) => `Fee of ₹${Number(e.new?.amount).toLocaleString("en-IN")} quoted`,
+  fee_paid: (e) => `Fee of ₹${Number(e.new?.amount).toLocaleString("en-IN")} received (${e.new?.reference})`,
+  fee_waived: () => "Fee waived",
+  fee_cleared: () => "Fee quote withdrawn",
 };
 
 const TEMPLATE_TEXT: Record<string, string> = {
@@ -68,11 +81,11 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
   }, [load, user.role, onError]);
 
   // Every action returns the updated ticket, so the page re-renders from the server's answer.
-  async function act(path: string, method: "PATCH" | "POST", body: object, done: string) {
+  async function act(path: string, method: "PATCH" | "POST" | "PUT" | "DELETE", body: object | null, done: string) {
     setError("");
     setNotice("");
     try {
-      setTicket(await adminFetch<TicketDetail>(`/admin/tickets/${encodeURIComponent(params.ticketNumber)}${path}`, { method, body: JSON.stringify(body) }));
+      setTicket(await adminFetch<TicketDetail>(`/admin/tickets/${encodeURIComponent(params.ticketNumber)}${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) }));
       setNotice(done);
       return true;
     } catch (e) {
@@ -127,6 +140,8 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
 
       <div className="ticket-layout">
         <div className="ticket-main">
+          <CaseOverview ticket={ticket} act={act} />
+          <TasksCard ticket={ticket} staff={user.role === "admin" ? staff : [user]} act={act} />
           <Conversation ticket={ticket} onSend={(message, visibility) => act("/messages", "POST", { message, visibility }, visibility === "internal" ? "Internal note added." : "Message sent to the customer.")} />
 
           <VerificationOverview ticket={ticket} />
@@ -167,9 +182,11 @@ export default function TicketPage({ params }: { params: { ticketNumber: string 
         </div>
 
         <aside className="ticket-side">
-          <StatusCard ticket={ticket} meta={meta} onSave={(body, done) => act("", "PATCH", body, done)} />
+          <StatusCard ticket={ticket} meta={meta} isAdmin={user.role === "admin"} onSave={(body, done) => act("", "PATCH", body, done)} />
           {user.role === "admin" && <AssignCard ticket={ticket} staff={staff} onAssign={(agent_id, note) => act("/assignment", "POST", { agent_id, note: note || null }, agent_id ? "Ticket assigned." : "Ticket unassigned.")} />}
           {user.role !== "admin" && <section className="admin-card"><h2>Assigned to</h2><p>{ticket.assignee?.name ?? "Unassigned"}</p></section>}
+          <TeamCard ticket={ticket} staff={staff} canManage={user.role === "admin" || ticket.assignee?.id === user.id} act={act} />
+          <FeeCard ticket={ticket} act={act} />
 
           <section className="admin-card">
             <h2>Customer</h2>
@@ -258,21 +275,40 @@ function Conversation({ ticket, onSend }: { ticket: TicketDetail; onSend: (messa
   );
 }
 
-function StatusCard({ ticket, meta, onSave }: { ticket: TicketDetail; meta: Meta | null; onSave: (body: object, done: string) => Promise<boolean> }) {
+const CLOSED = ["completed", "cancelled", "rejected"];
+
+function StatusCard({ ticket, meta, isAdmin, onSave }: { ticket: TicketDetail; meta: Meta | null; isAdmin: boolean; onSave: (body: object, done: string) => Promise<boolean> }) {
   const [status, setStatus] = useState(ticket.status);
   const [note, setNote] = useState("");
   const [priority, setPriority] = useState(ticket.priority);
   const [priorityNote, setPriorityNote] = useState("");
+  const [outcome, setOutcome] = useState("");
+  const [summary, setSummary] = useState("");
+  const [override, setOverride] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => { setStatus(ticket.status); setPriority(ticket.priority); }, [ticket.status, ticket.priority]);
 
-  const changed = status !== ticket.status || priority !== ticket.priority;
+  const c = ticket.case;
+  const labels = Object.fromEntries((meta?.statuses ?? []).map((s) => [s.value, s.label]));
+  // Only the moves the case allows (case_management.allowed_statuses), plus where it is now.
+  const options = [ticket.status, ...c.allowed_statuses];
+  const moving = status !== ticket.status;
+  const closing = moving && CLOSED.includes(status);
+  const blocked = status === "completed" && moving && !!c.closure && !c.closure.can_close;
+  const reopening = status === "reopened" && moving;
+  const changed = moving || priority !== ticket.priority;
+  const defaultOutcome = status === "completed" ? "delivered" : status === "cancelled" ? "withdrawn" : "not_viable";
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const body = { ...(status !== ticket.status ? { status, note: note.trim() || null } : {}), ...(priority !== ticket.priority ? { priority, priority_note: priorityNote.trim() || null } : {}) };
-    if (await onSave(body, "Ticket updated.")) { setNote(""); setPriorityNote(""); }
+    const body = {
+      ...(moving ? { status, note: note.trim() || null } : {}),
+      ...(closing ? { outcome: outcome || defaultOutcome, closure_summary: summary.trim() || null } : {}),
+      ...(blocked && override.trim() ? { override_reason: override.trim() } : {}),
+      ...(priority !== ticket.priority ? { priority, priority_note: priorityNote.trim() || null } : {}),
+    };
+    if (await onSave(body, closing ? "Case closed." : reopening ? "Case reopened." : "Ticket updated.")) { setNote(""); setPriorityNote(""); setSummary(""); setOverride(""); setOutcome(""); }
     setBusy(false);
   }
 
@@ -281,26 +317,55 @@ function StatusCard({ ticket, meta, onSave }: { ticket: TicketDetail; meta: Meta
       <h2>Status</h2>
       <label>Stage
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          {meta?.statuses.map((s) => <option key={s.value} value={s.value}>{s.label}</option>) ?? <option value={ticket.status}>{ticket.status_label}</option>}
+          {options.map((s) => <option key={s} value={s}>{s === ticket.status ? `${labels[s] ?? ticket.status_label} (now)` : CLOSED.includes(s) ? `Close as ${(labels[s] ?? s).toLowerCase()}` : s === "reopened" ? "Reopen case" : labels[s] ?? s}</option>)}
         </select>
       </label>
-      {status !== ticket.status && (
-        <label>Note for the customer (optional)
-          <textarea rows={2} maxLength={1000} placeholder="e.g. Please share the Mother Deed copy." value={note} onChange={(e) => setNote(e.target.value)} />
+      {moving && (
+        <label>{reopening ? "Why reopen it? (the customer sees this)" : "Note for the customer (optional)"}
+          <textarea rows={2} maxLength={1000} required={reopening} placeholder={reopening ? "e.g. The seller shared a new deed, so we are checking it." : "e.g. Please share the Mother Deed copy."} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
       )}
-      <label>Priority
-        <select value={priority} onChange={(e) => setPriority(e.target.value as TicketDetail["priority"])}>
-          {(meta?.priorities ?? [ticket.priority]).map((p) => <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>)}
-        </select>
-      </label>
-      {priority === "urgent" && priority !== ticket.priority && (
-        <label>Why is it urgent? (team only)
-          <textarea rows={2} maxLength={300} placeholder="e.g. Hearing tomorrow at 10 am; needs the reply notice today." value={priorityNote} onChange={(e) => setPriorityNote(e.target.value)} />
-        </label>
+      {closing && (
+        <>
+          <label>Outcome
+            <select value={outcome || defaultOutcome} onChange={(e) => setOutcome(e.target.value)}>
+              {c.outcomes.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </label>
+          <label>Closing summary (team only)
+            <textarea rows={2} maxLength={2000} placeholder="What was delivered, or why it stopped" value={summary} onChange={(e) => setSummary(e.target.value)} />
+          </label>
+        </>
       )}
-      <button className="btn small" disabled={!changed || busy}>{busy ? "Saving…" : "Update ticket"}</button>
-      {status !== ticket.status && <small className="admin-footnote">The customer is notified of the new stage.</small>}
+      {blocked && (
+        <div className="case-closure">
+          <small>Can&apos;t close yet</small>
+          <ul>{c.closure!.blockers.map((b) => <li key={b} className="blocker">{b}</li>)}</ul>
+          {isAdmin && (
+            <label>Close anyway: reason (logged)
+              <input maxLength={500} placeholder="e.g. Customer paid in cash at the office" value={override} onChange={(e) => setOverride(e.target.value)} />
+            </label>
+          )}
+        </div>
+      )}
+      {!closing && (
+        <>
+          <label>Priority
+            <select value={priority} onChange={(e) => setPriority(e.target.value as TicketDetail["priority"])}>
+              {(meta?.priorities ?? [ticket.priority]).map((p) => <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>)}
+            </select>
+          </label>
+          {priority === "urgent" && priority !== ticket.priority && (
+            <label>Why is it urgent? (team only)
+              <textarea rows={2} maxLength={300} placeholder="e.g. Hearing tomorrow at 10 am; needs the reply notice today." value={priorityNote} onChange={(e) => setPriorityNote(e.target.value)} />
+            </label>
+          )}
+        </>
+      )}
+      <button className="btn small" disabled={!changed || busy || (blocked && !(isAdmin && override.trim())) || (reopening && !note.trim())}>
+        {busy ? "Saving…" : closing ? (blocked ? "Close anyway" : "Close case") : reopening ? "Reopen case" : "Update ticket"}
+      </button>
+      {moving && <small className="admin-footnote">The customer is notified of the new stage.{closing && c.closure?.warnings.length ? ` ${c.closure.warnings.join(" ")}` : ""}</small>}
       {priority === "urgent" && priority !== ticket.priority && <small className="admin-footnote">{ticket.assignee ? `${ticket.assignee.name} gets an urgent alert on WhatsApp and sees it at the top of their queue.` : "Assign someone and they'll get an urgent alert on WhatsApp."}</small>}
     </form>
   );

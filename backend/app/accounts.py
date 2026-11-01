@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, payments, tickets, whatsapp, document_requirements
+from . import case_files, case_management, config, payments, tickets, whatsapp, document_requirements
 from .chat import client_key
 from .db import get_db
 from .lawyers import booking_view
@@ -164,6 +164,8 @@ def _needs_you(ticket: ServiceRequest) -> str | None:
         return None
     if ticket.status == "waiting_for_customer":
         return "Waiting for your reply"
+    if ticket.fee_status == "quoted":
+        return f"Fee of ₹{(ticket.fee_quote_paise or 0) // 100:,} to pay"
     report = ticket.report
     if report is not None and report.status == "issued":
         if any(i.status == "rejected" for i in report.items):
@@ -191,6 +193,7 @@ def _request_summary(ticket: ServiceRequest) -> dict:
         "report": {"status_label": report["status_label"], "progress": report["progress"], "signed": report["status"] == "signed"} if report else None,
         "next_meeting": tickets.meeting_view(upcoming[0]) if upcoming else None,
         "needs_you": _needs_you(ticket),
+        "progress": case_management.customer_progress(ticket),
     }
 
 def _payment_row(booking: dict) -> dict:

@@ -1,0 +1,21 @@
+/* Customer case steps (CaseProgress.tsx). Uses the shared colour tokens so the site-wide restyle carries over. */
+.case-progress{margin:14px 0 4px}
+.cp-steps{list-style:none;margin:0;padding:0;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;counter-reset:cp}
+.cp-steps li{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;font-size:11px;line-height:1.3;color:var(--muted)}
+.cp-steps li::before{content:"";position:absolute;top:11px;left:calc(-50% + 14px);right:calc(50% + 14px);height:2px;background:var(--line)}
+.cp-steps li:first-child::before{display:none}
+.cp-steps li.done::before,.cp-steps li.current::before{background:var(--forest2)}
+.cp-dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line);background:var(--paper);font-size:12px;font-weight:900;color:#fff;position:relative;z-index:1}
+.cp-steps li.done .cp-dot{background:var(--forest2);border-color:var(--forest2)}
+.cp-steps li.current .cp-dot{border-color:var(--gold);box-shadow:0 0 0 4px rgba(214,173,102,.25)}
+.cp-steps li.current .cp-label{color:var(--ink);font-weight:800}
+.cp-next{margin:14px 0 0;padding:10px 12px;border-radius:9px;background:var(--mint2);font-size:13px;line-height:1.5}
+.cp-facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cp-facts span{font-size:11px;font-weight:700;padding:5px 9px;border-radius:99px;background:var(--mint);color:var(--forest)}
+.cp-facts .fee-quoted{background:#fbefd8;color:#7a5517}
+.case-progress.compact{margin:10px 0 2px}
+.case-progress.compact .cp-label{display:none}
+.case-progress.compact .cp-dot{width:16px;height:16px;font-size:9px}
+.case-progress.compact .cp-steps li::before{top:7px;left:calc(-50% + 10px);right:calc(50% + 10px)}
+.cp-now{display:block;margin-top:6px;font-size:11px;color:var(--muted)}
+@media (max-width:520px){.cp-steps li .cp-label{font-size:10px}.cp-steps li:not(.current) .cp-label{display:none}}
