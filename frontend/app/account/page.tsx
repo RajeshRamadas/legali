@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import CaseProgress from "../CaseProgress";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -63,6 +62,15 @@ export default function AccountPage() {
   );
 }
 
+// "Step 3 of 6 · Lawyer assigned" from the case milestones (customer_progress in backend/app/case_management.py).
+function caseStage(r: AccountRequest): string {
+  const steps = r.progress?.milestones;
+  if (!steps) return r.status_label;
+  const at = steps.findIndex((m) => m.current);
+  if (at < 0) return r.status_label;
+  return `${r.status_label} · step ${at + 1} of ${steps.length}: ${steps[at].label}`;
+}
+
 function Overview({ session }: { session: Session }) {
   const router = useRouter();
   const [data, setData] = useState<AccountOverview | null>(null);
@@ -82,12 +90,14 @@ function Overview({ session }: { session: Session }) {
       setData(overview);
       updateProfile(overview.profile);
       // My bookings lists what this browser remembers, so add the account's consultations there too.
-      [...overview.bookings].reverse().forEach((b) =>
-        saveBooking({
-          ticket_number: b.ticket_number,
-          contact: overview.profile.contact,
-        }),
-      );
+      [...overview.bookings]
+        .reverse()
+        .forEach((b) =>
+          saveBooking({
+            ticket_number: b.ticket_number,
+            contact: overview.profile.contact,
+          }),
+        );
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) signOut();
       else
@@ -292,68 +302,66 @@ function Overview({ session }: { session: Session }) {
                     (p) => p.ticket_number === r.ticket_number,
                   );
                   return (
-                    <div key={r.ticket_number}>
-                      <CaseCard
-                        title={
-                          r.kind === "consultation" ? r.title : r.service_name
-                        }
-                        subtitle={`${r.ticket_number} · started ${dateFormat.format(new Date(r.created_at))}`}
-                        stage={r.status_label}
-                        progress={
-                          r.report && r.report.progress.total
-                            ? r.report.progress.done / r.report.progress.total
-                            : closed(r)
-                              ? 1
-                              : undefined
-                        }
-                        badge={
-                          r.package
-                            ? { label: r.package, tone: "violet" }
+                    <CaseCard
+                      key={r.ticket_number}
+                      title={
+                        r.kind === "consultation" ? r.title : r.service_name
+                      }
+                      subtitle={`${r.ticket_number} · started ${dateFormat.format(new Date(r.created_at))}`}
+                      stage={caseStage(r)}
+                      progress={
+                        r.progress
+                          ? r.progress.milestones.filter((m) => m.done).length / r.progress.milestones.length
+                          : r.report && r.report.progress.total
+                          ? r.report.progress.done / r.report.progress.total
+                          : closed(r)
+                            ? 1
                             : undefined
-                        }
-                        meta={
-                          payment ? (
-                            <>
-                              <strong>{paymentLabel(payment)}</strong>
-                              <small>{payment.status}</small>
-                            </>
-                          ) : undefined
-                        }
-                        actions={
+                      }
+                      badge={
+                        r.package
+                          ? { label: r.package, tone: "violet" }
+                          : undefined
+                      }
+                      meta={
+                        payment ? (
                           <>
-                            {r.kind === "consultation" ? (
-                              <Button size="sm" href="/bookings">
-                                Manage booking
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                icon="file"
-                                onClick={() => openRequest(r)}
-                              >
-                                Documents
-                              </Button>
-                            )}
+                            <strong>{paymentLabel(payment)}</strong>
+                            <small>{payment.status}</small>
+                          </>
+                        ) : undefined
+                      }
+                      actions={
+                        <>
+                          {r.kind === "consultation" ? (
+                            <Button size="sm" href="/bookings">
+                              Manage booking
+                            </Button>
+                          ) : (
                             <Button
                               size="sm"
-                              icon="chat"
-                              onClick={() => {
-                                openDocuments({
-                                  ticket_number: r.ticket_number,
-                                  contact: data.profile.contact,
-                                });
-                                router.push("/documents#messages");
-                              }}
+                              icon="file"
+                              onClick={() => openRequest(r)}
                             >
-                              Message
+                              Documents
                             </Button>
-                          </>
-                        }
-                      />
-                      {r.progress && (
-                        <CaseProgress progress={r.progress} compact />
-                      )}
-                    </div>
+                          )}
+                          <Button
+                            size="sm"
+                            icon="chat"
+                            onClick={() => {
+                              openDocuments({
+                                ticket_number: r.ticket_number,
+                                contact: data.profile.contact,
+                              });
+                              router.push("/documents#messages");
+                            }}
+                          >
+                            Message
+                          </Button>
+                        </>
+                      }
+                    />
                   );
                 })}
                 {!shown.length && (

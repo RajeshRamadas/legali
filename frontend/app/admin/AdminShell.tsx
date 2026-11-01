@@ -85,7 +85,7 @@ export default function AdminShell({
       items: [
         { href: "/admin", label: "Dashboard", icon: "home" },
         { href: "/admin?view=queue", label: "Ticket queue", icon: "case" },
-        { href: "/admin/cases", label: "Case board", icon: "case" },
+        { href: "/admin/cases", label: "Case board", icon: "inbox" },
         { href: "/admin/calendar", label: "Calendar", icon: "cal" },
         {
           href: "/admin/fetches",
