@@ -1,6 +1,6 @@
 # AI case-to-blog desk: implementation
 
-**Related:** [requirements.md](requirements.md), [design.md](design.md).
+**Related:** [requirements.md](requirements.md), [design.md](design.md), [build-guide.md](build-guide.md) (step-by-step build order with checks).
 
 **Status:** the files below are in PR #21, which is not merged to `main` yet.
 
