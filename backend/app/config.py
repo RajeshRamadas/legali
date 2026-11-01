@@ -132,3 +132,8 @@ LOGIN_CODES_PER_PHONE_PER_HOUR = int(os.getenv("LOGIN_CODES_PER_PHONE_PER_HOUR",
 LOGIN_CODES_PER_CLIENT_PER_HOUR = int(os.getenv("LOGIN_CODES_PER_CLIENT_PER_HOUR", "20"))
 # How long a customer stays signed in on a device.
 CUSTOMER_SESSION_DAYS = int(os.getenv("CUSTOMER_SESSION_DAYS", "30"))
+
+# Case management. First response: hours after a request until a staff reply, status change or assignment is due.
+CASE_FIRST_RESPONSE_HOURS = int(os.getenv("CASE_FIRST_RESPONSE_HOURS", "4"))
+# Case due date when the service type has no turnaround of its own.
+CASE_DEFAULT_TURNAROUND_DAYS = int(os.getenv("CASE_DEFAULT_TURNAROUND_DAYS", "7"))
