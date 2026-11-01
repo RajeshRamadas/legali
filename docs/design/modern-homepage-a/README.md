@@ -1,5 +1,7 @@
 # Modern professional homepage — Concept A
 
+Archived visual direction. The newer [legal-tech homepage](../legal-tech-homepage/README.md) replaces this design.
+
 Implements the approved white-and-blue visual concept for the public homepage.
 The homepage has a simpler navigation, a property-document review hero, a
 three-step workflow, service cards, RERA search, package comparison, advocate

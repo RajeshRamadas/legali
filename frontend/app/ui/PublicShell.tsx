@@ -6,6 +6,7 @@ import ThemeToggle from "./ThemeToggle";
 import SiteFooter from "../SiteFooter";
 import { useSession } from "../account/session";
 import Icon from "./Icon";
+import ServiceButton from "../ServiceButton";
 const defaultNav = [
   ["/rera", "RERA check"],
   ["/lawyers", "Find a lawyer"],
@@ -17,10 +18,10 @@ export default function PublicShell({ children }: { children: ReactNode }) {
   const modernHome = usePathname() === "/";
   const nav = modernHome
     ? [
-        ["/#packages", "Property verification"],
-        ["/rera", "RERA check"],
-        ["/lawyers", "Find an advocate"],
-        ["/services", "All services"],
+        ["/#how-it-works", "How it works"],
+        ["/#services", "Services"],
+        ["/#packages", "Pricing"],
+        ["/blog", "Insights"],
       ]
     : defaultNav;
   const [open, setOpen] = useState(false);
@@ -92,6 +93,18 @@ export default function PublicShell({ children }: { children: ReactNode }) {
             <Link className="hx-button pill" href="/account">
               {session ? "My account" : "Sign in"}
             </Link>
+            {modernHome && (
+              <ServiceButton
+                className="hp-button hp-primary lt-nav-cta"
+                request={{
+                  slug: "title-verification",
+                  message:
+                    "Let's start your property review. Tell us about your property below.",
+                }}
+              >
+                Start a review <Icon name="send" size={16} />
+              </ServiceButton>
+            )}
             {!modernHome && (
               <Link
                 className="hx-button dark pill hx-get-started"

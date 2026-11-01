@@ -23,7 +23,7 @@ import "./ui/home-modern.css";
 
 export const revalidate = 300;
 export const metadata: Metadata = {
-  title: "Homexo Legal — Know your property. Before you buy.",
+  title: "Homexo Legal — Property decisions, with the small print understood.",
   description:
     "Property document review in Karnataka. Get a tailored document checklist, evidence-linked findings and an advocate-reviewed opinion, with clear next steps.",
 };
@@ -118,9 +118,9 @@ export default async function HomePage() {
             <div>
               <p className="hp-eyebrow">Property decisions, made clearer</p>
               <h2 id="services-title">
-                The right help.
+                Everything your property
                 <br />
-                Right when you need it.
+                decision needs.
               </h2>
             </div>
             <p>

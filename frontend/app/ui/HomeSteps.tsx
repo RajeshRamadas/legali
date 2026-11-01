@@ -27,8 +27,8 @@ export default function HomeSteps() {
       <div className="hp-container">
         <div className="hp-section-heading">
           <div>
-            <p className="hp-eyebrow">A clear path forward</p>
-            <h2 id="workflow-title">Clarity at every step.</h2>
+            <p className="hp-eyebrow">From first question to next step</p>
+            <h2 id="workflow-title">Less chasing papers. More clarity.</h2>
           </div>
           <p>
             From your first document to your final decision,
