@@ -162,3 +162,15 @@ BLOG_AGENT_DOMAINS = [d.strip().lower() for d in os.getenv("BLOG_AGENT_DOMAINS",
 ])).split(",") if d.strip()]
 # Server-side refusal fallback (Claude API only). Set to "off" on Bedrock, Vertex AI or Foundry.
 BLOG_AGENT_FALLBACKS = os.getenv("BLOG_AGENT_FALLBACKS", "default")
+
+# Transactional notifications. Empty credentials keep that channel queued.
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "")  # A sender on a verified Resend domain.
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
+TWILIO_MESSAGING_SERVICE_SID = os.getenv("TWILIO_MESSAGING_SERVICE_SID", "")
+SMS_DEFAULT_COUNTRY_CODE = os.getenv("SMS_DEFAULT_COUNTRY_CODE", "91")
+NOTIFY_MAX_ATTEMPTS = max(1, int(os.getenv("NOTIFY_MAX_ATTEMPTS", "5")))
+NOTIFY_RETRY_SECONDS = max(1, int(os.getenv("NOTIFY_RETRY_SECONDS", "60")))
+NOTIFY_MAX_AGE_HOURS = max(1, int(os.getenv("NOTIFY_MAX_AGE_HOURS", "24")))

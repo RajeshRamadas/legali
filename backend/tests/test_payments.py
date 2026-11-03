@@ -102,6 +102,11 @@ def test_app_payment_link_paid_by_webhook_or_status_check(client, lawyer, razorp
     view = client.post("/api/v1/bookings/lookup", json=REF(booking)).json()
     assert view["payment"]["status"] == "paid" and view["payment"]["method"] == "upi"
     assert _events(booking["ticket_number"]).count("payment_received") == 1
+    from app.models import Notification, ServiceRequest
+    with SessionLocal() as db:
+        notices = db.scalars(select(Notification).join(ServiceRequest, Notification.service_request_id == ServiceRequest.id).where(
+            ServiceRequest.ticket_number == booking["ticket_number"], Notification.template_key == "payment_received")).all()
+        assert sorted(n.channel for n in notices) == ["email", "sms"]
 
     client.post("/api/v1/bookings/cancel", json=REF(booking))
     refund = json.dumps({"event": "refund.processed", "payload": {"refund": {"entity": {"id": "rfnd_1", "payment_id": "pay_hook", "amount": 150000}}}}).encode()

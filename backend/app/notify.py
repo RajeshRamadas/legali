@@ -1,23 +1,24 @@
-"""Notification delivery: sends due WhatsApp messages (invites, reminders, agendas) and queues each lawyer's daily agenda.
+"""Notification delivery: transactional email, SMS and WhatsApp with persisted attempts and worker leases.
 Each run also releases online bookings left unpaid past PAYMENT_HOLD_MINUTES (see payments.py).
 
 Runs every NOTIFY_INTERVAL_SECONDS inside the API process, or on its own with `python -m app.notify [--loop]`.
-Without WhatsApp credentials nothing is sent and messages stay queued. SMS and email have no provider yet and stay queued.
+Unconfigured channels remain queued. Email uses provider idempotency; ambiguous SMS outcomes stop for review.
 """
 import argparse
 import asyncio
 import logging
 import time
+import uuid
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from . import config, payments, whatsapp
+from . import config, payments, whatsapp, notification_providers as providers
 from .db import SessionLocal
 from .meetings import render
-from .models import Meeting, Notification, User, utcnow
+from .models import Meeting, Notification, ServiceRequest, User, utcnow
 from .tickets import aware
 
 log = logging.getLogger("homexo.notify")
@@ -30,32 +31,92 @@ def _expired(notification: Notification, meeting: Meeting | None, now: datetime)
         return True
     return aware(meeting.starts_at if notification.template_key == "meeting_reminder" else meeting.ends_at) <= now
 
+def _due(now, channels):
+    return (
+        Notification.channel.in_(channels), Notification.delivery_status == "queued",
+        or_(Notification.send_after.is_(None), Notification.send_after <= now),
+        or_(Notification.processing_until.is_(None), Notification.processing_until <= now),
+    )
+
+
 def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> int:
-    """Send queued WhatsApp messages whose time has come. Returns how many were sent."""
-    if not whatsapp.enabled():
-        return 0
+    """Claim one row at a time, persist its lease, and send only configured channels.
+
+    Email uses the row ID as a provider idempotency key. A lost SMS/WhatsApp claim
+    is stopped for review because those APIs cannot guarantee idempotent resends.
+    """
+    fixed_now = now
     now = now or utcnow()
-    due = db.scalars(
-        select(Notification)
-        .where(Notification.channel == "whatsapp", Notification.delivery_status == "queued", or_(Notification.send_after.is_(None), Notification.send_after <= now))
-        .order_by(Notification.send_after).limit(limit)
-        # Several API processes can run this loop; each row goes to one of them.
-        .with_for_update(skip_locked=True)
-    ).all()
+    channels = [c for c in ("email", "sms") if providers.enabled(c)]
+    if whatsapp.enabled():
+        channels.append("whatsapp")
+    if not channels:
+        return 0
     sent = 0
-    for notification in due:
+    for _ in range(limit):
+        now = fixed_now or utcnow()
+        notification = db.scalars(select(Notification).where(*_due(now, channels))
+            .order_by(Notification.send_after, Notification.created_at, Notification.id)
+            .with_for_update(skip_locked=True).limit(1)).first()
+        if notification is None:
+            break
         meeting = db.get(Meeting, notification.meeting_id) if notification.meeting_id else None
-        if _expired(notification, meeting, now):
+        due_at = aware(notification.send_after or notification.created_at)
+        if _expired(notification, meeting, now) or due_at < now - timedelta(hours=config.NOTIFY_MAX_AGE_HOURS):
             notification.delivery_status, notification.error_code = "cancelled", "expired"
-        else:
-            try:
-                notification.provider_reference = whatsapp.send_template(notification.recipient or "", notification.template_key, notification.params or [])
-                notification.delivery_status = "sent"
-                sent += 1
-            except whatsapp.WhatsAppError as exc:
-                log.warning("WhatsApp %s to notification %s failed: %s", notification.template_key, notification.id, exc)
-                notification.delivery_status, notification.error_code = "failed", exc.code
+            notification.processing_until = notification.claim_token = None
+            db.commit()
+            continue
+        if notification.processing_until is not None and notification.channel != "email":
+            notification.delivery_status, notification.error_code = "failed", "provider_outcome_unknown"
+            notification.processing_until = notification.claim_token = None
+            db.commit()
+            continue
+        # Resend retains idempotency keys for 24h; never replay outside that window.
+        if notification.channel == "email" and notification.first_attempt_at and aware(notification.first_attempt_at) < now - timedelta(hours=23):
+            notification.delivery_status, notification.error_code = "failed", "email_retry_window_expired"
+            notification.processing_until = notification.claim_token = None
+            db.commit()
+            continue
+        if notification.attempts >= config.NOTIFY_MAX_ATTEMPTS:
+            notification.delivery_status, notification.error_code = "failed", "attempts_exhausted"
+            db.commit()
+            continue
+        claim = uuid.uuid4()
+        notification.claim_token = claim
+        notification.processing_until = now + timedelta(minutes=5)
+        notification.attempts += 1
+        notification.first_attempt_at = notification.first_attempt_at or now
+        notification.last_attempt_at = now
+        notification.error_code = None
+        db.commit()  # A crash after provider acceptance cannot leave an unclaimed queued row.
+        notification_id = notification.id
+        values = {"claim_token": None, "processing_until": None}
+        try:
+            # Refresh after claim commit, so cancellation before sending is respected.
+            db.refresh(notification)
+            if notification.delivery_status != "queued" or notification.claim_token != claim:
+                continue
+            if notification.channel == "whatsapp":
+                reference = whatsapp.send_template(notification.recipient or "", notification.template_key, notification.params or [])
+            else:
+                ticket = db.get(ServiceRequest, notification.service_request_id) if notification.service_request_id else None
+                sender = providers.send_email if notification.channel == "email" else providers.send_sms
+                reference = sender(notification, ticket.ticket_number if ticket else None)
+            values.update(provider_reference=reference, delivery_status="sent", error_code=None)
+        except providers.DeliveryError as exc:
+            retry = exc.retryable and notification.attempts < config.NOTIFY_MAX_ATTEMPTS
+            values.update(delivery_status="queued" if retry else "failed", error_code=exc.code)
+            if retry:
+                values["send_after"] = now + timedelta(seconds=min(3600, config.NOTIFY_RETRY_SECONDS * 2 ** (notification.attempts - 1)))
+        except whatsapp.WhatsAppError as exc:
+            # Keep historical WhatsApp errors terminal; unknown outcomes must not be blindly replayed.
+            values.update(delivery_status="failed", error_code=exc.code)
+        result = db.execute(update(Notification).where(Notification.id == notification_id,
+            Notification.claim_token == claim, Notification.delivery_status == "queued").values(**values))
         db.commit()
+        if values["delivery_status"] == "sent" and result.rowcount:
+            sent += 1
     return sent
 
 def queue_daily_agendas(db: Session, now: datetime | None = None) -> int:

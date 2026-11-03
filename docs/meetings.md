@@ -90,3 +90,7 @@ Failures (for example a number not on WhatsApp) show on the ticket with WhatsApp
 
 Ticket detail (`meetings`) and the customer's lookup (`meetings`, without staff contact details) include each meeting.
 Agents can open tickets where they are the lawyer on a meeting, even when the ticket is assigned to someone else.
+
+## Email and SMS
+
+Customers also receive generic portal alerts for consultation bookings, changes, cancellations and reminders when Resend/Twilio are configured. Queued reminders are superseded across all channels when the appointment changes. See [notification delivery](notifications.md).

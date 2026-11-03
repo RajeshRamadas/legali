@@ -127,7 +127,7 @@ export type TicketDetail = TicketSummary & {
   meetings: Meeting[];
   documents: StaffDocument[];
   report: StaffReport | null;
-  notifications: { channel: string; template: string; recipient: string | null; to: "customer" | "staff"; status: string; error: string | null; at: string; send_after: string | null }[];
+  notifications: { channel: string; template: string; recipient: string | null; to: "customer" | "staff"; status: string; error: string | null; at: string; send_after: string | null; attempts: number; last_attempt_at: string | null; provider_reference: string | null; processing: boolean }[];
   // The website or app chat this ticket was raised from or checked in, oldest first.
   chat_transcript: { from: "customer" | "assistant" | "system" | "agent"; message: string; at: string }[];
 };
@@ -138,6 +138,7 @@ export type Summary = { open: number; new_today: number; unassigned: number; nee
 export type Meta = {
   statuses: { value: string; label: string }[];
   priorities: string[];
+  notifications: Record<string, boolean>;
   meetings: { google_calendar: boolean; whatsapp: boolean; timezone: string; reminder_minutes: number[] };
 };
 

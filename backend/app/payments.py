@@ -181,6 +181,7 @@ def mark_paid(db: Session, payment: Payment, payment_id: str | None, method: str
     meeting = _booking(ticket)
     if already or meeting is None or meeting.status == "cancelled":
         _refund_due(db, payment, "Paid twice for one booking." if already else "Paid after the booking was cancelled.")
+    tickets.queue_notifications(db, ticket, "payment_received", f"Payment update on {ticket.ticket_number}. Sign in to view the details.")
     tickets.audit(db, None, "payment.received", ticket.id, payment_id=str(payment.id), amount=rupees)
 
 def _refund_due(db: Session, payment: Payment, reason: str) -> None:

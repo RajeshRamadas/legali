@@ -218,15 +218,18 @@ export default function TicketPage() {
                   <li key={i} className={n.status === "cancelled" ? "muted" : undefined}>
                     <b>{TEMPLATE_TEXT[n.template] ?? n.template.replace(/_/g, " ")}{n.to === "staff" && " (lawyer)"}</b>
                     <small>
-                      {n.channel === "whatsapp" ? "WhatsApp" : n.channel.toUpperCase()} · {n.status === "queued" && n.send_after && new Date(n.send_after) > new Date() ? `due ${formatDate(n.send_after)}` : n.status}
+                      {n.channel === "whatsapp" ? "WhatsApp" : n.channel.toUpperCase()} · {n.status === "queued" && !n.processing && meta?.notifications?.[n.channel] === false ? "channel not configured" : n.processing ? "processing" : n.status === "sent" ? "accepted by provider" : n.status === "queued" && n.send_after && new Date(n.send_after) > new Date() ? `due ${formatDate(n.send_after)}` : n.status}
                       {n.error && n.error !== "superseded" && ` (${n.error})`} · {formatDate(n.at)}
+                      {n.attempts > 0 && ` · ${n.attempts} attempt${n.attempts === 1 ? "" : "s"}`}
+                      {n.provider_reference && ` · Provider reference: ${n.provider_reference}`}
+                      {n.error?.includes("outcome_unknown") && " · Check provider history before retrying."}
                     </small>
                   </li>
                 ))}
               </ul>
             )}
             <p className="admin-footnote">
-              {meta?.meetings.whatsapp ? "WhatsApp messages send automatically." : "WhatsApp messages wait in the queue until WhatsApp Business is connected."} SMS and email are queued until a provider is connected.
+              Configured channels send automatically. Provider acceptance does not confirm delivery to the recipient.
             </p>
           </section>
         </aside>

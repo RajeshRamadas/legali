@@ -269,6 +269,8 @@ def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> d
             {
                 "channel": n.channel, "template": n.template_key, "recipient": n.recipient, "to": "staff" if n.user_id else "customer",
                 "status": n.delivery_status, "error": n.error_code, "at": _iso(n.created_at), "send_after": _iso(n.send_after),
+                "attempts": n.attempts, "last_attempt_at": _iso(n.last_attempt_at), "provider_reference": n.provider_reference,
+                "processing": n.delivery_status == "queued" and n.processing_until is not None and aware(n.processing_until) > utcnow(),
             }
             for n in notifications
         ],

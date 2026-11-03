@@ -613,6 +613,11 @@ class Notification(Base):
     # Stops the same reminder or agenda being queued twice.
     dedupe_key: Mapped[str | None] = mapped_column(Text, unique=True)
     delivery_status: Mapped[str] = mapped_column(Text, default="queued", nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
+    first_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    processing_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    claim_token: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     provider_reference: Mapped[str | None] = mapped_column(Text)
     error_code: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

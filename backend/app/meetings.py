@@ -91,6 +91,14 @@ def _queue(db: Session, meeting: Meeting, template_key: str, last_param: str | N
             channel="whatsapp", template_key=template_key, recipient=party["phone"], params=params, body=render(template_key, params),
             send_after=send_after or utcnow(), dedupe_key=f"{dedupe}:{party['kind']}" if dedupe else None,
         ))
+    if "customer" in kinds:
+        for channel, recipient in (("email", ticket.customer.email), ("sms", ticket.customer.phone)):
+            if recipient:
+                db.add(Notification(service_request_id=ticket.id, customer_id=ticket.customer_id, meeting_id=meeting.id,
+                    channel=channel, template_key=template_key, recipient=recipient,
+                    body=f"Consultation update on {ticket.ticket_number}. Sign in to view the details.",
+                    send_after=send_after or utcnow(), dedupe_key=f"{dedupe}:customer:{channel}" if dedupe else None))
+
 
 def _queue_reminders(db: Session, meeting: Meeting) -> None:
     now, starts_at = utcnow(), tickets.aware(meeting.starts_at)
@@ -223,8 +231,9 @@ def update_meeting(meeting_id: uuid.UUID, payload: MeetingUpdate, user: User = D
         meeting.meet_link = payload.meet_link
         for queued in db.scalars(select(Notification).where(Notification.meeting_id == meeting.id, Notification.delivery_status == "queued")).all():
             if queued.template_key == "meeting_reminder":
-                queued.params = [*queued.params[:4], meeting.meet_link]
-                queued.body = render(queued.template_key, queued.params)
+                if queued.channel == "whatsapp":
+                    queued.params = [*(queued.params or [])[:4], meeting.meet_link]
+                    queued.body = render(queued.template_key, queued.params)
             else:
                 queued.delivery_status, queued.error_code = "cancelled", "superseded"
         _queue(db, meeting, "meeting_scheduled")

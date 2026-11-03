@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from . import case_management, config, google_calendar, tickets, whatsapp
+from . import case_management, config, google_calendar, tickets, whatsapp, notification_providers
 from .db import get_db
 from .models import (
     CLOSED_STATUSES, CLOSURE_OUTCOMES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, CaseMember, Customer, LawyerProfile, Meeting, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
@@ -345,6 +345,7 @@ def meta(user: User = Depends(current_staff)):
     return {
         "statuses": [{"value": s, "label": tickets.staff_status_label(s)} for s in TICKET_STATUSES if s != "draft"],
         "priorities": list(PRIORITIES),
+        "notifications": {"email": notification_providers.enabled("email"), "sms": notification_providers.enabled("sms"), "whatsapp": whatsapp.enabled()},
         "meetings": {
             "google_calendar": google_calendar.enabled(), "whatsapp": whatsapp.enabled(),
             "timezone": config.MEETING_TIMEZONE, "reminder_minutes": config.MEETING_REMINDER_MINUTES,
