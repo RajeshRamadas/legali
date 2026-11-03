@@ -38,73 +38,17 @@ export default function HomeSteps() {
         <ol className="hp-workflow-grid">
           {steps.map((step, index) => (
             <li key={step.kind}>
+              <span className="hp-step-number">0{index + 1}</span>
               <div className="hp-step-title">
-                <span>{index + 1}</span>
+                <span>
+                  <Icon
+                    name={index === 0 ? "home" : index === 1 ? "upload" : "search"}
+                    size={24}
+                  />
+                </span>
                 <h3>{step.title}</h3>
               </div>
               <p>{step.text}</p>
-              <div
-                className={`hp-step-illustration ${step.kind}`}
-                aria-hidden="true"
-              >
-                {step.kind === "intake" ? (
-                  <>
-                    <div>
-                      <b>Property details</b>
-                      <i />
-                      <i className="short" />
-                      <i />
-                    </div>
-                    <span className="hp-mini-pin">
-                      <Icon name="home" size={25} />
-                    </span>
-                  </>
-                ) : step.kind === "documents" ? (
-                  <>
-                    <div>
-                      <Icon name="file" size={22} />
-                      <b>Sale deed</b>
-                      <i />
-                      <i />
-                    </div>
-                    <div>
-                      <Icon name="file" size={22} />
-                      <b>Title records</b>
-                      <i />
-                      <i />
-                    </div>
-                    <div>
-                      <Icon name="file" size={22} />
-                      <b>EC</b>
-                      <i />
-                      <i />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <b>Property review report</b>
-                      <i />
-                      <i className="short" />
-                      <i />
-                    </div>
-                    <div className="hp-mini-findings">
-                      <span>
-                        <Icon name="check" size={12} />
-                        <i />
-                      </span>
-                      <span>
-                        <Icon name="alert" size={12} />
-                        <i />
-                      </span>
-                      <span>
-                        <Icon name="search" size={12} />
-                        <i />
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
             </li>
           ))}
         </ol>

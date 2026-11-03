@@ -1,0 +1,111 @@
+/* Shared Premium & Bold surfaces. Body scoping outranks route-level legacy rules. */
+html { color-scheme: dark; }
+body { background: var(--bg); }
+body :is(input, select, textarea) { color-scheme: dark; accent-color: var(--primary); }
+body :is(input, textarea)::placeholder { color: var(--ink-3); opacity: 1; }
+body .hp-brand-mark { color: var(--primary); flex: none; }
+body .hx-brand { gap: 11px; color: var(--ink); }
+body .hp-wordmark { font-size: 27px; line-height: 1; font-weight: 850; letter-spacing: -1.2px; }
+body .hp-wordmark small { color: var(--primary); font-size: 8px; letter-spacing: 5px; margin: 7px 0 0 2px; }
+body .hx-public-header { background: var(--bg); }
+body .hx-public-nav { max-width: 1280px; }
+body .hx-public-actions > .hx-button { border-radius: 8px; border-color: var(--primary); color: var(--primary); }
+body .hx-public-actions > .hx-button.dark { background: var(--primary); color: var(--on-primary); }
+body .hx-public-links a:hover { color: var(--primary); }
+body .hx-button, body .btn { border-radius: 9px; }
+body .hx-button.primary,
+body .btn:not(.light):not(.gold),
+body .hx-hero-ask button,
+body .hx-calendar-grid button.today,
+body .hx-count,
+body .hx-mark,
+body .hx-avatar.avatar-0,
+body .brandmark,
+body .hx-assistant-mark,
+body .hx-assistant-input button,
+body .lw-chip.on,
+body .jn-step.current .jn-dot,
+body .case-steps li.current span,
+body .case-steps li.done span {
+  color: var(--on-primary);
+}
+body .hx-calendar-grid button.today::after { background: var(--on-primary); }
+body .hx-stat-icon { background: var(--primary-50); color: var(--primary); }
+body .hx-stat.amber .hx-stat-icon { background: var(--amber-50); color: var(--amber-ink); }
+body .hx-stat.blue .hx-stat-icon { background: var(--blue-50); color: var(--blue-ink); }
+body .hx-stat.green .hx-stat-icon { background: var(--green-50); color: var(--green-ink); }
+body .hx-stat.pink .hx-stat-icon { background: var(--pink-50); color: var(--pink); }
+body .hx-attention.featured {
+  background: linear-gradient(135deg, var(--primary-100), var(--surface));
+  border-color: var(--primary);
+  color: var(--ink);
+}
+body .hx-attention.featured small { color: var(--ink-2); }
+body .hx-attention.featured .hx-badge { background: var(--primary-50); color: var(--primary); }
+body .hx-sidebar { border-right: 1px solid var(--line); }
+body .hx-nav-item.on { box-shadow: inset 3px 0 var(--primary); }
+body .hx-app-header { background: var(--bg); }
+body .hx-card, body .admin-card, body .dc-card { border-radius: 12px; }
+body .hx-public :is(.lw-band, .rr-band, .rr-hero, .blog-band, .dc-band) {
+  background: radial-gradient(ellipse at 90% 0, #25364b 0%, transparent 65%), var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+body .hx-public :is(.lw-band, .rr-band, .blog-band, .dc-band) h1 { color: var(--ink); }
+body .hx-public :is(.section, .section:nth-child(even)) { background: var(--public-bg); }
+body .hx-public .section:nth-child(even) { background: var(--surface-2); }
+body .hx-public .hx-tile,
+body .hx-public .hx-package { background: var(--surface); border-color: var(--line); }
+body .hx-public .hx-package.popular { background: var(--primary-50); border-color: var(--primary); }
+body .hx-public .hx-package.popular :is(small, p) { color: var(--ink-2); }
+body .hx-public .hx-package.popular .hx-pill { background: var(--primary-100); color: var(--primary); }
+body .hx-public .final-cta .wrap { background: var(--primary); border-radius: 14px; }
+body .hx-public .final-cta :is(h2, p, .eyebrow) { color: var(--on-primary) !important; }
+body .hx-public .final-cta .btn { background: var(--bg); border-color: var(--bg); color: var(--ink); }
+body .hx-public .footer { background: var(--surface-2); border-top: 1px solid var(--line); }
+body .hx-public .footer :is(h4, .brand) { color: var(--ink); }
+body .hx-public .footer :is(p, a, .copyright) { color: var(--ink-2); }
+body .hx-public .footer a:hover { color: var(--primary); }
+body .hx-public .footer .brandmark { background: var(--primary); color: var(--on-primary); }
+body .chat-fab, body .chat-head, body .chat-head small, body .chat-msg.user p { color: var(--on-primary); }
+body .chat-fab-icon, body .chat-head .brandmark { background: var(--bg); color: var(--primary); }
+body .jn-next { background: var(--surface); border: 1px solid var(--primary); color: var(--ink); }
+body .jn-next :is(h2, .eyebrow, p, .jn-why, .jn-drop),
+body .jn-next-meta, body .jn-next-meta button { color: var(--ink); }
+body .jn-count div { background: var(--surface-2); }
+body .jn-next .jn-drop { background: var(--surface-2); border-color: var(--line); }
+body .lw-avatar { background: var(--primary-50); color: var(--primary); }
+body .rr-risk i { color: var(--on-primary); }
+body .hx-signin-page, body .admin-login { color: var(--ink); }
+body .hx-signin-page .hx-card, body .admin-login-card { border: 1px solid var(--line); background: var(--surface); }
+@media (max-width: 900px) {
+  body .hx-public-nav { gap: 12px; }
+  body .hx-public-links.open { background: var(--surface); border-color: var(--line); }
+  body .hp-wordmark { font-size: 23px; }
+  body .hp-brand-mark { width: 28px; height: 34px; }
+  body .hx-public-actions .hx-button { padding-inline: 12px; }
+}
+@media (max-width: 480px) {
+  body .hx-public-actions .hx-get-started { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+
+/* Inner-page headings and panels follow the homepage's restrained contrast. */
+body .hx-public main :is(h1, h2, h3) { color: var(--ink); }
+body .hx-public .hp-final h2 { color: var(--on-primary); }
+body .hx-public .developer-intro {
+  background: linear-gradient(90deg, #0b1220f5, #0b1220e8), url('/images/property-architecture.webp') center / cover;
+  color: var(--ink);
+}
+body .developer-copy .eyebrow, body .lifecycle-heading .eyebrow { color: var(--primary); }
+body .developer-copy > p, body .developer-proof, body .lifecycle-grid p { color: var(--ink-2); }
+body .developer-copy .btn.light { color: var(--ink); border-color: var(--line); }
+body .developer-copy .btn.gold { background: var(--primary); color: var(--on-primary); }
+body .lifecycle-grid article { background: var(--surface); border-color: var(--line); }
+body .lifecycle-grid h4 { color: var(--ink); }
+body .admin-signin { background: radial-gradient(ellipse at 70% 20%, #24364a, transparent 65%), var(--bg); }
+body .signin-card h1 { color: var(--ink); font-weight: 750; }
+body .admin-brand.dark { color: var(--ink); }
+body .admin-brand.dark small { color: var(--ink-2); }
+body .rr-col-bar { color: var(--on-primary); }

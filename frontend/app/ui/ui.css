@@ -188,7 +188,7 @@ h4 {
   border: 1px solid var(--line);
 }
 [data-theme="dark"] .hx-badge.violet {
-  color: #c9bcff;
+  color: var(--primary-text);
 }
 [data-theme="dark"] .hx-badge.green {
   color: #6ee7a0;
@@ -568,7 +568,7 @@ h4 {
   padding: 0;
 }
 [data-theme="dark"] .hx-text-link {
-  color: #c9bcff;
+  color: var(--primary-text);
 }
 .hx-calendar-grid {
   display: grid;
@@ -1985,7 +1985,7 @@ h4 {
 }
 [data-theme="dark"] .hx-public .hx-pill {
   background: var(--primary-50);
-  color: #c9bcff;
+  color: var(--primary-text);
 }
 @media (max-width: 740px) {
   .hx-public .hx-package-list {
@@ -2007,7 +2007,7 @@ h4 {
 }
 [data-theme="dark"] .hx-app-content .ac-plain,
 [data-theme="dark"] .hx-app-content .dc-link {
-  color: #c9bcff !important;
+  color: var(--primary-text) !important;
 }
 /* Theme-aware semantics for the preserved document, RERA and consultation workflows. */
 .eyebrow {

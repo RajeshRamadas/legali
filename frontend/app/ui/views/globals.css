@@ -1813,12 +1813,12 @@ p {
   padding: 6px 9px;
   border-radius: 20px;
   background: var(--amber-50);
-  color: #8a6224;
+  color: var(--amber-ink);
   white-space: nowrap;
 }
 .status-pill.status-completed {
   background: var(--surface-2);
-  color: #24734d;
+  color: var(--green-ink);
 }
 .ticket-service {
   font-size: 12px !important;

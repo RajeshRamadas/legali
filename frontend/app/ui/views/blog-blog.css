@@ -172,7 +172,7 @@
 }
 .post-type.type-case_study {
   background: var(--amber-50);
-  color: #7b5a24;
+  color: var(--amber-ink);
 }
 .blog-pager {
   display: flex;

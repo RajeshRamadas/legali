@@ -489,7 +489,7 @@ button.jn-node:hover {
 .jn-item.received .jn-item-status {
   border-color: var(--primary);
   background: var(--amber-50);
-  color: #8a6420;
+  color: var(--amber-ink);
 }
 .jn-item.rejected .jn-item-status {
   border-color: var(--red);
@@ -640,7 +640,7 @@ button.jn-node:hover {
 }
 .jn-admin .dc-pill.received {
   background: var(--amber-50);
-  color: #8a6420;
+  color: var(--amber-ink);
 }
 .jn-admin .dc-pill.verified,
 .jn-admin .dc-pill.waived {
@@ -653,7 +653,7 @@ button.jn-node:hover {
 }
 .jn-admin .dc-pill.fetching {
   background: var(--blue-50);
-  color: #2f4f8a;
+  color: var(--blue-ink);
 }
 @media (max-width: 1100px) {
   .jn-admin-grid {

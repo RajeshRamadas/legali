@@ -14,7 +14,6 @@ import {
   StatTile,
   Tabs,
 } from "./primitives";
-import ThemeToggle from "./ThemeToggle";
 import MiniCalendar from "./MiniCalendar";
 export default function Showcase() {
   const [tab, setTab] = useState("active");
@@ -22,12 +21,11 @@ export default function Showcase() {
     <div className="hx-showcase">
       <PageHeader
         title="Homexo UI component review"
-        subtitle="Shared production components · light and dark themes"
-        actions={<ThemeToggle />}
+        subtitle="Shared production components · Premium & Bold"
       />
-      {(["light", "dark"] as const).map((theme) => (
+      {(["dark"] as const).map((theme) => (
         <section data-theme={theme} className="hx-showcase-theme" key={theme}>
-          <h2>{theme} theme</h2>
+          <h2>Navy surfaces. Lime accents.</h2>
           <div className="hx-stat-grid">
             <StatTile
               tone="violet"

@@ -7,10 +7,19 @@ import SampleReportButton from "./SampleReportButton";
 export default function PublicHero() {
   return (
     <section className="hp-hero" aria-labelledby="home-title">
+      <div className="hp-architecture" aria-hidden="true">
+        <Image
+          src="/images/property-architecture.webp"
+          alt=""
+          fill
+          preload
+          sizes="100vw"
+        />
+      </div>
       <div className="hp-container hp-hero-grid">
         <div className="hp-hero-copy">
           <p className="hp-eyebrow">
-            <span /> Property due diligence · Karnataka
+            <span /> A clearer way to buy property
           </p>
           <h1 id="home-title">
             Know your property.
@@ -62,29 +71,11 @@ export default function PublicHero() {
           </ul>
         </div>
         <div className="hp-hero-visual">
-          <div className="hp-architecture" aria-hidden="true">
-            <Image
-              src="/images/property-architecture.webp"
-              alt=""
-              fill
-              priority
-              sizes="(max-width: 760px) 100vw, 45vw"
-            />
-          </div>
-          <div className="hp-paper hp-paper-back" aria-hidden="true">
-            <span>PROPERTY RECORDS</span>
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="hp-paper hp-paper-front" aria-hidden="true">
-            <span>SALE DEED</span>
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
+          <div className="hp-property-caption">
+            <span>
+              <Icon name="home" size={16} /> Built around your next chapter
+            </span>
+            <small>Property due diligence · Karnataka</small>
           </div>
           <aside
             className="hp-review"
@@ -102,7 +93,6 @@ export default function PublicHero() {
                 <strong>Sale deed</strong>
                 <small>Received</small>
               </div>
-              <Icon name="chev" size={15} />
             </div>
             <div className="hp-review-row">
               <span className="hp-status-icon reviewing">
@@ -112,7 +102,6 @@ export default function PublicHero() {
                 <strong>Title chain</strong>
                 <small>Under review</small>
               </div>
-              <Icon name="chev" size={15} />
             </div>
             <div className="hp-review-row">
               <span className="hp-status-icon requested">
@@ -122,32 +111,12 @@ export default function PublicHero() {
                 <strong>Encumbrance certificate</strong>
                 <small>Requested</small>
               </div>
-              <Icon name="chev" size={15} />
-            </div>
-            <div className="hp-review-notice">
-              <Icon name="alert" size={18} />
-              <div>
-                <strong>Documents needed</strong>
-                <p>
-                  Please share the remaining records to continue the review.
-                </p>
-              </div>
             </div>
           </aside>
-          <div className="hp-next-step">
-            <span className="hp-next-icon">
-              <Icon name="upload" size={25} />
-            </span>
-            <div>
-              <span className="hp-sample-label">Illustrative sample</span>
-              <small>Your next step</small>
-              <strong>Upload your sale deed</strong>
-            </div>
-          </div>
         </div>
       </div>
       <div className="hp-container hp-returning">
-        <span>Already have a case?</span>
+        <span>Your property journey, all in one place.</span>
         <Link href="/documents">
           Upload documents <Icon name="chev" size={14} />
         </Link>

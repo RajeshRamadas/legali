@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import BrandMark from "./BrandMark";
 import Icon, { type IconName } from "./Icon";
-import ThemeToggle from "./ThemeToggle";
 import { Avatar, IconButton } from "./primitives";
 export type NavItem = {
   href: string;
@@ -123,7 +123,7 @@ export default function AppShell({
           className="hx-brand"
           href={area === "Staff workspace" ? "/admin" : "/account"}
         >
-          <span className="hx-mark">H</span>
+          <BrandMark />
           <span>
             homexo<small>{area}</small>
           </span>
@@ -174,7 +174,7 @@ export default function AppShell({
             <Icon name="menu" />
           </button>
           <Link className="hx-mobile-brand" href="/">
-            <span className="hx-mark">H</span>homexo
+            <BrandMark />homexo
           </Link>
           <form
             className={`hx-shell-search ${searchOpen ? "open" : ""}`}
@@ -215,7 +215,6 @@ export default function AppShell({
                 }}
               />
             </span>
-            <ThemeToggle />
             <div className="hx-notification-wrap">
               <IconButton
                 icon="bell"

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import BrandMark from "../ui/BrandMark";
 import AppShell from "../ui/AppShell";
 import { initials } from "../ui/utils";
 import type { NavGroup } from "../ui/AppShell";
@@ -240,7 +241,7 @@ function SignIn({ onSignedIn }: { onSignedIn: (user: StaffUser) => void }) {
     <div className="admin-signin">
       <form className="admin-card signin-card" onSubmit={submit}>
         <div className="admin-brand dark">
-          <span className="brandmark">H</span>
+          <BrandMark />
           <span>
             homexo legal<small>Staff workspace</small>
           </span>

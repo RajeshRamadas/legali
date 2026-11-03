@@ -257,7 +257,7 @@
   gap: 5px;
   font-size: 12px;
   font-weight: 800;
-  color: #24734d;
+  color: var(--green-ink);
 }
 .lw-rating .lw-star {
   background: #24734d;
@@ -288,7 +288,7 @@
 }
 .lw-next {
   font-size: 12px;
-  color: #24734d;
+  color: var(--green-ink);
   font-weight: 750;
 }
 .lw-next.none {
@@ -317,7 +317,7 @@
 }
 .lw-notice {
   background: var(--surface-2);
-  color: #24684a;
+  color: var(--green-ink);
   border: 1px solid #cfe5d7;
   padding: 10px 12px;
   border-radius: 9px;
@@ -453,7 +453,7 @@
 .lw-day small {
   font-size: 12px;
   font-weight: 650;
-  color: #24734d;
+  color: var(--green-ink);
 }
 .lw-day small.none {
   color: var(--ink-2);
@@ -570,7 +570,7 @@
   display: grid;
   place-items: center;
   background: var(--surface-2);
-  color: #24734d;
+  color: var(--green-ink);
   font-size: 26px;
 }
 .lw-done h2 {
@@ -681,12 +681,12 @@
   padding: 5px 9px;
   border-radius: 20px;
   background: var(--blue-50);
-  color: #2f5592;
+  color: var(--blue-ink);
   white-space: nowrap;
 }
 .lw-pill.completed {
   background: var(--surface-2);
-  color: #24734d;
+  color: var(--green-ink);
 }
 .lw-pill.cancelled {
   background: var(--surface-2);
@@ -794,7 +794,7 @@
   border: 1px solid #f0dfbd;
 }
 .lw-pay.due b {
-  color: #8a5a12;
+  color: var(--amber-ink);
 }
 .lw-pay .btn {
   width: 100%;

@@ -39,7 +39,7 @@
   border-radius: 11px;
   padding: 11px 14px;
   font-size: 13px;
-  color: #7a5617;
+  color: var(--amber-ink);
 }
 .ac-todo b {
   color: var(--primary-text);
@@ -85,7 +85,7 @@
 .ac-needs {
   font-size: 12px;
   font-weight: 750;
-  color: #8a6420;
+  color: var(--amber-ink);
 }
 .ac-actions {
   display: flex;

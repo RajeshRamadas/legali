@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import ThemeToggle from "./ThemeToggle";
+import BrandMark from "./BrandMark";
 import SiteFooter from "../SiteFooter";
 import { useSession } from "../account/session";
 import Icon from "./Icon";
@@ -37,34 +37,8 @@ export default function PublicShell({ children }: { children: ReactNode }) {
       <header className="hx-public-header">
         <div className="hx-public-nav">
           <Link className="hx-brand" href="/" aria-label="Homexo Legal home">
-            {modernHome ? (
-              <>
-                <svg
-                  className="hp-brand-mark"
-                  width="35"
-                  height="40"
-                  viewBox="0 0 35 40"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path d="M2 7L12 1V34L2 40V7Z" fill="currentColor" />
-                  <path d="M23 7L33 1V34L23 40V7Z" fill="currentColor" />
-                  <path
-                    d="M9 17L26 9V21L9 29V17Z"
-                    fill="currentColor"
-                    opacity=".58"
-                  />
-                </svg>
-                <span className="hp-wordmark">
-                  homexo<small>LEGAL</small>
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="hx-mark">H</span>
-                <span>homexo legal</span>
-              </>
-            )}
+            <BrandMark />
+            <span className="hp-wordmark">homexo<small>LEGAL</small></span>
           </Link>
           <nav
             id="public-navigation"
@@ -88,7 +62,6 @@ export default function PublicShell({ children }: { children: ReactNode }) {
             )}
           </nav>
           <div className="hx-public-actions">
-            <ThemeToggle />
             <Link className="hx-button pill" href="/account">
               {session ? "My account" : "Sign in"}
             </Link>

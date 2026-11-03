@@ -259,7 +259,7 @@
 }
 .dc-pill.received {
   background: var(--amber-50);
-  color: #8a6420;
+  color: var(--amber-ink);
 }
 .dc-pill.verified,
 .dc-pill.waived {
@@ -272,7 +272,7 @@
 }
 .dc-pill.fetching {
   background: var(--blue-50);
-  color: #2f4f8a;
+  color: var(--blue-ink);
 }
 .dc-source {
   color: #2f4f8a !important;
