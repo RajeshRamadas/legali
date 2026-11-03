@@ -5,6 +5,7 @@ Base URL in development: `http://localhost:8000`
 ## GET `/health`
 Returns service health.
 
+
 Example:
 ```json
 {"status":"ok"}
@@ -155,3 +156,7 @@ Status changes, assignments, sign-ins and staff changes are written to `audit_lo
 - Use pagination for list endpoints.
 - Return consistent error bodies and request IDs.
 - Log status transitions and assignments to append-only event history.
+
+## Case deadline monitoring
+
+Staff case deadline monitoring and pause behavior are documented in [deadline alerts](deadline-alerts.md), including `GET /api/v1/admin/case-alerts` and its acknowledgement endpoint.

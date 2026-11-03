@@ -45,12 +45,23 @@ export default function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const [urgentCount, setUrgentCount] = useState(0);
+  const [deadlineCount, setDeadlineCount] = useState(0);
+  const userId = user?.id;
   useEffect(() => {
-    if (user)
+    if (userId)
       adminFetch<{ items: unknown[] }>("/admin/urgent")
         .then((r) => setUrgentCount(r.items.length))
         .catch(() => {});
-  }, [user?.id, pathname]);
+  }, [userId, pathname]);
+  useEffect(() => {
+    if (!userId) { setDeadlineCount(0); return; }
+    let active = true;
+    const load = () => adminFetch<{ unacknowledged: number }>("/admin/case-alerts?page_size=1")
+      .then(r => { if (active) setDeadlineCount(r.unacknowledged); }).catch(() => {});
+    load(); const timer = window.setInterval(load, 30000);
+    window.addEventListener("hx-case-alerts", load);
+    return () => { active = false; clearInterval(timer); window.removeEventListener("hx-case-alerts", load); };
+  }, [userId, pathname]);
 
   useEffect(() => {
     let active = true;
@@ -91,6 +102,7 @@ export default function AdminShell({
         { href: "/admin", label: "Dashboard", icon: "home" },
         { href: "/admin?view=queue", label: "Ticket queue", icon: "case" },
         { href: "/admin/cases", label: "Case board", icon: "inbox" },
+        { href: "/admin/alerts", label: "Deadline alerts", icon: "bell", count: deadlineCount },
         { href: "/admin/calendar", label: "Calendar", icon: "cal" },
         {
           href: "/admin/fetches",
@@ -140,15 +152,9 @@ export default function AdminShell({
             router.push(`/admin?q=${encodeURIComponent(q)}`);
         }}
         bell={{
-          count: urgentCount,
-          items: urgentCount
-            ? [
-                {
-                  label: `${urgentCount} urgent cases need attention`,
-                  href: "/admin",
-                },
-              ]
-            : [],
+          count: urgentCount + deadlineCount,
+          items: [...(deadlineCount ? [{ label: `${deadlineCount} deadline alerts need attention`, href: "/admin/alerts" }] : []),
+            ...(urgentCount ? [{ label: `${urgentCount} urgent cases need attention`, href: "/admin" }] : [])],
         }}
         footer={
           <AvailabilityToggle

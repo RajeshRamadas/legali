@@ -113,7 +113,7 @@ function Card({ card, showOwner }: { card: BoardCard; showOwner: boolean }) {
       <small>{card.service_name}{card.location ? ` · ${card.location}` : ""}</small>
       <div className="board-meta">
         <span className={`admin-pill pill-${card.status}`}>{card.status_label}</span>
-        {d.due_at && <span className={d.overdue ? "flag late" : "flag"}>{d.overdue ? dueIn(d.due_at) : `Due ${dueIn(d.due_at)}`}</span>}
+        {d.paused ? <span className="flag warn">Targets paused</span> : d.due_at && <span className={d.overdue ? "flag late" : "flag"}>{d.overdue ? dueIn(d.due_at) : `Due ${dueIn(d.due_at)}`}</span>}
         {d.first_response_missed && !d.first_response_at && <span className="flag late">No reply yet</span>}
         {card.open_tasks > 0 && <span className={card.overdue_tasks ? "flag late" : "flag"}>{card.open_tasks} task{card.open_tasks > 1 ? "s" : ""}{card.overdue_tasks ? `, ${card.overdue_tasks} late` : ""}</span>}
         {card.fee_status === "quoted" && <span className="flag warn">Fee due</span>}

@@ -243,7 +243,7 @@ def board(
         "counts": {
             "open": len(cards),
             "overdue": sum(1 for c in cards if c["deadlines"]["overdue"]),
-            "due_this_week": sum(1 for c in cards if c["deadlines"]["due_at"] and not c["deadlines"]["overdue"] and datetime.fromisoformat(c["deadlines"]["due_at"]) <= week),
+            "due_this_week": sum(1 for c in cards if c["deadlines"]["due_at"] and not c["deadlines"]["paused"] and not c["deadlines"]["overdue"] and datetime.fromisoformat(c["deadlines"]["due_at"]) <= week),
             "first_response_missed": sum(1 for c in cards if c["deadlines"]["first_response_missed"] and not c["deadlines"]["first_response_at"]),
             "overdue_tasks": sum(c["overdue_tasks"] for c in cards),
             "closed_30_days": closed_30,

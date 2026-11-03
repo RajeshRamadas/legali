@@ -53,7 +53,16 @@ def _new_ticket_number(now: datetime) -> str:
 def audit(db: Session, actor: User | None, action: str, entity_id: uuid.UUID | None, **metadata) -> None:
     db.add(AuditLog(actor_user_id=actor.id if actor else None, action=action, entity_type="service_request", entity_id=entity_id, metadata_=metadata))
 
+def _lock_deadlines(db: Session, ticket: ServiceRequest, *, status=False) -> None:
+    # Flush unrelated work first, then refresh only clock fields without replacing pending relationships.
+    db.flush()
+    db.execute(select(ServiceRequest.id).where(ServiceRequest.id == ticket.id).with_for_update())
+    fields = ["deadline_paused_at", "deadline_pause_seconds", "due_at", "first_response_due_at", "first_response_at"]
+    db.refresh(ticket, attribute_names=fields + (["status"] if status else []))
+
 def add_event(db: Session, ticket: ServiceRequest, event_type: str, actor: User | None = None, old=None, new=None, reason: str | None = None) -> None:
+    if actor is not None and ticket.first_response_at is None and event_type in case_management.FIRST_RESPONSE_EVENTS:
+        _lock_deadlines(db, ticket)
     event = TicketEvent(service_request_id=ticket.id, actor_user_id=actor.id if actor else None, event_type=event_type, old_value=old, new_value=new, reason=reason)
     db.add(event)
     ticket.events.append(event)
@@ -116,12 +125,16 @@ def link_conversation(db: Session, ticket: ServiceRequest, conversation_id: uuid
     db.add(ConversationMessage(conversation_id=conversation.id, sender_type="system", body=f"Raised ticket {ticket.ticket_number} for {ticket.service_type.name}."))
 
 def change_status(db: Session, ticket: ServiceRequest, new_status: str, actor: User | None, note: str | None) -> None:
+    _lock_deadlines(db, ticket, status=True)
     old_status = ticket.status
     if new_status == old_status:
         return
+    pause = case_management.transition_deadlines(ticket, old_status, new_status, utcnow())
     ticket.status = new_status
     ticket.completed_at = utcnow() if new_status == "completed" else None
     add_event(db, ticket, "status_changed", actor, old={"status": old_status}, new={"status": new_status}, reason=note)
+    if pause:
+        add_event(db, ticket, "deadline_pause_changed", actor, new=pause)
     message = f"Homexo Legal: your request {ticket.ticket_number} is now '{status_label(new_status)}'."
     if note:
         message += f" {note}"

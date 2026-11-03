@@ -119,14 +119,32 @@ def set_deadlines(ticket: ServiceRequest) -> None:
 def deadlines(ticket: ServiceRequest, now: datetime | None = None) -> dict:
     now = now or utcnow()
     closed = ticket.status in CLOSED_STATUSES
+    paused = ticket.status == "on_hold"
     due, first_due, first_at = _aware(ticket.due_at), _aware(ticket.first_response_due_at), _aware(ticket.first_response_at)
     return {
         "due_at": _iso(due),
         "overdue": bool(due and not closed and ticket.status != "on_hold" and now > due),
         "first_response_due_at": _iso(first_due),
         "first_response_at": _iso(first_at),
-        "first_response_missed": bool(first_due and ((first_at and first_at > first_due) or (not first_at and not closed and now > first_due))),
+        "first_response_missed": bool(first_due and ((first_at and first_at > first_due) or (not first_at and not closed and not paused and now > first_due))),
+        "paused": paused, "paused_at": _iso(ticket.deadline_paused_at), "paused_seconds": ticket.deadline_pause_seconds or 0,
     }
+
+def transition_deadlines(ticket: ServiceRequest, old_status: str, new_status: str, now: datetime) -> dict | None:
+    """Apply elapsed hold time once; actual targets remain auditable timestamps."""
+    set_deadlines(ticket)
+    if old_status == "on_hold" and new_status != "on_hold" and ticket.deadline_paused_at:
+        delta = max(timedelta(), now - _aware(ticket.deadline_paused_at))
+        ticket.due_at = _aware(ticket.due_at) + delta if ticket.due_at else None
+        if ticket.first_response_due_at and ticket.first_response_at is None:
+            ticket.first_response_due_at = _aware(ticket.first_response_due_at) + delta
+        ticket.deadline_pause_seconds = (ticket.deadline_pause_seconds or 0) + int(delta.total_seconds())
+        ticket.deadline_paused_at = None
+        return {"action": "ended", "seconds": int(delta.total_seconds()), "due_at": _iso(ticket.due_at)}
+    if new_status == "on_hold" and old_status != "on_hold":
+        ticket.deadline_paused_at = now
+        return {"action": "started", "at": _iso(now)}
+    return None
 
 # Staff actions the customer sees, and so count as the first response.
 FIRST_RESPONSE_EVENTS = ("status_changed", "message_sent", "assigned", "meeting_scheduled", "report_issued")
@@ -134,7 +152,11 @@ FIRST_RESPONSE_EVENTS = ("status_changed", "message_sent", "assigned", "meeting_
 def note_event(ticket: ServiceRequest, event_type: str, actor: User | None) -> None:
     """Called for every ticket event (tickets.add_event): first response, deadlines and playbook tasks."""
     if actor is not None and ticket.first_response_at is None and event_type in FIRST_RESPONSE_EVENTS:
-        ticket.first_response_at = utcnow()
+        now = utcnow()
+        # A first response during a system-started hold ends that response clock now.
+        if ticket.deadline_paused_at and ticket.first_response_due_at:
+            ticket.first_response_due_at = _aware(ticket.first_response_due_at) + max(timedelta(), now - _aware(ticket.deadline_paused_at))
+        ticket.first_response_at = now
     set_deadlines(ticket)
     sync(ticket)
 
@@ -271,7 +293,8 @@ def customer_progress(ticket: ServiceRequest) -> dict:
     return {
         "milestones": milestones(ticket),
         "next_step": _customer_next_step(ticket),
-        "due_at": _iso(ticket.due_at) if not closed else None,
+        "due_at": _iso(ticket.due_at) if not closed and ticket.status != "on_hold" else None,
+        "deadline_paused": ticket.status == "on_hold",
         "fee": fee_view(ticket, staff=False) if ticket.fee_status != "none" else None,
         "closed": {"outcome_label": OUTCOME_LABELS.get(ticket.closure_outcome or "", None), "summary": ticket.closure_summary, "at": _iso(ticket.closed_at)} if closed else None,
     }

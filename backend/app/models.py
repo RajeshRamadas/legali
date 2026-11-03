@@ -296,6 +296,8 @@ class ServiceRequest(TimestampMixin, Base):
     # Case management. First response: the first staff action the customer sees (message, status change, assignment).
     first_response_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_response_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deadline_paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deadline_pause_seconds: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"), nullable=False)
     closure_outcome: Mapped[str | None] = mapped_column(Text)
     closure_summary: Mapped[str | None] = mapped_column(Text)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -323,6 +325,23 @@ class ServiceRequest(TimestampMixin, Base):
     @property
     def active_assignment(self) -> "Assignment | None":
         return next((a for a in reversed(self.assignments) if a.unassigned_at is None), None)
+
+class CaseDeadlineAlert(Base):
+    __tablename__ = "case_deadline_alerts"
+    __table_args__ = (
+        UniqueConstraint("service_request_id", "kind", "target_at", name="uq_case_deadline_alert_target"),
+        CheckConstraint(_check_in("kind", ("case_due", "first_response")), name="ck_case_deadline_alert_kind"),
+        Index("idx_case_deadline_alert_open", "resolved_at", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    target_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    acknowledged_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 class IntakeDraft(TimestampMixin, Base):
     __tablename__ = "intake_drafts"
@@ -643,6 +662,7 @@ class Notification(Base):
     # Staff recipient (a lawyer's meeting invite, reminder or daily agenda).
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
     meeting_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("meetings.id", ondelete="SET NULL"))
+    case_alert_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("case_deadline_alerts.id", ondelete="SET NULL", name="fk_notifications_case_alert"), index=True)
     channel: Mapped[str] = mapped_column(Text, nullable=False)
     template_key: Mapped[str] = mapped_column(Text, nullable=False)
     recipient: Mapped[str | None] = mapped_column(Text)

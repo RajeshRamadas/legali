@@ -27,6 +27,10 @@
 .task-list.finished b{color:var(--ink-3);font-weight:600}
 .task-toggle{margin-top:10px}
 .case-team{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.case-pause-note{padding:12px;border:1px solid var(--amber);border-radius:8px;color:var(--amber-ink)!important}
+.deadline-alerts{display:grid;gap:18px;max-width:1100px;margin-inline:auto}.deadline-alert-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.deadline-alert-stats .admin-card{display:grid;gap:10px}.deadline-alert-stats b{font-size:28px;color:var(--red-ink)}
+.deadline-alert-toggle{display:flex;gap:10px;align-items:center}.deadline-alert-list{list-style:none;margin:0;padding:0;display:grid;gap:14px}.deadline-alert-row{display:flex;gap:18px;justify-content:space-between;align-items:center;border-left:3px solid var(--amber)}.deadline-alert-row.escalated{border-left-color:var(--red)}.deadline-alert-row h2{margin-top:14px;font-size:18px}.deadline-alert-labels{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.deadline-alert-labels a{color:var(--primary-text);font-weight:800}.deadline-alert-actions{display:flex;flex-wrap:wrap;gap:10px}.deadline-alert-ack{color:var(--green-ink)!important}
+@media(max-width:600px){.deadline-alert-row{display:grid}.deadline-alert-actions{justify-content:flex-start}}
 .case-team li{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--ink)}.case-team b{font-weight:700}.case-team small{font-size:11px;color:var(--ink-3);margin-right:auto}
 .team-add .form-row{grid-template-columns:1fr 120px}.team-add{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
 .board-stats{grid-template-columns:repeat(6,1fr)}

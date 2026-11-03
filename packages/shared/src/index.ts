@@ -199,6 +199,7 @@ export type CaseProgress = {
   milestones: CaseMilestone[];
   next_step: string | null;
   due_at: string | null;
+  deadline_paused: boolean;
   fee: { status: "quoted" | "paid" | "waived"; status_label: string; quote: number | null; paid: number | null; paid_at: string | null } | null;
   closed: { outcome_label: string | null; summary: string | null; at: string | null } | null;
 };

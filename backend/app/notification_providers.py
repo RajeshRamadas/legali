@@ -37,6 +37,11 @@ SUBJECTS = {
 
 def customer_message(notification, ticket_number: str | None = None) -> tuple[str, str]:
     """Keep legal details, documents and staff-message excerpts inside the verified portal."""
+    if notification.template_key == "case_deadline_alert":
+        kind, phase = notification.params or ["case_due", "initial"]
+        label = "First response overdue" if kind == "first_response" else "Case target missed"
+        subject = ("Escalated: " if phase == "escalated" else "") + label
+        return f"Homexo staff: {subject}", f"Homexo Legal staff: {subject}. Case reference: {ticket_number or 'open staff alerts'}. Review the case and acknowledge the alert at {config.PUBLIC_SITE_URL}/admin/alerts. Acknowledging does not change the case target."
     subject = SUBJECTS.get(notification.template_key, "Request update")
     ticket = ticket_number
     # No customer-provided message text or authentication links go into notifications.

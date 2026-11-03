@@ -17,6 +17,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Staff password recovery, authenticator two-factor sign-in with recovery codes, password changes and session revocation from **Security** (`docs/staff-security.md`).
 - Guided customer requests at `/request`: relevant questions, private save/resume, editable review and explicit consent before a ticket is created (`docs/guided-intake.md`).
 - Case management (`/admin/cases` and each ticket page): six milestones per case, allowed status moves with closure checks and reopen, case tasks with a playbook that adds and ticks off routine work, a case team, first-response and due-date deadlines, a case fee, and a step bar for customers (see `docs/case-management.md`).
+- Case targets pause while on hold; staff deadline alerts (`/admin/alerts`) track missed targets, acknowledgements and administrator escalation with optional email (`docs/deadline-alerts.md`).
 - Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
 - Docker Compose for local PostgreSQL + API.
@@ -168,7 +169,7 @@ Never commit `.env`, API keys, database passwords, customer documents, or produc
 
 Before production, implement:
 1. Configure staff recovery email and the dedicated MFA encryption key, and enroll administrators (`docs/staff-security.md`). Password reset and authenticator MFA are implemented. Customer access requires verified phone sign-in (`docs/customer-access.md`).
-2. Extend existing ticket SLA targets and due dates with escalation alerts and on-hold pauses.
+2. Configure case deadline/escalation targets and keep the monitoring worker running. On-hold pauses, staff alerts, acknowledgement and escalation are implemented (`docs/deadline-alerts.md`).
 3. Review the guided-intake privacy notice for deployment and schedule expired-draft cleanup. Validated questions, consent, private save/resume and review are implemented (`docs/guided-intake.md`).
 4. Keep ClamAV running with updated signatures and scan existing files (`docs/malware-scanning.md`). Automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.
 5. Configure email/SMS provider credentials, verified senders and destination-country registrations before enabling live delivery. Resend/Twilio adapters and retry handling are implemented; see `docs/notifications.md`.

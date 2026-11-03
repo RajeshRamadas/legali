@@ -112,8 +112,11 @@ def _needs_reply_clause():
         ),
     )
 
-def _get_ticket(db: Session, user: User, ticket_number: str) -> ServiceRequest:
-    ticket = db.scalars(_visible_tickets(user).where(ServiceRequest.ticket_number == ticket_number.upper())).first()
+def _get_ticket(db: Session, user: User, ticket_number: str, *, lock: bool = False) -> ServiceRequest:
+    query = _visible_tickets(user).where(ServiceRequest.ticket_number == ticket_number.upper())
+    if lock:
+        query = query.with_for_update(of=ServiceRequest).execution_options(populate_existing=True)
+    ticket = db.scalars(query).first()
     if ticket is None:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return ticket
@@ -179,10 +182,12 @@ def get_ticket(ticket_number: str, user: User = Depends(current_staff), db: Sess
 
 @router.patch("/admin/tickets/{ticket_number}")
 def update_ticket(ticket_number: str, payload: TicketUpdate, user: User = Depends(current_staff), db: Session = Depends(get_db)):
-    ticket = _get_ticket(db, user, ticket_number)
+    ticket = _get_ticket(db, user, ticket_number, lock=True)
     if payload.status and payload.status != ticket.status:
         _move(db, ticket, payload, user)
     if payload.due_at is not None:
+        if ticket.status == "on_hold" or ticket.status in CLOSED_STATUSES:
+            raise HTTPException(409, "Resume or reopen the case before moving its target date.")
         reason = (payload.due_reason or "").strip()
         if not reason:
             raise HTTPException(status_code=422, detail="due_reason: Say why the due date is moving.")
@@ -211,6 +216,8 @@ def _move(db: Session, ticket: ServiceRequest, payload: TicketUpdate, user: User
         raise HTTPException(status_code=409, detail=hint)
     if new == "reopened" and not note:
         raise HTTPException(status_code=422, detail="note: Say why the case is being reopened.")
+    if new == "on_hold" and not note:
+        raise HTTPException(422, "note: Tell the customer why the case is going on hold.")
     override = (payload.override_reason or "").strip() or None
     if new == "completed":
         check = case_management.closure_check(ticket)

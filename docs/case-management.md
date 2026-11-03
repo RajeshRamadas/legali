@@ -14,6 +14,7 @@ are in the project's "Case management: requirements and design" doc; this page i
 | Tasks, manual and playbook (confirm scope, issue report, chase documents, sign report) that are added and ticked off as the case moves | `case_tasks`, `case_management.PLAYBOOK`, `sync` |
 | Case team: owner (the assignment) plus associates, paralegals and reviewers, who can open the case | `case_members`, `admin._visible_tickets` |
 | Deadlines: first response (`CASE_FIRST_RESPONSE_HOURS`, default 4) and case due date (service turnaround, else `CASE_DEFAULT_TURNAROUND_DAYS`, default 7) | `service_requests.first_response_*`, `due_at` |
+| On-hold pauses, staff deadline incidents, acknowledgement and administrator escalation | `deadline_paused_at`, `case_deadline_alerts`; see [deadline alerts](deadline-alerts.md) |
 | Case fee: quote, record an offline payment with a reference, or waive | `service_requests.fee_*`, `PUT /admin/tickets/{n}/fee` |
 
 `tickets.add_event` calls `case_management.note_event` for every event, so first response, deadlines and playbook
@@ -40,5 +41,5 @@ tasks stay current without each endpoint having to remember.
 
 ## Not yet
 
-Online payment of case fees, WhatsApp alerts for tasks and overdue cases, case screens in the mobile app, and
-deadlines that pause while on hold.
+Online payment of case fees, WhatsApp alerts for tasks and overdue cases, and case screens in the mobile app.
+Staff in-app/email deadline alerts and on-hold clock pauses are implemented; see [setup and behavior](deadline-alerts.md).

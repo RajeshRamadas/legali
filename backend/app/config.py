@@ -140,6 +140,7 @@ CUSTOMER_SESSION_DAYS = int(os.getenv("CUSTOMER_SESSION_DAYS", "30"))
 CASE_FIRST_RESPONSE_HOURS = int(os.getenv("CASE_FIRST_RESPONSE_HOURS", "4"))
 # Case due date when the service type has no turnaround of its own.
 CASE_DEFAULT_TURNAROUND_DAYS = int(os.getenv("CASE_DEFAULT_TURNAROUND_DAYS", "7"))
+CASE_ESCALATION_HOURS = max(1, int(os.getenv("CASE_ESCALATION_HOURS", "24")))
 
 # AI case-to-blog desk (app.blog_agent, docs/blog-agent/). Finds recent property-law rulings with Claude's web search,
 # drafts blog posts from the source, checks every quoted fact in code, and leaves them as drafts for an admin.

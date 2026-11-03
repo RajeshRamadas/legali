@@ -98,7 +98,12 @@ export type CaseTask = {
   assignee: StaffRef; due_at: string | null; overdue: boolean; created_at: string; completed_at: string | null;
   case?: { ticket_number: string; service_name: string; customer_name: string; status: string; priority: string };
 };
-export type CaseDeadlines = { due_at: string | null; overdue: boolean; first_response_due_at: string | null; first_response_at: string | null; first_response_missed: boolean };
+export type CaseDeadlines = { due_at: string | null; overdue: boolean; first_response_due_at: string | null; first_response_at: string | null; first_response_missed: boolean; paused: boolean; paused_at: string | null; paused_seconds: number };
+export type CaseDeadlineAlert = {
+  id: string; ticket_number: string; label: string; kind: "case_due" | "first_response"; target_at: string; created_at: string;
+  escalated_at: string | null; acknowledged_at: string | null; acknowledged_by: StaffRef; owner: StaffRef;
+};
+export type CaseAlerts = { items: CaseDeadlineAlert[]; total: number; unacknowledged: number; escalated: number; page: number; page_size: number; check_interval_seconds: number };
 export type CaseFee = { status: "none" | "quoted" | "paid" | "waived"; status_label: string; quote: number | null; paid: number | null; paid_at: string | null; reference: string | null; note: string | null };
 export type CaseView = {
   milestones: { key: string; label: string; done: boolean; current: boolean }[];

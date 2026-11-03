@@ -20,11 +20,12 @@ export default function CaseProgress({ progress, compact = false }: { progress: 
         ))}
       </ol>
       {compact ? (
-        current && <small className="cp-now">Now: {current.label}</small>
+        current && <small className="cp-now">{progress.deadline_paused ? "On hold · target paused" : `Now: ${current.label}`}</small>
       ) : (
         <>
           {progress.next_step && <p className="cp-next"><b>Next for you:</b> {progress.next_step}</p>}
           <div className="cp-facts">
+            {progress.deadline_paused && <span>On hold · target date paused until work resumes</span>}
             {progress.due_at && <span>Target date {dateFormat.format(new Date(progress.due_at))}</span>}
             {progress.fee && (
               <span className={`cp-fee fee-${progress.fee.status}`}>

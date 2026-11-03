@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from . import config, payments, whatsapp, notification_providers as providers
+from . import config, payments, whatsapp, notification_providers as providers, sla_alerts
 from .db import SessionLocal
 from .meetings import render
 from .models import Meeting, Notification, ServiceRequest, User, utcnow
@@ -62,8 +62,9 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             break
         meeting = db.get(Meeting, notification.meeting_id) if notification.meeting_id else None
         due_at = aware(notification.send_after or notification.created_at)
-        if _expired(notification, meeting, now) or due_at < now - timedelta(hours=config.NOTIFY_MAX_AGE_HOURS):
-            notification.delivery_status, notification.error_code = "cancelled", "expired"
+        allowed = sla_alerts.delivery_allowed(db, notification, now)
+        if not allowed or _expired(notification, meeting, now) or due_at < now - timedelta(hours=config.NOTIFY_MAX_AGE_HOURS):
+            notification.delivery_status, notification.error_code = "cancelled", "expired" if allowed else "alert_no_longer_pending"
             notification.processing_until = notification.claim_token = None
             db.commit()
             continue
@@ -96,6 +97,11 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             # Refresh after claim commit, so cancellation before sending is respected.
             db.refresh(notification)
             if notification.delivery_status != "queued" or notification.claim_token != claim:
+                continue
+            if not sla_alerts.delivery_allowed(db, notification, fixed_now or utcnow()):
+                db.execute(update(Notification).where(Notification.id == notification_id, Notification.claim_token == claim)
+                    .values(delivery_status="cancelled", error_code="alert_no_longer_pending", claim_token=None, processing_until=None))
+                db.commit()
                 continue
             if notification.channel == "whatsapp":
                 reference = whatsapp.send_template(notification.recipient or "", notification.template_key, notification.params or [])
@@ -156,6 +162,7 @@ def run_once() -> None:
     with SessionLocal() as db:
         payments.release_unpaid(db)
         queue_daily_agendas(db)
+        sla_alerts.reconcile(db)
         deliver_due(db)
 
 async def worker_loop() -> None:

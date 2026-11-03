@@ -40,15 +40,16 @@ export function CaseOverview({ ticket, act }: { ticket: TicketDetail; act: Act }
       <div className="case-facts">
         <div className={d.overdue ? "late" : undefined}>
           <small>Case due</small>
-          <b>{d.due_at ? formatDay(d.due_at) : "–"}</b>
-          {d.due_at && !closed && <em>{dueIn(d.due_at)}</em>}
-          {!closed && !moving && <button className="admin-link" onClick={() => setMoving(true)}>Move</button>}
+          <b>{d.paused ? "Paused" : d.due_at ? formatDay(d.due_at) : "–"}</b>
+          {d.paused && d.paused_at && <em>Since {formatDate(d.paused_at)}</em>}
+          {d.due_at && !closed && !d.paused && <em>{dueIn(d.due_at)}</em>}
+          {!closed && !d.paused && !moving && <button className="admin-link" onClick={() => setMoving(true)}>Move</button>}
         </div>
         <div className={d.first_response_missed ? "late" : undefined}>
           <small>First response</small>
           {d.first_response_at
             ? <><b>{formatDate(d.first_response_at)}</b><em>{d.first_response_missed ? "missed target" : "on time"}</em></>
-            : d.first_response_due_at ? <><b>Due {formatDate(d.first_response_due_at)}</b>{!closed && <em>{dueIn(d.first_response_due_at)}</em>}</> : <b>–</b>}
+            : d.paused ? <b>Paused</b> : d.first_response_due_at ? <><b>Due {formatDate(d.first_response_due_at)}</b>{!closed && <em>{dueIn(d.first_response_due_at)}</em>}</> : <b>–</b>}
         </div>
         <div className={c.fee.status === "quoted" ? "warn" : undefined}>
           <small>Fee</small>
@@ -61,6 +62,7 @@ export function CaseOverview({ ticket, act }: { ticket: TicketDetail; act: Act }
           {c.overdue_tasks > 0 && <em>{c.overdue_tasks} overdue</em>}
         </div>
       </div>
+      {d.paused && <p className="case-pause-note">Case targets are paused while on hold. Resuming adds the elapsed hold time to the target date.</p>}
       {moving && (
         <form className="meeting-inline case-inline" onSubmit={moveDue}>
           <input type="datetime-local" required value={due} onChange={(e) => setDue(e.target.value)} aria-label="New due date" />

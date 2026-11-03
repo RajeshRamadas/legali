@@ -40,6 +40,7 @@ const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Rec
   payment_refunded: (e) => `₹${e.new?.amount} refunded`,
   case_closed: (e) => `Case closed: ${String(e.new?.outcome ?? "").replace(/_/g, " ")}${e.new?.override ? " (closure checks overridden)" : ""}${Number(e.new?.cancelled_tasks) ? `, ${e.new?.cancelled_tasks} open tasks cancelled` : ""}`,
   due_date_changed: (e) => `Due date moved${e.old?.due_at ? ` from ${formatDate(e.old.due_at)}` : ""} to ${formatDate(e.new?.due_at ?? "")}`,
+  deadline_pause_changed: (e) => e.new?.action === "started" ? "Case targets paused" : `Deadline pause ended · ${Math.round(Number(e.new?.seconds ?? 0) / 60)} minutes added to the target`,
   task_added: (e) => `Task added for ${e.new?.assignee}: ${e.new?.title}`,
   task_done: (e) => `Task done: ${e.new?.title}`,
   task_cancelled: (e) => `Task cancelled: ${e.new?.title}`,
@@ -61,6 +62,7 @@ const TEMPLATE_TEXT: Record<string, string> = {
   document_rejected: "document asked again",
   report_signed: "signed report ready",
   urgent_task: "urgent task alert",
+  case_deadline_alert: "staff deadline alert",
 };
 
 export default function TicketPage() {
@@ -89,6 +91,7 @@ export default function TicketPage() {
     try {
       setTicket(await adminFetch<TicketDetail>(`/admin/tickets/${encodeURIComponent(params.ticketNumber)}${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) }));
       setNotice(done);
+      window.dispatchEvent(new Event("hx-case-alerts"));
       return true;
     } catch (e) {
       setError(onError(e));
@@ -326,8 +329,8 @@ function StatusCard({ ticket, meta, isAdmin, onSave }: { ticket: TicketDetail; m
         </select>
       </label>
       {moving && (
-        <label>{reopening ? "Why reopen it? (the customer sees this)" : "Note for the customer (optional)"}
-          <textarea rows={2} maxLength={1000} required={reopening} placeholder={reopening ? "e.g. The seller shared a new deed, so we are checking it." : "e.g. Please share the Mother Deed copy."} value={note} onChange={(e) => setNote(e.target.value)} />
+        <label>{reopening ? "Why reopen it? (the customer sees this)" : status === "on_hold" ? "Why put it on hold? (the customer sees this)" : "Note for the customer (optional)"}
+          <textarea rows={2} maxLength={1000} required={reopening || status === "on_hold"} placeholder={reopening ? "e.g. The seller shared a new deed, so we are checking it." : "e.g. Please share the Mother Deed copy."} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
       )}
       {closing && (
