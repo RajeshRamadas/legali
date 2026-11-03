@@ -2,7 +2,9 @@ import { createApiClient, DEFAULT_API_BASE_URL } from "@homexo/shared";
 
 // On a phone or emulator, localhost is the device itself. Set EXPO_PUBLIC_API_BASE_URL
 // to your computer's LAN address (or http://10.0.2.2:8000 on the Android emulator).
-export const api = createApiClient(process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL);
+import { customerToken, expireSession } from "./accountStore";
+
+export const api = createApiClient(process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL, { getToken: customerToken, onUnauthorized: expireSession });
 
 export const colors = {
   ink: "#17342e",

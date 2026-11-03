@@ -21,6 +21,8 @@ from .models import (
     CLOSED_STATUSES, WEEKDAYS, Assignment, Customer, LawyerProfile, LawyerReview, Meeting, ServiceRequest, ServiceType, User, utcnow,
 )
 from .public import NOT_FOUND, _find_for_customer
+from .customer_auth import current_customer
+from .models import CustomerAccount
 from .security import current_staff
 
 router = APIRouter()
@@ -365,20 +367,20 @@ def book_lawyer(slug: str, payload: BookingCreate, db: Session = Depends(get_db)
     return booking_view(db, ticket, meeting)
 
 @router.post("/api/v1/bookings/lookup")
-def lookup_booking(payload: BookingRef, db: Session = Depends(get_db)):
-    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+def lookup_booking(payload: BookingRef, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     return booking_view(db, ticket, _booking_meeting(ticket))
 
-def _changeable(db: Session, payload: BookingRef) -> tuple[ServiceRequest, Meeting]:
-    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+def _changeable(db: Session, payload: BookingRef, account: CustomerAccount) -> tuple[ServiceRequest, Meeting]:
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     meeting = _booking_meeting(ticket)
     if not booking_view(db, ticket, meeting)["can_change"]:
         raise HTTPException(status_code=422, detail=f"This booking can no longer be changed online. Bookings can be moved or cancelled up to {config.CUSTOMER_CHANGE_HOURS} hours before they start; please call us.")
     return ticket, meeting
 
 @router.post("/api/v1/bookings/cancel")
-def cancel_booking(payload: BookingCancel, db: Session = Depends(get_db)):
-    ticket, meeting = _changeable(db, payload)
+def cancel_booking(payload: BookingCancel, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    ticket, meeting = _changeable(db, payload, account)
     reason = (payload.reason or "").strip() or None
     meetings.cancel_meeting(db, meeting, None, f"Cancelled by {ticket.customer.full_name.split()[0]}." + (f" {reason}" if reason else ""))
     # A ticket that was only this booking closes with it.
@@ -389,8 +391,8 @@ def cancel_booking(payload: BookingCancel, db: Session = Depends(get_db)):
     return booking_view(db, ticket, meeting)
 
 @router.post("/api/v1/bookings/reschedule")
-def reschedule_booking(payload: BookingMove, db: Session = Depends(get_db)):
-    ticket, meeting = _changeable(db, payload)
+def reschedule_booking(payload: BookingMove, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    ticket, meeting = _changeable(db, payload, account)
     profile = db.get(LawyerProfile, meeting.lawyer_user_id)
     meetings.lock_lawyer(db, meeting.lawyer_user_id)
     starts_at = _slot_open(db, profile, payload.starts_at, ignore=meeting.id)
@@ -416,9 +418,9 @@ def _payment_call(action):
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 @router.post("/api/v1/bookings/pay")
-def pay_booking(payload: BookingPay, db: Session = Depends(get_db)):
+def pay_booking(payload: BookingPay, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     """Start paying the fee: an order to open in Checkout, or a payment link to open in the browser."""
-    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     meeting = _booking_meeting(ticket)
     view = booking_view(db, ticket, meeting)
     if not (view["payment"] or {}).get("can_pay"):
@@ -428,24 +430,24 @@ def pay_booking(payload: BookingPay, db: Session = Depends(get_db)):
     return {"booking": view, "checkout": checkout}
 
 @router.post("/api/v1/bookings/pay/verify")
-def verify_booking_payment(payload: BookingPaid, db: Session = Depends(get_db)):
+def verify_booking_payment(payload: BookingPaid, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     """Checkout's success handler posts Razorpay's order id, payment id and signature here."""
-    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     _payment_call(lambda: payments.verify(db, ticket, payload.order_id, payload.payment_id, payload.signature))
     db.commit()
     return booking_view(db, ticket, _booking_meeting(ticket))
 
 @router.post("/api/v1/bookings/pay/refresh")
-def refresh_booking_payment(payload: BookingRef, db: Session = Depends(get_db)):
+def refresh_booking_payment(payload: BookingRef, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     """Check with Razorpay whether an open order or payment link has been paid (after the customer returns from paying)."""
-    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     _payment_call(lambda: payments.refresh(db, ticket))
     db.commit()
     return booking_view(db, ticket, _booking_meeting(ticket))
 
 @router.post("/api/v1/bookings/review", status_code=201)
-def review_booking(payload: BookingReview, db: Session = Depends(get_db)):
-    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+def review_booking(payload: BookingReview, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     meeting = _booking_meeting(ticket)
     if not booking_view(db, ticket, meeting)["can_review"]:
         raise HTTPException(status_code=422, detail="You can rate a consultation once, after it has taken place.")

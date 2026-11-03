@@ -57,3 +57,13 @@ export function useSession(): Session | null | undefined {
   }, []);
   return value;
 }
+
+// Resolve the stored account before protected API calls, including after an app restart.
+export async function customerToken() {
+  await load();
+  return session?.token;
+}
+
+export function expireSession(token: string) {
+  if (session?.token === token) signOut();
+}

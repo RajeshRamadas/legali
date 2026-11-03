@@ -28,6 +28,8 @@ def _first_slot(client, slug: str, skip: int = 0) -> str:
     return [s["starts_at"] for d in days for s in d["slots"]][skip]
 
 def _book(client, slug: str, **overrides):
+    from conftest import authenticate_customer
+    authenticate_customer(client, overrides.get("phone", CUSTOMER["phone"]))
     return client.post(f"/api/v1/lawyers/{slug}/bookings", json={"starts_at": _first_slot(client, slug), **CUSTOMER, **overrides})
 
 def _whatsapp(template: str) -> list[Notification]:

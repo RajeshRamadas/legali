@@ -1,4 +1,6 @@
 "use client";
+import FileLink from "../ui/FileLink";
+import CustomerAccess from "../account/CustomerAccess";
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -14,7 +16,7 @@ import { CheckList, DocumentMap, MapLegend, Stepper, revealCheck } from "./Journ
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx";
 const dateFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
 
-export default function DocumentsPage() {
+function DocumentsPageContent() {
   const [ref, setRef] = useState<Ref | null>(null);
   const [ticket, setTicket] = useState<TicketStatus | null>(null);
   const [form, setForm] = useState<Ref>({ ticket_number: "", contact: "" });
@@ -181,7 +183,7 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
       {report?.signed_report_url && (
         <div className="dc-signed">
           <div><b>Your signed legal report is ready</b><small>Signed by the advocates{report.signed_at ? ` on ${dateFormat.format(new Date(report.signed_at))}` : ""}.</small></div>
-          <a className="btn small gold" href={api.fileUrl(report.signed_report_url)} target="_blank" rel="noreferrer">Download</a>
+          <FileLink className="btn small gold" href={api.fileUrl(report.signed_report_url)}>Download</FileLink>
         </div>
       )}
 
@@ -225,7 +227,7 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
               <h2>What we&apos;re checking</h2>
               <small>Each question is answered by the documents under it. Tap one to see or add its documents.</small>
             </div>
-            {report && <a className="btn small light" href={api.fileUrl(report.preliminary_pdf_url)} target="_blank" rel="noreferrer">Report PDF</a>}
+            {report && <FileLink className="btn small light" href={api.fileUrl(report.preliminary_pdf_url)}>Report PDF</FileLink>}
           </div>
           {journey ? <CheckList journey={journey} items={items} renderItem={renderItem}
             open={journey.checks.filter((c) => c.status === "problem" || c.flags.length || (next && c.tags.includes(next.tag))).map((c) => c.key)} /> : (
@@ -261,7 +263,7 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
                 {ticket.documents.map((d) => (
                   <li key={d.id}>
                     <div className="dc-file-main">
-                      <a href={api.fileUrl(d.download_url)} target="_blank" rel="noreferrer"><b>{d.filename}</b></a>
+                      <FileLink href={api.fileUrl(d.download_url)}><b>{d.filename}</b></FileLink>
                       <small>{formatBytes(d.size)} · {dateFormat.format(new Date(d.at))} · {d.uploaded_by === "you" ? "You" : "Homexo"}{d.note ? ` · ${d.note}` : ""}</small>
                       <CheckLine doc={d} />
                     </div>
@@ -310,7 +312,7 @@ function ItemRow({ item, docs, canUpload, busy, onUpload }: { item: ReportItem; 
         {item.status === "rejected" && item.note && <p className="dc-reject">Your advocate says: {item.note}</p>}
         {docs.length > 0 && (
           <ul className="jn-files">
-            {docs.map((d) => <li key={d.id}><a href={api.fileUrl(d.download_url)} target="_blank" rel="noreferrer">{d.filename}</a><CheckLine doc={d} /></li>)}
+            {docs.map((d) => <li key={d.id}><FileLink href={api.fileUrl(d.download_url)}>{d.filename}</FileLink><CheckLine doc={d} /></li>)}
           </ul>
         )}
         {canUpload && homexo && item.status === "pending" && !docs.length ? (
@@ -385,4 +387,8 @@ function OtherUpload({ items, busy, onUpload }: { items: ReportItem[]; busy: boo
       <DropZone compact busy={busy} label="Drop files here" onFiles={async (files) => { await onUpload(files, tag, note.trim()); setNote(""); }} />
     </div>
   );
+}
+
+export default function DocumentsPage() {
+  return <CustomerAccess><DocumentsPageContent /></CustomerAccess>;
 }

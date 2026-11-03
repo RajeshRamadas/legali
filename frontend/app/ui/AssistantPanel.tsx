@@ -124,7 +124,8 @@ export default function AssistantPanel({
                     onCancel={() => a.setForm(null)}
                     onDone={(ticket, contact) => {
                       a.setForm(null);
-                      a.setVerified({ ticket_number: ticket, contact });
+                      a.setVerified(null);
+                      a.setConversationId(null);
                       a.push({
                         from: "bot",
                         text: `Your request is ${ticket}. A specialist will confirm scope, documents and fees.`,

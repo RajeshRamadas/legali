@@ -1,4 +1,5 @@
 "use client";
+import CustomerAccess from "../account/CustomerAccess";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -115,7 +116,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
   );
 }
 
-export default function BookingsPage() {
+function BookingsPageContent() {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [find, setFind] = useState({ ticket: "", contact: "" });
   const [findError, setFindError] = useState("");
@@ -201,4 +202,8 @@ export default function BookingsPage() {
       </div>
     </LawyerShell>
   );
+}
+
+export default function BookingsPage() {
+  return <CustomerAccess><BookingsPageContent /></CustomerAccess>;
 }

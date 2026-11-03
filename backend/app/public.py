@@ -2,7 +2,7 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from . import tickets, document_requirements
 from .catalogue import SERVICES, SERVICES_BY_SLUG
 from .db import get_db
-from .models import CLOSED_STATUSES, PROPERTY_TYPES, ServiceRequest, ServiceType
+from .customer_auth import current_customer, owned_ticket
+from .models import CustomerAccount
+from .models import CLOSED_STATUSES, PROPERTY_TYPES, ServiceRequest, ServiceType, Conversation
 
 router = APIRouter()
 
@@ -37,10 +39,10 @@ class CustomerReply(TicketLookup):
 
 NOT_FOUND = "We couldn't find a request with that ticket number and phone or email."
 
-def _find_for_customer(db: Session, ticket_number: str, contact: str) -> ServiceRequest:
-    ticket = db.scalars(select(ServiceRequest).where(ServiceRequest.ticket_number == ticket_number.strip().upper())).first()
-    # Same answer for "no such ticket" and "wrong contact" so ticket numbers can't be probed.
-    if ticket is None or not tickets.contact_matches(ticket.customer, contact):
+def _find_for_customer(db: Session, ticket_number: str, contact: str, account: CustomerAccount) -> ServiceRequest:
+    ticket = owned_ticket(db, ticket_number, account)
+    # The legacy contact field remains for client compatibility, never as proof of ownership.
+    if not tickets.contact_matches(ticket.customer, contact):
         raise HTTPException(status_code=404, detail=NOT_FOUND)
     return ticket
 
@@ -60,7 +62,7 @@ def get_service(slug: str):
     return service
 
 @router.post("/api/v1/tickets", status_code=201)
-def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
+def create_ticket(payload: TicketCreate, request: Request, db: Session = Depends(get_db)):
     service = db.scalars(select(ServiceType).where(ServiceType.slug == payload.service_slug, ServiceType.is_active.is_(True))).first()
     if service is None:
         raise HTTPException(status_code=422, detail="Unknown service_slug")
@@ -69,6 +71,11 @@ def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
     phone, email = (None, contact) if "@" in contact else (contact, payload.email)
     if phone and len(tickets.normalize_phone(phone)) < 8:
         raise HTTPException(status_code=422, detail="contact: Enter a valid phone number.")
+    if payload.conversation_id:
+        from .chat import client_key
+        conversation = db.get(Conversation, payload.conversation_id)
+        if conversation is not None and (conversation.customer_id is not None or conversation.client_key != client_key(request)):
+            raise HTTPException(status_code=404, detail="Conversation not found.")
     ticket = tickets.create_ticket(
         db, customer_name=payload.customer_name.strip(), phone=phone, email=(email or "").strip() or None,
         property_type=payload.property_type, service=service, package=payload.package, location=payload.location.strip(),
@@ -86,13 +93,13 @@ def create_ticket(payload: TicketCreate, db: Session = Depends(get_db)):
     }
 
 @router.post("/api/v1/tickets/lookup")
-def lookup_ticket(payload: TicketLookup, db: Session = Depends(get_db)):
-    """Return a ticket's status when the caller knows both its number and the contact used to raise it."""
-    return tickets.customer_view(_find_for_customer(db, payload.ticket_number, payload.contact))
+def lookup_ticket(payload: TicketLookup, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    """Return a request only to its verified owner."""
+    return tickets.customer_view(_find_for_customer(db, payload.ticket_number, payload.contact, account))
 
 @router.post("/api/v1/tickets/messages", status_code=201)
-def customer_reply(payload: CustomerReply, db: Session = Depends(get_db)):
-    ticket = _find_for_customer(db, payload.ticket_number, payload.contact)
+def customer_reply(payload: CustomerReply, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     if ticket.status in CLOSED_STATUSES:
         raise HTTPException(status_code=409, detail="This request is closed. Please raise a new request.")
     tickets.add_message(db, ticket, payload.message.strip(), author_type="customer", visibility="customer")

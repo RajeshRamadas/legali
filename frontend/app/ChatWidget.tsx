@@ -1,4 +1,6 @@
 "use client";
+import CustomerAccess from "./account/CustomerAccess";
+import { readSession } from "./account/session";
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -29,6 +31,7 @@ export default function ChatWidget() {
     verified,
     setVerified,
     conversationId,
+    setConversationId,
     push,
     send,
   } = useAssistant();
@@ -114,10 +117,11 @@ export default function ChatWidget() {
                       conversationId={conversationId}
                       onDone={(ticket, phone) => {
                         setForm(null);
-                        setVerified({ ticket_number: ticket, contact: phone });
+                        setVerified(null);
+                        setConversationId(null);
                         push({
                           from: "bot",
-                          text: `Done! Your ticket number is ${ticket}. A specialist will call you to confirm scope, documents and fees. Ask me to "track my request" any time.`,
+                          text: `Done! Your ticket number is ${ticket}. A specialist will call you to confirm scope, documents and fees. Sign in with your phone to track this request securely.`,
                         });
                         setSuggestions(["Track my request", "Package prices"]);
                       }}
@@ -305,7 +309,7 @@ export function ChatRequestForm({
   );
 }
 
-export function ChatTrackForm({
+function ChatTrackFormContent({
   ticketNumber,
   onDone,
   onCancel,
@@ -314,7 +318,7 @@ export function ChatTrackForm({
   onDone: (status: TicketStatus, contact: string) => void;
   onCancel: () => void;
 }) {
-  const [values, setValues] = useState({ ticket: ticketNumber, contact: "" });
+  const [values, setValues] = useState({ ticket: ticketNumber, contact: readSession()?.profile.contact ?? "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -345,13 +349,6 @@ export function ChatTrackForm({
         value={values.ticket}
         onChange={(e) => setValues({ ...values, ticket: e.target.value })}
       />
-      <input
-        aria-label="Phone or email"
-        placeholder="Phone or email you used"
-        required
-        value={values.contact}
-        onChange={(e) => setValues({ ...values, contact: e.target.value })}
-      />
       {error && (
         <small className="form-error" role="alert">
           {error}
@@ -367,4 +364,8 @@ export function ChatTrackForm({
       </div>
     </form>
   );
+}
+
+export function ChatTrackForm(props: { ticketNumber: string; onDone: (status: TicketStatus, contact: string) => void; onCancel: () => void }) {
+  return <CustomerAccess><ChatTrackFormContent {...props} /></CustomerAccess>;
 }

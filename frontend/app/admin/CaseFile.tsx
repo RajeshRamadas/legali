@@ -1,4 +1,5 @@
 "use client";
+import FileLink from "../ui/FileLink";
 
 import { useEffect, useRef, useState } from "react";
 import { describeUploadCheck, formatBytes, normalizeTag, type GovSource } from "@homexo/shared";
@@ -64,7 +65,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
           <h2>Documents and legal report</h2>
           <small>{report ? `${report.status_label} · ${report.progress.done} of ${report.progress.total} checklist items done` : `${ticket.documents.length} document${ticket.documents.length === 1 ? "" : "s"} shared · no report yet`}</small>
         </div>
-        {report && <a className="btn small light" href={fileHref(report.preliminary_pdf_url)} target="_blank" rel="noreferrer">Preliminary PDF</a>}
+        {report && <FileLink className="btn small light" href={fileHref(report.preliminary_pdf_url)} staff>Preliminary PDF</FileLink>}
       </div>
       {(error || notice) && <p className={error ? "admin-error" : "admin-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
       {!report && ticket.document_request?.items.length ? <div className="casefile-empty"><h3>Automatic document request</h3><p>{ticket.document_request.prompt}</p><small>Intake: {ticket.document_request.intake.state} · {ticket.document_request.intake.transaction} · {ticket.document_request.intake.seller_capacity.replaceAll("_", " ")}</small><ul>{ticket.document_request.items.map(item => <li key={item.id}>{item.label} · {item.status_label} · {item.fetch_by === "homexo" ? "official-record task" : "customer upload"}</li>)}</ul></div> : null}
@@ -108,7 +109,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
                 {item.documents.length > 0 && (
                   <ul className="casefile-linked">
                     {item.documents.map((id) => docs.get(id)).filter(Boolean).map((d) => (
-                      <li key={d!.id}><a href={fileHref(d!.download_url)} target="_blank" rel="noreferrer">{d!.filename}</a><small> · {d!.uploaded_by} · {formatDate(d!.at)}</small></li>
+                      <li key={d!.id}><FileLink href={fileHref(d!.download_url)} staff>{d!.filename}</FileLink><small> · {d!.uploaded_by} · {formatDate(d!.at)}</small></li>
                     ))}
                   </ul>
                 )}
@@ -335,14 +336,14 @@ function FinalReport({ report, staff, busy, onSave, onGenerate, onSigned }: {
         </form>
       )}
       <div className="casefile-actions">
-        {report.final_pdf_url && <a className="btn small light" href={fileHref(report.final_pdf_url)} target="_blank" rel="noreferrer">Open final PDF to print</a>}
+        {report.final_pdf_url && <FileLink className="btn small light" href={fileHref(report.final_pdf_url)} staff>Open final PDF to print</FileLink>}
         {report.status === "final_generated" && (
           <>
             <input ref={input} type="file" accept=".pdf,.jpg,.jpeg,.png" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onSigned(f); e.target.value = ""; }} />
             <button className="btn small gold" disabled={busy === "signed"} onClick={() => input.current?.click()}>{busy === "signed" ? "Uploading…" : "Upload signed scan"}</button>
           </>
         )}
-        {report.signed_report_url && <a className="btn small gold" href={fileHref(report.signed_report_url)} target="_blank" rel="noreferrer">Signed report</a>}
+        {report.signed_report_url && <FileLink className="btn small gold" href={fileHref(report.signed_report_url)} staff>Signed report</FileLink>}
       </div>
     </div>
   );
@@ -391,7 +392,7 @@ function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onUpload
             {ticket.documents.map((d) => (
               <li key={d.id}>
                 <div>
-                  <a href={fileHref(d.download_url)} target="_blank" rel="noreferrer"><b>{d.filename}</b></a>
+                  <FileLink href={fileHref(d.download_url)} staff><b>{d.filename}</b></FileLink>
                   <small>{formatBytes(d.size)} · {d.uploaded_by} · {formatDate(d.at)}{d.note ? ` · ${d.note}` : ""}</small>
                   {(() => { const c = describeUploadCheck(d.check); return c && <small className={c.warn ? "casefile-check warn" : "casefile-check"}>AI check: {c.text}{d.check?.status === "done" && d.check.legible !== "yes" ? ` · legible: ${d.check.legible}` : ""}{d.check?.status === "done" && d.check.complete !== "yes" ? ` · complete: ${d.check.complete}` : ""}{d.check?.period_from || d.check?.period_to ? ` · period ${d.check.period_from || "?"} to ${d.check.period_to || "?"}` : ""}</small>; })()}
                   {(d.check?.status === "failed" || d.check?.status === "done") && <button className="admin-link" disabled={busy === d.id} onClick={() => onRecheck(d.id)}>Check again</button>}

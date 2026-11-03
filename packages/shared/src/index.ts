@@ -72,7 +72,7 @@ export type CustomerMeeting = {
   meet_link: string | null;
 };
 
-// Mirrors document_view in backend/app/case_files.py. download_url is a short-lived path on the API; open it with fileUrl().
+// Mirrors document_view in backend/app/case_files.py. download_url is a short-lived API path; downloads also require the customer/staff bearer header.
 export type CustomerDocument = {
   id: string;
   filename: string;
@@ -613,7 +613,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
+async function fetchJson<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, init);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -637,9 +637,24 @@ export const normalizeTag = (value: string) => value.toLowerCase().replace(/^#/,
 export const formatBytes = (bytes: number) =>
   bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL) {
+export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
+  getToken?: () => string | null | undefined | Promise<string | null | undefined>;
+  onUnauthorized?: (token: string) => void;
+} = {}) {
+  async function request<T>(url: string, path: string, init?: RequestInit): Promise<T> {
+    const token = await auth.getToken?.();
+    const headers = new Headers(init?.headers);
+    if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+    try {
+      return await fetchJson<T>(url, path, { ...init, headers });
+    } catch (error) {
+      const usedToken = headers.get("Authorization")?.match(/^Bearer (.+)$/)?.[1];
+      if (error instanceof ApiError && error.status === 401 && usedToken) auth.onUnauthorized?.(usedToken);
+      throw error;
+    }
+  }
   return {
-    // Download and report links in ticket views are paths on the API.
+    // Resolve download paths; fetch these URLs with the owner/staff Authorization header.
     fileUrl(path: string): string {
       return `${baseUrl}${path}`;
     },

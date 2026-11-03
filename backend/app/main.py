@@ -56,3 +56,14 @@ app.include_router(rera.router)
 app.include_router(accounts.router)
 app.include_router(verification.router)
 app.include_router(verification_workflow.router)
+
+
+@app.middleware("http")
+async def private_customer_responses(request, call_next):
+    response = await call_next(request)
+    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/account", "/api/v1/files/")) or request.url.path == "/api/v1/chat":
+        response.headers["Cache-Control"] = "private, no-store"
+        vary = response.headers.get("Vary", "")
+        if "authorization" not in vary.lower():
+            response.headers["Vary"] = f"{vary}, Authorization".strip(", ")
+    return response

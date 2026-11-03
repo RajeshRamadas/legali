@@ -12,7 +12,8 @@ from sqlalchemy import select
 from app.bootstrap import sync_reference_data
 from app.db import SessionLocal, engine
 from app.main import app
-from app.models import Base, Role, User
+from app.models import Base, Role, User, CustomerAccount, Customer
+from app.customer_auth import create_session_token
 from app.security import hash_password
 
 PASSWORD = "correct-horse-battery"
@@ -25,6 +26,20 @@ def database():
         sync_reference_data(db)
     yield
     engine.dispose()
+
+def authenticate_customer(client, phone="9876543210"):
+    from app.tickets import normalize_phone
+    phone = normalize_phone(phone)
+    with SessionLocal() as db:
+        account = db.scalars(select(CustomerAccount).where(CustomerAccount.phone_normalized == phone)).first()
+        if account is None:
+            known = db.scalars(select(Customer).where(Customer.phone_normalized == phone)).first()
+            account = CustomerAccount(phone_normalized=phone, full_name=known.full_name if known else None, email=known.email if known else None)
+            db.add(account)
+            db.commit()
+        token = create_session_token(account)
+    client.headers.update({"Authorization": f"Bearer {token}"})
+    return {"Authorization": f"Bearer {token}"}
 
 @pytest.fixture
 def client(database):
@@ -69,5 +84,7 @@ def raise_ticket(client):
         }
         response = client.post("/api/v1/tickets", json=payload)
         assert response.status_code == 201, response.text
+        if "Authorization" not in client.headers:
+            authenticate_customer(client)
         return response.json()["ticket_number"]
     return _raise

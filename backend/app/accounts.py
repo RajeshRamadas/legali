@@ -2,8 +2,7 @@
 document raised with that number in one place.
 
 An account is keyed by the phone number it proved, so tickets and bookings made before signing up (and from the app or
-the website) show up as soon as the customer signs in. Signed-in clients keep using the existing ticket and booking
-endpoints with the verified phone as the contact.
+the website) show up as soon as the customer signs in. Ticket, document and booking endpoints require the verified customer session as well as ownership.
 """
 import hashlib
 import hmac
@@ -12,14 +11,13 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import case_files, case_management, config, payments, tickets, whatsapp, document_requirements
+from .customer_auth import current_customer, create_session_token
 from .chat import client_key
 from .db import get_db
 from .lawyers import booking_view
@@ -29,9 +27,6 @@ log = logging.getLogger("homexo.accounts")
 
 router = APIRouter(prefix="/api/v1/account")
 
-_AUDIENCE = "homexo-customer"
-_bearer = HTTPBearer(auto_error=False)
-_UNAUTHORIZED = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please sign in again.", headers={"WWW-Authenticate": "Bearer"})
 WRONG_CODE = "That code is wrong or has expired. Check the latest message, or ask for a new code."
 # Requests listed on the account page, newest first.
 MAX_REQUESTS = 100
@@ -59,7 +54,7 @@ def delivery_channel() -> str | None:
     """How codes go out: "whatsapp", "dev" (shown on screen, development only) or None when sign-in is unavailable."""
     if whatsapp.enabled():
         return "whatsapp"
-    return "dev" if config.LOGIN_CODE_DEV_MODE else None
+    return "dev" if config.APP_ENV == "development" and config.LOGIN_CODE_DEV_MODE else None
 
 def _count_since(db: Session, column, value: str, since: datetime) -> int:
     return db.scalar(select(func.count()).select_from(LoginCode).where(column == value, LoginCode.created_at >= since)) or 0
@@ -72,7 +67,7 @@ def start_login(payload: CodeRequest, request: Request, db: Session = Depends(ge
     phone = _phone(payload.phone)
     channel = delivery_channel()
     if channel is None:
-        raise HTTPException(status_code=503, detail="Signing in by phone isn't available right now. You can still track a request with its ticket number.")
+        raise HTTPException(status_code=503, detail="Signing in by phone isn't available right now. Please contact the case team for help.")
     now = utcnow()
     key = client_key(request)
     hour_ago = now - timedelta(hours=1)
@@ -91,7 +86,7 @@ def start_login(payload: CodeRequest, request: Request, db: Session = Depends(ge
             log.warning("Login code to %s failed: %s", phone[-4:], exc)
             raise HTTPException(status_code=502, detail="We couldn't send the code on WhatsApp. Check the number has WhatsApp, or try again shortly.")
     else:
-        log.warning("Dev mode login code for %s: %s", display_phone(phone), code)
+        log.info("Development sign-in code generated.")
     # Only the newest code works.
     for old in db.scalars(select(LoginCode).where(LoginCode.phone_normalized == phone, LoginCode.used_at.is_(None))).all():
         old.used_at = now
@@ -102,11 +97,6 @@ def start_login(payload: CodeRequest, request: Request, db: Session = Depends(ge
     if channel == "dev":
         result["dev_code"] = code
     return result
-
-def create_session_token(account: CustomerAccount) -> str:
-    now = datetime.now(timezone.utc)
-    payload = {"sub": str(account.id), "ver": account.token_version, "aud": _AUDIENCE, "iat": now, "exp": now + timedelta(days=config.CUSTOMER_SESSION_DAYS)}
-    return jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
 
 def _latest_customer(db: Session, phone: str) -> Customer | None:
     return db.scalars(select(Customer).where(Customer.phone_normalized == phone).order_by(Customer.created_at.desc())).first()
@@ -135,19 +125,6 @@ def verify_login(payload: CodeCheck, db: Session = Depends(get_db)):
     account.last_login_at = now
     db.commit()
     return {"access_token": create_session_token(account), "token_type": "bearer", "account": _profile(account)}
-
-def current_customer(credentials: HTTPAuthorizationCredentials | None = Depends(_bearer), db: Session = Depends(get_db)) -> CustomerAccount:
-    if credentials is None:
-        raise _UNAUTHORIZED
-    try:
-        payload = jwt.decode(credentials.credentials, config.JWT_SECRET, algorithms=["HS256"], audience=_AUDIENCE)
-        account_id = uuid.UUID(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError):
-        raise _UNAUTHORIZED
-    account = db.get(CustomerAccount, account_id)
-    if account is None or payload.get("ver") != account.token_version:
-        raise _UNAUTHORIZED
-    return account
 
 def _profile(account: CustomerAccount) -> dict:
     return {

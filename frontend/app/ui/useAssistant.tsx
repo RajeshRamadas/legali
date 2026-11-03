@@ -165,6 +165,7 @@ function useCore() {
     verified,
     setVerified,
     conversationId,
+    setConversationId,
     push,
     send,
     clear,

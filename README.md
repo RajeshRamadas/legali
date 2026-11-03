@@ -165,7 +165,7 @@ Never commit `.env`, API keys, database passwords, customer documents, or produc
 ## Important implementation gaps
 
 Before production, implement:
-1. Password reset, MFA for admins, and OTP verification for customers before showing ticket details (today a ticket number plus the phone or email used is enough).
+1. Password reset and MFA for admins. Customer ticket, document and booking access now requires verified phone sign-in; see `docs/customer-access.md`.
 2. SLA targets and due dates on tickets.
 3. Conversational intake with validation, consent and resumable sessions. The chat assistant answers questions but still raises tickets through the form.
 4. Virus scanning of uploads (files are type-checked and stored privately with expiring links, but `scan_status` stays `pending`), and automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.

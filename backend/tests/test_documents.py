@@ -129,6 +129,7 @@ def test_s3_storage(client, raise_ticket, monkeypatch):
     moto = pytest.importorskip("moto")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
+    monkeypatch.delenv("AWS_PROFILE", raising=False)  # Mocked S3 needs no cloud identity.
     with moto.mock_aws():
         boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="homexo-docs")
         monkeypatch.setattr(config, "S3_BUCKET", "homexo-docs")
@@ -139,7 +140,8 @@ def test_s3_storage(client, raise_ticket, monkeypatch):
         keys = [o["Key"] for o in boto3.client("s3", region_name="us-east-1").list_objects_v2(Bucket="homexo-docs")["Contents"]]
         assert len(keys) == 1 and keys[0].startswith(f"homexo/tickets/{ticket}/")
         redirect = client.get(doc["download_url"], follow_redirects=False)
-        assert redirect.status_code == 302 and "X-Amz-Signature" in redirect.headers["location"]
+        assert redirect.status_code == 200 and redirect.content == PDF
+        assert redirect.headers["cache-control"] == "private, no-store"
         storage._s3.cache_clear()
 
 @pytest.mark.parametrize("property_type", ["villa", "farmhouse", "plantation_estate", "industrial_land", "agricultural_land", "residential_plot"])

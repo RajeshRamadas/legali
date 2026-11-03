@@ -1,12 +1,13 @@
 """Where uploaded files live: an S3-compatible bucket (AWS S3 or Cloudflare R2) when S3_BUCKET is set, else local disk.
 
-Callers only deal in storage keys. Downloads are a redirect to a presigned URL for a bucket, or a file response from disk.
+Callers only deal in storage keys. Downloads stream through the authenticated API for buckets, or use a file response from disk.
 """
 import os
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, StreamingResponse, Response
+from starlette.background import BackgroundTask
 
 from . import config
 
@@ -64,12 +65,10 @@ def _disposition(filename: str, inline: bool) -> str:
 
 def download_response(key: str, filename: str, content_type: str, inline: bool = False) -> Response:
     if backend() == "s3":
-        url = _s3().generate_presigned_url(
-            "get_object",
-            Params={"Bucket": config.S3_BUCKET, "Key": full_key(key), "ResponseContentDisposition": _disposition(filename, inline), "ResponseContentType": content_type},
-            ExpiresIn=60,
-        )
-        return RedirectResponse(url, status_code=302)
+        body = _s3().get_object(Bucket=config.S3_BUCKET, Key=full_key(key))["Body"]
+        return StreamingResponse(body.iter_chunks(chunk_size=64 * 1024), media_type=content_type,
+            headers={"Content-Disposition": _disposition(filename, inline), "Cache-Control": "private, no-store"},
+            background=BackgroundTask(body.close))
     path = _local_path(key)
     if not path.exists():
         return Response(status_code=404)

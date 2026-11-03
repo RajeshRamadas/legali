@@ -11,8 +11,8 @@ and case document raised with that number, on the website (`/account`) and in th
   number, show up straight away. Requests raised with only an email don't link.
 - `GET /api/v1/account` lists requests, bookings and payments; `GET /api/v1/account/requests/{ticket}` returns one ticket.
   `PATCH /api/v1/account` edits name and email; `POST /api/v1/account/logout-all` signs out every device.
-- Signed-in clients keep using the existing ticket, document and booking endpoints with the account's verified phone
-  (`profile.contact`) as the contact.
+- Ticket, document, booking-management and payment endpoints require `Authorization: Bearer <customer token>`.
+  The legacy `contact` field remains accepted but never grants access: the ticket must belong to the verified phone.
 
 ## Limits
 
@@ -29,3 +29,7 @@ with a copy-code button; the code fills both the body and the button.
 Without WhatsApp credentials, dev mode (`LOGIN_CODE_DEV_MODE`, on only when `APP_ENV=development`) shows the code on
 screen and in the API log. With neither, sign-in answers that it isn't available and customers track requests by
 ticket number as before. There is no SMS provider yet.
+
+## Verified access
+
+See [customer access](customer-access.md) for the protected endpoints, authenticated file downloads, session expiry, and legacy-client migration.

@@ -13,6 +13,7 @@ from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,6 +21,8 @@ from sqlalchemy.orm import Session
 from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements, upload_check
 from .admin import _detail, _get_ticket, _visible_tickets
 from .db import get_db
+from .customer_auth import current_customer, owned_ticket, _UNAUTHORIZED
+from .models import CustomerAccount
 from .models import (
     CLOSED_STATUSES, Document, LawyerProfile, LegalReport, ReportItem, ServiceRequest, User, utcnow,
 )
@@ -57,8 +60,8 @@ class IntakeUpdate(CustomerRef):
     intake: document_requirements.PropertyIntake
 
 @router.post("/tickets/property-intake")
-def customer_intake(payload: IntakeUpdate, db: Session = Depends(get_db)):
-    ticket = _customer_ticket(db, payload.ticket_number, payload.contact)
+def customer_intake(payload: IntakeUpdate, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    ticket = _customer_ticket(db, payload.ticket_number, payload.contact, account)
     if ticket.report and ticket.report.status in ("issued", "final_generated", "signed"):
         raise HTTPException(409, "The advocate has issued your checklist. Send corrections to the case team so they can review it.")
     values = payload.intake.model_dump()
@@ -177,8 +180,8 @@ def _after_customer_files(db: Session, ticket: ServiceRequest) -> None:
 
 # ---- Customers ----
 
-def _customer_ticket(db: Session, ticket_number: str, contact: str) -> ServiceRequest:
-    ticket = _find_for_customer(db, ticket_number, contact)
+def _customer_ticket(db: Session, ticket_number: str, contact: str, account: CustomerAccount) -> ServiceRequest:
+    ticket = _find_for_customer(db, ticket_number, contact, account)
     if ticket.status in CLOSED_STATUSES:
         raise HTTPException(status_code=409, detail="This request is closed, so its documents can't be changed.")
     return ticket
@@ -191,9 +194,9 @@ def _check_customer_tag(ticket: ServiceRequest, tag: str) -> None:
 def customer_upload(
     background: BackgroundTasks, ticket_number: str = Form(min_length=5, max_length=40), contact: str = Form(min_length=5, max_length=254),
     tag: str = Form(default="", max_length=60), note: str = Form(default="", max_length=500), file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db),
 ):
-    ticket = _customer_ticket(db, ticket_number, contact)
+    ticket = _customer_ticket(db, ticket_number, contact, account)
     tag = report_templates.normalize_tag(tag)
     _check_customer_tag(ticket, tag)
     filename, content_type, data = _read_upload(file)
@@ -207,9 +210,9 @@ def customer_upload(
     return tickets.customer_view(ticket)
 
 @router.post("/tickets/documents/tag")
-def customer_tag(payload: CustomerTag, db: Session = Depends(get_db)):
+def customer_tag(payload: CustomerTag, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     """File an earlier upload under another tag, e.g. one the preliminary report asks for."""
-    ticket = _customer_ticket(db, payload.ticket_number, payload.contact)
+    ticket = _customer_ticket(db, payload.ticket_number, payload.contact, account)
     document = _ticket_document(ticket, payload.document_id)
     if document.uploader_type != "customer":
         raise HTTPException(status_code=403, detail="Only the case team can retag files they added.")
@@ -222,8 +225,8 @@ def customer_tag(payload: CustomerTag, db: Session = Depends(get_db)):
     return tickets.customer_view(ticket)
 
 @router.post("/tickets/documents/delete")
-def customer_delete(payload: CustomerDelete, db: Session = Depends(get_db)):
-    ticket = _customer_ticket(db, payload.ticket_number, payload.contact)
+def customer_delete(payload: CustomerDelete, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    ticket = _customer_ticket(db, payload.ticket_number, payload.contact, account)
     document = _ticket_document(ticket, payload.document_id)
     if document.uploader_type != "customer":
         raise HTTPException(status_code=403, detail="Only the case team can remove files they added.")
@@ -236,9 +239,27 @@ def customer_delete(payload: CustomerDelete, db: Session = Depends(get_db)):
 
 # ---- Downloads ----
 
+_file_bearer = HTTPBearer(auto_error=False)
+
+def file_reader(credentials: HTTPAuthorizationCredentials | None = Depends(_file_bearer), db: Session = Depends(get_db)):
+    if credentials is None:
+        raise _UNAUTHORIZED
+    try:
+        return current_customer(credentials, db)
+    except HTTPException as exc:
+        if exc.status_code != 401:
+            raise
+        return current_staff(credentials, db)
+
+def _authorize_file(db: Session, reader, ticket: ServiceRequest) -> None:
+    if isinstance(reader, CustomerAccount):
+        owned_ticket(db, ticket.ticket_number, reader)
+    else:
+        _get_ticket(db, reader, ticket.ticket_number)
+
 @router.get("/files/{token}")
-def download(token: str, db: Session = Depends(get_db)):
-    """Signed, short-lived links handed out in ticket views, so the browser can open files without a header."""
+def download(token: str, reader = Depends(file_reader), db: Session = Depends(get_db)):
+    """A valid link and a current owner/staff session are both required."""
     claims = case_files.read_download_token(token)
     if claims is None:
         raise HTTPException(status_code=404, detail="This link has expired. Open the request again for a fresh one.")
@@ -246,12 +267,19 @@ def download(token: str, db: Session = Depends(get_db)):
         document = db.get(Document, uuid.UUID(claims["doc"]))
         if document is None:
             raise HTTPException(status_code=404, detail="File not found")
+        ticket = db.get(ServiceRequest, document.service_request_id)
+        _authorize_file(db, reader, ticket)
+        if isinstance(reader, CustomerAccount) and document.document_category == "final_report":
+            raise HTTPException(status_code=404, detail="File not found")
         inline = document.content_type == "application/pdf" or document.content_type.startswith("image/")
         return storage.download_response(document.storage_key, document.original_filename, document.content_type, inline=inline)
     report = db.get(LegalReport, uuid.UUID(claims["report"])) if claims.get("kind") == "preliminary" else None
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
     ticket = db.get(ServiceRequest, report.service_request_id)
+    _authorize_file(db, reader, ticket)
+    if isinstance(reader, CustomerAccount) and report.status == "draft":
+        raise HTTPException(status_code=404, detail="Report not found")
     pdf = report_pdf.preliminary_pdf(ticket, report)
     return Response(pdf, media_type="application/pdf", headers={
         "Content-Disposition": f'inline; filename="{ticket.ticket_number}-preliminary-report.pdf"', "Cache-Control": "private, no-store",

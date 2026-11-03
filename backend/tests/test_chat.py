@@ -94,11 +94,9 @@ def test_ai_gets_verified_ticket_but_never_internal_notes(client, claude, raise_
 def test_wrong_contact_gets_no_ticket_context(client, claude, raise_ticket):
     number = raise_ticket()
     fake = claude(reply=_reply(action="status"))
-    body = client.post("/api/v1/chat", json={"message": "status?", "ticket": {"ticket_number": number, "contact": "9000000000"}}).json()
-    assert number not in fake.calls[0]["messages"][-1]["content"]
-    assert body["ticket_verified"] is False
-    # Without a verified ticket the AI can only ask the customer to verify.
-    assert body["action"] == "track" and body["ticket"] is None
+    response = client.post("/api/v1/chat", json={"message": "status?", "ticket": {"ticket_number": number, "contact": "9000000000"}})
+    assert response.status_code == 404
+    assert fake.calls == []
 
 def test_history_is_trimmed_and_starts_with_user(client, claude):
     fake = claude(reply=_reply())

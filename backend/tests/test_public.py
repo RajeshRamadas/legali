@@ -14,7 +14,8 @@ def test_ticket_create(raise_ticket):
 def test_ticket_create_accepts_email_contact_from_older_app(client, raise_ticket):
     number = raise_ticket(contact="buyer@example.com", email=None, description="From the app")
     response = client.post("/api/v1/tickets/lookup", json={"ticket_number": number, "contact": "BUYER@example.com"})
-    assert response.status_code == 200
+    # Email-only legacy requests must be linked to a verified phone by the case team.
+    assert response.status_code == 404
 
 def test_ticket_create_rejects_unknown_service(client):
     response = client.post("/api/v1/tickets", json={

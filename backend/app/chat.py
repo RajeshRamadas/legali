@@ -17,6 +17,8 @@ from .catalogue import SERVICES_BY_SLUG
 from .db import get_db
 from .models import Conversation, ConversationMessage, utcnow
 from .public import _find_for_customer
+from .customer_auth import optional_customer, _UNAUTHORIZED
+from .models import CustomerAccount, Customer
 
 router = APIRouter()
 
@@ -168,7 +170,7 @@ def _history(conversation: Conversation) -> list[dict]:
     return [{"role": "user" if m.sender_type == "customer" else "assistant", "content": m.body} for m in turns]
 
 @router.post("/api/v1/chat")
-def chat(payload: ChatMessage, request: Request, db: Session = Depends(get_db)):
+def chat(payload: ChatMessage, request: Request, account: CustomerAccount | None = Depends(optional_customer), db: Session = Depends(get_db)):
     key = client_key(request)
     _rate_limit(db, key)
     conversation = db.get(Conversation, payload.conversation_id) if payload.conversation_id else None
@@ -178,14 +180,17 @@ def chat(payload: ChatMessage, request: Request, db: Session = Depends(get_db)):
         db.flush()
         history = [turn.model_dump() for turn in payload.history[-HISTORY_TURNS:]]
     else:
+        if conversation.customer_id:
+            owner = db.get(Customer, conversation.customer_id)
+            if account is None or owner is None or owner.phone_normalized != account.phone_normalized:
+                raise HTTPException(status_code=404, detail="Conversation not found.")
         history = _history(conversation)
 
     ticket = None
     if payload.ticket:
-        try:
-            ticket = _find_for_customer(db, payload.ticket.ticket_number, payload.ticket.contact)
-        except HTTPException:
-            ticket = None
+        if account is None:
+            raise _UNAUTHORIZED
+        ticket = _find_for_customer(db, payload.ticket.ticket_number, payload.ticket.contact, account)
     ticket_view = tickets.customer_view(ticket) if ticket else None
     if ticket:
         conversation.customer_id = ticket.customer_id

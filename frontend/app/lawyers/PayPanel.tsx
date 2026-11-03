@@ -1,4 +1,5 @@
 "use client";
+import CustomerAccess from "../account/CustomerAccess";
 
 import { useState } from "react";
 import { formatFee, paymentLabel, testPayment, type Booking, type BookingRef, type PaymentCheckout } from "@homexo/shared";
@@ -25,7 +26,7 @@ function loadCheckout(): Promise<NonNullable<Window["Razorpay"]>> {
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 
 // The fee on a booking: what's due or paid, and a button that opens Razorpay Checkout (or a pretend payment in test mode).
-export default function PayPanel({ bookingRef, booking, onChange }: { bookingRef: BookingRef; booking: Booking; onChange: (b: Booking) => void }) {
+function PayPanelContent({ bookingRef, booking, onChange }: { bookingRef: BookingRef; booking: Booking; onChange: (b: Booking) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const payment = booking.payment;
@@ -86,4 +87,8 @@ export default function PayPanel({ bookingRef, booking, onChange }: { bookingRef
       )}
     </div>
   );
+}
+
+export default function PayPanel(props: { bookingRef: BookingRef; booking: Booking; onChange: (b: Booking) => void }) {
+  return <CustomerAccess><PayPanelContent {...props} /></CustomerAccess>;
 }
