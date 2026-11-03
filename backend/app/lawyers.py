@@ -66,6 +66,8 @@ def _get_listed(db: Session, slug: str) -> LawyerProfile:
 # ---- Slots ----
 
 def _busy(db: Session, lawyer_ids: list[uuid.UUID], start: datetime, end: datetime, ignore: uuid.UUID | None = None) -> dict[uuid.UUID, list[tuple[datetime, datetime]]]:
+    # Meetings are stored in UTC. SQLite drops offsets from bound datetimes, so normalize calendar windows first.
+    start, end = start.astimezone(ZoneInfo("UTC")), end.astimezone(ZoneInfo("UTC"))
     rows = db.execute(select(Meeting.lawyer_user_id, Meeting.starts_at, Meeting.ends_at).where(
         Meeting.lawyer_user_id.in_(lawyer_ids), Meeting.status == "scheduled", Meeting.starts_at < end, Meeting.ends_at > start,
         *([Meeting.id != ignore] if ignore else []),

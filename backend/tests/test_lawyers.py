@@ -111,6 +111,16 @@ def test_booking_creates_assigned_ticket_and_meeting(client, lawyer):
     assert [n.delivery_status for n in _whatsapp("meeting_scheduled")] == ["cancelled", "queued"]
     assert _whatsapp("meeting_scheduled")[1].params[4] == "https://meet.google.com/abc-defg-hij"
 
+def test_booked_slot_after_india_midnight_is_removed_from_availability(client, lawyer, monkeypatch):
+    from app import lawyers, meetings
+    now = datetime(2030, 1, 1, 19, 0, tzinfo=timezone.utc)  # 00:30 in India; earliest slots are on the previous UTC date.
+    monkeypatch.setattr(lawyers, "utcnow", lambda: now)
+    monkeypatch.setattr(meetings, "utcnow", lambda: now)
+    slot = _first_slot(client, lawyer["slug"])
+    assert _book(client, lawyer["slug"]).status_code == 201
+    assert _first_slot(client, lawyer["slug"]) != slot
+
+
 def test_customer_finds_moves_and_cancels_a_booking(client, lawyer):
     booking = _book(client, lawyer["slug"]).json()
     ref = {"ticket_number": booking["ticket_number"], "contact": "98450 12345"}
