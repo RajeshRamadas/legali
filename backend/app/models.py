@@ -89,6 +89,12 @@ class User(TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(Text, unique=True)
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(Text)
+    token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    mfa_secret: Mapped[str | None] = mapped_column(Text)  # Fernet ciphertext, never a plaintext seed.
+    mfa_pending_secret: Mapped[str | None] = mapped_column(Text)
+    mfa_pending_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    mfa_last_counter: Mapped[int | None] = mapped_column(BigInteger)
+    mfa_recovery_hashes: Mapped[list | None] = mapped_column(JSONType)
     account_status: Mapped[str] = mapped_column(Text, default="active", nullable=False)
     # Staff only: whether the team can phone them now (e.g. a lawyer free for a quick call), with an optional note.
     # The phone number stays inside the staff workspace; customers never see it.
@@ -105,6 +111,24 @@ class User(TimestampMixin, Base):
     @property
     def is_admin(self) -> bool:
         return bool(self.role_names & {"admin", "super_admin"})
+
+class StaffAuthToken(Base):
+    __tablename__ = "staff_auth_tokens"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+class StaffAuthBucket(Base):
+    __tablename__ = "staff_auth_buckets"
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
 
 class Role(Base):
     __tablename__ = "roles"

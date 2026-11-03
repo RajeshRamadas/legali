@@ -14,6 +14,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Customer document repository and legal reports (`/documents`, and on each ticket in `/admin`): customers upload and tag documents; the lawyer issues a preliminary report with a checklist of documents, each with a tag the customer files uploads under; public records (EC, khata, RTC, tax receipts) go to a government fetch queue for the team instead of the buyer; once every item is verified or waived, a final report PDF is generated to print, sign and upload back for the customer to download. Files go to S3 or Cloudflare R2, or local disk in development (see `docs/documents.md`).
 - Karnataka RERA project check (`/rera`): search registered projects, see warning signs, a developer's delivery record, locality markets and a market report. Loads from a CSV or JSON export (see `docs/rera.md`); shows sample data until then.
 - Staff workspace at `/admin` for admins and agents, with a calendar of each lawyer's video meetings.
+- Staff password recovery, authenticator two-factor sign-in with recovery codes, password changes and session revocation from **Security** (`docs/staff-security.md`).
 - Case management (`/admin/cases` and each ticket page): six milestones per case, allowed status moves with closure checks and reopen, case tasks with a playbook that adds and ticks off routine work, a case team, first-response and due-date deadlines, a case fee, and a step bar for customers (see `docs/case-management.md`).
 - Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
@@ -165,7 +166,7 @@ Never commit `.env`, API keys, database passwords, customer documents, or produc
 ## Important implementation gaps
 
 Before production, implement:
-1. Password reset and MFA for admins. Customer ticket, document and booking access now requires verified phone sign-in; see `docs/customer-access.md`.
+1. Configure staff recovery email and the dedicated MFA encryption key, and enroll administrators (`docs/staff-security.md`). Password reset and authenticator MFA are implemented. Customer access requires verified phone sign-in (`docs/customer-access.md`).
 2. SLA targets and due dates on tickets.
 3. Conversational intake with validation, consent and resumable sessions. The chat assistant answers questions but still raises tickets through the form.
 4. Keep ClamAV running with updated signatures and scan existing files (`docs/malware-scanning.md`). Automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.

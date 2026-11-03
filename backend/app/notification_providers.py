@@ -75,6 +75,20 @@ def send_email(notification, ticket_number: str | None = None) -> str:
         raise DeliveryError("email_invalid_response", retryable=True) from exc
 
 
+def send_staff_reset(recipient: str, token: str, reference: str) -> None:
+    """An authentication link is sent directly, never saved in notification bodies or ticket views."""
+    url = f"{config.PUBLIC_SITE_URL}/admin/reset-password#token={quote(token, safe='')}"
+    try:
+        response = http.post("https://api.resend.com/emails", headers={
+            "Authorization": f"Bearer {config.RESEND_API_KEY}", "Idempotency-Key": f"homexo-staff-reset/{reference}",
+        }, json={"from": config.EMAIL_FROM, "to": [recipient], "subject": "Reset your Homexo staff password",
+                 "text": f"Reset your staff password using this link within 20 minutes:\n{url}\n\nIf two-factor sign-in is enabled, you will also need your authenticator or a recovery code. If you did not request this, ignore this email. Your password has not changed."})
+    except httpx.HTTPError as exc:
+        raise DeliveryError("staff_reset_unreachable") from exc
+    if not 200 <= response.status_code < 300:
+        raise DeliveryError(f"staff_reset_http_{response.status_code}")
+
+
 def sms_number(phone: str) -> str:
     if re.search(r"[^\d+() .-]", phone):
         raise DeliveryError("invalid_phone")

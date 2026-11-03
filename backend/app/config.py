@@ -28,6 +28,9 @@ if not JWT_SECRET:
         raise RuntimeError("JWT_SECRET must be set when APP_ENV is not 'development'.")
     JWT_SECRET = "dev-only-insecure-secret-change-me"
 ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "480"))
+# A dedicated Fernet key is required outside development before staff can enroll an authenticator.
+STAFF_MFA_ENCRYPTION_KEY = os.getenv("STAFF_MFA_ENCRYPTION_KEY", "")
+STAFF_REQUIRE_ADMIN_MFA = (os.getenv("STAFF_REQUIRE_ADMIN_MFA") or ("false" if APP_ENV == "development" else "true")).lower() == "true"
 
 # Creates the first admin on startup when no admin exists yet.
 BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "")

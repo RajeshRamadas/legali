@@ -1,0 +1,17 @@
+.staff-security { display: grid; gap: 18px; max-width: 760px; margin-inline: auto; width: 100%; }
+.staff-security h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); }
+.staff-security .admin-card { display: grid; gap: 14px; }
+.staff-security p { margin: 0; }
+.staff-security label, .mfa-enrollment label { display: grid; gap: 7px; font-size: 13px; }
+.staff-security input, .mfa-enrollment input { min-width: 0; width: 100%; padding: 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.staff-security .btn { justify-self: start; }
+.mfa-enrollment { display: grid; gap: 14px; }
+.mfa-enrollment img { background: white; border-radius: 8px; max-width: 100%; height: auto; }
+.mfa-enrollment code, .staff-recovery code { overflow-wrap: anywhere; font-size: 14px; }
+.staff-recovery { display: grid; gap: 12px; }
+.staff-recovery ul { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding: 0; list-style: none; gap: 10px; margin: 0; }
+.staff-security-notice { padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--green-ink); }
+.staff-security .security-enabled { color: var(--green-ink); }
+.staff-security-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.mfa-enrollment input[type="checkbox"], .staff-security input[type="checkbox"] { width: auto; justify-self: start; }
+@media (max-width: 480px) { .staff-recovery ul { grid-template-columns: 1fr; } }

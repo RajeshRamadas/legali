@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from . import accounts, admin, blog_agent, cases, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera, verification, verification_workflow
+from . import accounts, admin, blog_agent, cases, chat, config, documents, lawyers, meetings, notify, payments, posts, public, rera, verification, verification_workflow, staff_auth
 from .bootstrap import sync_reference_data
 from .db import SessionLocal
 from .models import ReraProject
@@ -45,6 +45,7 @@ app.add_middleware(
 app.include_router(public.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
+app.include_router(staff_auth.router)
 app.include_router(cases.router)
 app.include_router(meetings.router)
 app.include_router(lawyers.router)
@@ -61,7 +62,7 @@ app.include_router(verification_workflow.router)
 @app.middleware("http")
 async def private_customer_responses(request, call_next):
     response = await call_next(request)
-    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/account", "/api/v1/files/")) or request.url.path == "/api/v1/chat":
+    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/auth", "/api/v1/account", "/api/v1/files/")) or request.url.path == "/api/v1/chat":
         response.headers["Cache-Control"] = "private, no-store"
         vary = response.headers.get("Vary", "")
         if "authorization" not in vary.lower():

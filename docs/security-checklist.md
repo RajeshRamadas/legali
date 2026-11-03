@@ -3,6 +3,7 @@
 - [ ] Never commit API keys, `.env`, database dumps or customer documents.
 - [ ] Use managed secrets and rotate credentials.
 - [ ] Implement authentication, MFA for admins, RBAC and least privilege.
+  Staff password recovery and MFA are implemented; configure and verify the deployment policy in [staff security](staff-security.md).
 - [ ] Verify identity/ownership before exposing ticket data or files.
 - [ ] Use TLS everywhere outside local development.
 - [ ] Keep CORS restricted to known frontend origins.

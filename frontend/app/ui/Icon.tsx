@@ -19,6 +19,7 @@ const paths = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   check: '<path d="M5 12l5 5L20 7"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/><path d="M12 14v3"/>',
   alert: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/>',
   upload:
     '<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',

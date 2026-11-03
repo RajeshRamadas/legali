@@ -104,7 +104,19 @@ Search cards include `courts`. A booking includes `payment` (null when the fee i
 
 ## Staff API
 
-Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`) and send the returned `access_token` as `Authorization: Bearer <token>`. Admins see and act on every ticket; agents only on tickets currently assigned to them or where they take a meeting (others return 404).
+Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`). The response returns either an `access_token` and `user`, an MFA challenge (`mfa_required: true`, `challenge_token`), or a restricted enrollment token (`mfa_setup_required: true`, `setup_token`). Complete MFA with `POST /api/v1/auth/login/mfa` (`{"token", "code"}`); enrollment uses the two setup endpoints below. Only an access token authorizes staff APIs as `Authorization: Bearer <token>`. Admins see and act on every ticket; agents only on cases they are assigned to or participate in (others return 404). See [staff security](staff-security.md) for deployment policy, expiry, rate limits and recovery safeguards.
+
+| Method | Path | Authorization | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/auth/password-reset/request` | public | Generic response for `{"email"}`; eligible staff receive an email link |
+| POST | `/api/v1/auth/password-reset/confirm` | reset token | `{"token", "password", "code"}`; code required when MFA is enabled |
+| GET | `/api/v1/auth/security` | staff | MFA policy and number of recovery codes remaining |
+| POST | `/api/v1/auth/mfa/setup` | staff or enrollment token | `{"password"}`; encrypted pending seed, private QR/manual pairing data |
+| POST | `/api/v1/auth/mfa/enable` | staff or enrollment token | `{"password", "code"}`; new session and one-time recovery-code display |
+| POST | `/api/v1/auth/mfa/recovery-codes` | staff | `{"password", "code"}`; replace recovery codes and other sessions |
+| POST | `/api/v1/auth/mfa/disable` | staff | `{"password", "code"}`; unavailable to admins when policy requires MFA |
+| POST | `/api/v1/auth/password/change` | staff | `{"password", "new_password", "code"}`; MFA code required if enabled |
+| POST | `/api/v1/auth/logout-all` | staff | Revoke every staff session, including the caller |
 
 | Method | Path | Who | What |
 | --- | --- | --- | --- |

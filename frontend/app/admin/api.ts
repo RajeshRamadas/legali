@@ -8,7 +8,10 @@ export type StaffUser = {
   id: string; name: string; email: string | null; phone: string | null; role: "admin" | "agent"; account_status?: string;
   // Whether the team can call them now. The phone number is for the team only; customers never see it.
   available_for_calls: boolean; availability_note: string | null; availability_updated_at: string | null;
+  mfa_enabled: boolean;
 };
+export type StaffSession = { access_token: string; user: StaffUser; recovery_codes?: string[] };
+export type StaffLogin = StaffSession | { mfa_required: true; challenge_token: string } | { mfa_setup_required: true; setup_token: string };
 export type TeamMember = StaffUser & { lawyer: boolean };
 export type StaffRef = { id: string; name: string } | null;
 

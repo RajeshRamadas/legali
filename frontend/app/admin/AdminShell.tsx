@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import BrandMark from "../ui/BrandMark";
+import StaffSignIn from "./StaffSignIn";
 import AppShell from "../ui/AppShell";
 import { initials } from "../ui/utils";
 import type { NavGroup } from "../ui/AppShell";
@@ -53,15 +53,18 @@ export default function AdminShell({
   }, [user?.id, pathname]);
 
   useEffect(() => {
+    let active = true;
     if (!getToken()) {
+      setUser(null);
       setChecking(false);
       return;
     }
     adminFetch<StaffUser>("/auth/me")
-      .then(setUser)
-      .catch(() => setToken(null))
-      .finally(() => setChecking(false));
-  }, []);
+      .then(next => { if (active) setUser(next); })
+      .catch(() => { if (active) { setToken(null); setUser(null); } })
+      .finally(() => { if (active) setChecking(false); });
+    return () => { active = false; };
+  }, [pathname]);
 
   const signOut = useCallback(() => {
     setToken(null);
@@ -77,8 +80,9 @@ export default function AdminShell({
     [signOut],
   );
 
+  if (pathname === "/admin/reset-password") return <>{children}</>;
   if (checking) return <div className="admin-loading">Loading…</div>;
-  if (!user) return <SignIn onSignedIn={setUser} />;
+  if (!user) return <StaffSignIn onSignedIn={setUser} />;
 
   const nav: NavGroup[] = [
     {
@@ -100,6 +104,7 @@ export default function AdminShell({
       items: [
         { href: "/admin/team", label: "Team calls", icon: "users" },
         { href: "/admin/profile", label: "Lawyer profile", icon: "law" },
+        { href: "/admin/security", label: "Security", icon: "lock" },
       ],
     },
     ...(user.role === "admin"
@@ -210,76 +215,5 @@ function AvailabilityToggle({
         </small>
       )}
     </>
-  );
-}
-
-function SignIn({ onSignedIn }: { onSignedIn: (user: StaffUser) => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      const data = await adminFetch<{ access_token: string; user: StaffUser }>(
-        "/auth/login",
-        { method: "POST", body: JSON.stringify({ email, password }) },
-      );
-      setToken(data.access_token);
-      onSignedIn(data.user);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="admin-signin">
-      <form className="admin-card signin-card" onSubmit={submit}>
-        <div className="admin-brand dark">
-          <BrandMark />
-          <span>
-            homexo legal<small>Staff workspace</small>
-          </span>
-        </div>
-        <h1>Sign in</h1>
-        <p>
-          For Homexo case team members. Customers can track requests on the{" "}
-          <Link href="/#track">home page</Link>.
-        </p>
-        <label>
-          Email
-          <input
-            type="email"
-            autoComplete="username"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        {error && (
-          <p className="admin-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="btn" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
-    </div>
   );
 }

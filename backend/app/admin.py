@@ -16,13 +16,9 @@ from .db import get_db
 from .models import (
     CLOSED_STATUSES, CLOSURE_OUTCOMES, PRIORITIES, STAFF_ROLES, TICKET_STATUSES, Assignment, CaseMember, Customer, LawyerProfile, Meeting, Notification, Property, Role, ServiceRequest, ServiceType, TicketMessage, User, utcnow,
 )
-from .security import create_access_token, current_staff, hash_password, require_admin, verify_password
+from .security import current_staff, hash_password, require_admin
 
 router = APIRouter(prefix="/api/v1")
-
-class LoginRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=254)
-    password: str = Field(min_length=1, max_length=200)
 
 class TicketUpdate(BaseModel):
     status: Literal[TICKET_STATUSES] | None = None  # type: ignore[valid-type]
@@ -46,7 +42,7 @@ class StaffMessage(BaseModel):
 class StaffCreate(BaseModel):
     display_name: str = Field(min_length=2, max_length=120)
     email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    password: str = Field(min_length=10, max_length=200)
+    password: str = Field(min_length=12, max_length=200)
     role: Literal[STAFF_ROLES]  # type: ignore[valid-type]
     phone: str | None = Field(default=None, max_length=20, description="WhatsApp number for meeting invites, reminders and the daily agenda.")
 
@@ -66,6 +62,7 @@ def _me(user: User) -> dict:
         "id": str(user.id), "name": user.display_name, "email": user.email, "phone": user.phone, "role": "admin" if user.is_admin else "agent",
         "available_for_calls": user.available_for_calls, "availability_note": user.availability_note,
         "availability_updated_at": user.availability_updated_at.isoformat() if user.availability_updated_at else None,
+        "mfa_enabled": bool(user.mfa_secret),
     }
 
 def _flag_urgent(db: Session, ticket: ServiceRequest, agent: User | None, actor: User, note: str | None) -> None:
@@ -124,15 +121,6 @@ def _get_ticket(db: Session, user: User, ticket_number: str) -> ServiceRequest:
 def _detail(db: Session, ticket: ServiceRequest) -> dict:
     notifications = db.scalars(select(Notification).where(Notification.service_request_id == ticket.id).order_by(Notification.created_at)).all()
     return tickets.staff_detail(ticket, list(notifications))
-
-@router.post("/auth/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.scalars(select(User).where(func.lower(User.email) == payload.email.strip().lower())).first()
-    if user is None or not verify_password(payload.password, user.password_hash) or user.account_status != "active" or not (user.role_names & {"agent", "admin", "super_admin"}):
-        raise HTTPException(status_code=401, detail="Email or password is incorrect.")
-    tickets.audit(db, user, "staff.login", None)
-    db.commit()
-    return {"access_token": create_access_token(user), "token_type": "bearer", "user": _me(user)}
 
 @router.get("/auth/me")
 def me(user: User = Depends(current_staff)):
@@ -381,7 +369,7 @@ def create_staff(payload: StaffCreate, admin: User = Depends(require_admin), db:
 
 @router.patch("/admin/staff/{user_id}")
 def update_staff(user_id: uuid.UUID, payload: StaffUpdate, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
-    user = db.get(User, user_id)
+    user = db.scalar(select(User).where(User.id == user_id).with_for_update().execution_options(populate_existing=True))
     if user is None:
         raise HTTPException(status_code=404, detail="Staff member not found")
     if user.id == admin.id and (payload.account_status == "suspended" or payload.role == "agent"):
@@ -392,6 +380,8 @@ def update_staff(user_id: uuid.UUID, payload: StaffUpdate, admin: User = Depends
         user.roles = [r for r in user.roles if r.name not in STAFF_ROLES] + [_role(db, payload.role)]
     if payload.phone is not None:
         user.phone = _staff_phone(db, payload.phone, user.id)
+    if payload.account_status or payload.role:
+        user.token_version += 1
     tickets.audit(db, admin, "staff.updated", None, user_id=str(user.id), **payload.model_dump(exclude_none=True))
     db.commit()
     return _me(user) | {"account_status": user.account_status}
