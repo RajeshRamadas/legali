@@ -15,7 +15,7 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
     path === "/ui"
   )
     return <>{children}</>;
-  const customer = ["/account", "/documents", "/bookings", "/assistant"].some(
+  const customer = ["/account", "/documents", "/bookings", "/assistant", "/request"].some(
     (p) => path.startsWith(p),
   );
   if (customer && session === undefined)

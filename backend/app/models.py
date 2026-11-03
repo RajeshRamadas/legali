@@ -324,6 +324,21 @@ class ServiceRequest(TimestampMixin, Base):
     def active_assignment(self) -> "Assignment | None":
         return next((a for a in reversed(self.assignments) if a.unassigned_at is None), None)
 
+class IntakeDraft(TimestampMixin, Base):
+    __tablename__ = "intake_drafts"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", ("draft", "submitted", "discarded")), name="ck_intake_drafts_status"),
+        Index("idx_intake_drafts_account_created", "account_id", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="CASCADE"), nullable=False)
+    answers: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="draft", nullable=False)
+    saving_notice_version: Mapped[str] = mapped_column(Text, nullable=False)
+    saving_consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    submitted_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="SET NULL"), unique=True)
+
 class Assignment(Base):
     __tablename__ = "assignments"
     __table_args__ = (

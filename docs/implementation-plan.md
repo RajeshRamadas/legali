@@ -10,11 +10,11 @@
 
 ## Phase 1 — Service catalogue and intake
 - [ ] Store services and dynamic intake forms in PostgreSQL
-- [ ] Build guided chat state machine per service
-- [ ] Add save/resume and request summary review
-- [ ] Add consent capture and privacy notice version
-- [ ] Create tickets transactionally with unique numbers
-- [ ] Add verified customer contact flow
+- [x] Build guided chat state machine per service
+- [x] Add save/resume and request summary review
+- [x] Add consent capture and privacy notice version
+- [x] Create tickets transactionally with unique numbers
+- [x] Add verified customer contact flow
 
 ## Phase 2 — Admin and agent workspaces
 - [ ] Authentication and role-based access control

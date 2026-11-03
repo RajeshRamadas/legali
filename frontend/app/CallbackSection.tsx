@@ -101,6 +101,7 @@ export default function CallbackSection() {
             <div className="eyebrow">Free expert callback</div>
             <h2>Not sure where to start?</h2>
             <p>Share a few details. A legal specialist will discuss what you need, the scope and the next step with you. You&apos;ll get a request number to track everything.</p>
+            <p><Link className="text-link" href={`/request?service=${encodeURIComponent(service)}`}>Prefer one question at a time? Start a guided request you can save and resume.</Link></p>
             {selectedPackage && <p className="selected-package">Package: <b>{selectedPackage}</b> <button type="button" className="text-link" onClick={() => setSelectedPackage(null)}>Remove</button></p>}
           </div>
           <form className="callback-form" onSubmit={submitCallback}>

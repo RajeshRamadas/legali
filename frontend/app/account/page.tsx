@@ -200,7 +200,7 @@ function Overview({ session }: { session: Session }) {
             <Button href="/lawyers" icon="video">
               Book a consultation
             </Button>
-            <Button href="/#callback" icon="plus" variant="primary">
+            <Button href="/request" icon="plus" variant="primary">
               New request
             </Button>
           </>

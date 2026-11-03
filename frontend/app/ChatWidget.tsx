@@ -1,5 +1,6 @@
 "use client";
 import CustomerAccess from "./account/CustomerAccess";
+import Link from "next/link";
 import { readSession } from "./account/session";
 
 import { useEffect, useRef, useState } from "react";
@@ -254,6 +255,7 @@ export function ChatRequestForm({
   return (
     <form className="chat-form" onSubmit={submit}>
       <b>{service.name}</b>
+      <Link className="text-link" href={`/request?service=${encodeURIComponent(service.slug)}`}>Use guided questions and save your progress</Link>
       <input
         aria-label="Your name"
         placeholder="Your name"

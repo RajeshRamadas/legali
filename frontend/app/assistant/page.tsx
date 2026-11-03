@@ -15,6 +15,7 @@ export default function AssistantPage() {
         <aside className="hx-dashboard-rail">
           <Card title="Quick actions" icon="spark">
             {[
+              ["/request", "Start a guided request", "Save, resume and review before sending", "plus"],
               [
                 "/rera",
                 "Check a RERA project",

@@ -51,6 +51,7 @@ export default function CustomerShell({
       label: "Overview",
       items: [
         { href: "/account", label: "Home", icon: "home" as const },
+        { href: "/request", label: "Start / resume request", icon: "plus" as const },
         {
           href: "/account#requests",
           label: "My requests",

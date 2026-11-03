@@ -89,13 +89,7 @@ export default function AssistantPanel({
                   <Button
                     size="sm"
                     variant="primary"
-                    onClick={() =>
-                      a.setForm({
-                        kind: "request",
-                        service: m.offer!,
-                        messageId: m.id,
-                      })
-                    }
+                    href={`/request?service=${encodeURIComponent(m.offer.slug)}`}
                   >
                     Start a request
                   </Button>

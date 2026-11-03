@@ -16,6 +16,8 @@ Returns the initial public service catalogue.
 ## POST `/api/v1/tickets`
 Creates a customer (matched on phone if they've raised one before), a property and a ticket, and queues SMS/email notifications. Not yet rate-limited.
 
+For the signed-in, resumable question flow, use `/api/v1/intake/drafts` and the answer/submit routes documented in [guided intake](guided-intake.md). These enforce draft ownership, input validation, current notice consent, revision checks, account limits and idempotent submission. The direct ticket endpoint remains available to existing callback and mobile clients.
+
 Request:
 ```json
 {

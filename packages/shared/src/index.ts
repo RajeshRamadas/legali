@@ -58,6 +58,17 @@ export type TicketCreated = {
   message: string;
 };
 
+export type IntakeNotice = { version: string; retention_days: number; saving: string; submission: string; details: string[] };
+export type IntakeQuestion = {
+  key: string; prompt: string; kind: "select" | "text" | "textarea" | "email"; required: boolean; help: string;
+  min_length?: number; max_length?: number; options: { value: string; label: string }[];
+};
+export type IntakeDraft = {
+  id: string; status: "draft" | "submitted"; revision: number; answers: Record<string, string>;
+  questions: IntakeQuestion[]; next_question: string | null; completed: number; total: number;
+  updated_at: string; expires_at: string; ticket: TicketCreated | null; notice: IntakeNotice;
+};
+
 // Mirrors meeting_view in backend/app/tickets.py. meet_link is null once a meeting is cancelled or completed.
 export type CustomerMeeting = {
   id: string;
@@ -656,6 +667,21 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     }
   }
   return {
+    intakeNotice(): Promise<IntakeNotice> { return request<IntakeNotice>(baseUrl, "/api/v1/intake/notice"); },
+    intakeDrafts(): Promise<{ items: IntakeDraft[]; notice: IntakeNotice }> { return request(baseUrl, "/api/v1/intake/drafts"); },
+    startIntake(noticeVersion: string, consent: boolean, serviceSlug?: string): Promise<IntakeDraft> {
+      return request(baseUrl, "/api/v1/intake/drafts", post({ notice_version: noticeVersion, consent, service_slug: serviceSlug || null }));
+    },
+    getIntake(id: string): Promise<IntakeDraft> { return request(baseUrl, `/api/v1/intake/drafts/${encodeURIComponent(id)}`); },
+    answerIntake(id: string, revision: number, key: string, value: string): Promise<IntakeDraft> {
+      return request(baseUrl, `/api/v1/intake/drafts/${encodeURIComponent(id)}`, { ...post({ revision, key, value }), method: "PATCH" });
+    },
+    discardIntake(id: string): Promise<{ message: string }> {
+      return request(baseUrl, `/api/v1/intake/drafts/${encodeURIComponent(id)}`, { method: "DELETE" });
+    },
+    submitIntake(id: string, revision: number, noticeVersion: string, consent: boolean): Promise<TicketCreated> {
+      return request(baseUrl, `/api/v1/intake/drafts/${encodeURIComponent(id)}/submit`, post({ revision, notice_version: noticeVersion, consent }));
+    },
     // Resolve download paths; fetch these URLs with the owner/staff Authorization header.
     fileUrl(path: string | null): string | null {
       return path ? `${baseUrl}${path}` : null;
