@@ -422,6 +422,8 @@ class Document(Base):
     tag: Mapped[str | None] = mapped_column(Text)
     note: Mapped[str | None] = mapped_column(Text)
     scan_status: Mapped[str] = mapped_column(Text, default="pending", nullable=False)
+    scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scan_detail: Mapped[str | None] = mapped_column(Text)
     access_classification: Mapped[str] = mapped_column(Text, default="confidential", nullable=False)
     # Result of the automatic upload check (app.upload_check): document type, legibility, dates and problems.
     ai_check: Mapped[dict | None] = mapped_column(JSONType)

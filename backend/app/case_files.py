@@ -65,7 +65,7 @@ def sync_items(ticket: ServiceRequest) -> None:
         return
     by_tag: dict[str, list[Document]] = {}
     for document in case_documents(ticket):
-        if document.tag:
+        if document.tag and document.scan_status == "clean":
             by_tag.setdefault(document.tag, []).append(document)
     for item in report.items:
         files = by_tag.get(item.tag, [])
@@ -83,12 +83,13 @@ def document_view(document: Document, *, staff: bool = False, locked_tags: set[s
         "tag": document.tag,
         "note": document.note,
         "at": _iso(document.created_at),
-        "download_url": file_url(document.id),
+        "download_url": file_url(document.id) if document.scan_status == "clean" else None,
+        "scan_status": document.scan_status, "scanned_at": _iso(document.scanned_at),
     }
     from . import upload_check  # local import: upload_check depends on modules that import this one
     view["check"] = upload_check.view(document)
     if staff:
-        return view | {"uploaded_by": document.uploader_type, "checksum_sha256": document.checksum_sha256}
+        return view | {"uploaded_by": document.uploader_type, "checksum_sha256": document.checksum_sha256, "scan_detail": document.scan_detail}
     return view | {
         "uploaded_by": "you" if document.uploader_type == "customer" else "homexo",
         # Customers can remove their own files until the lawyer has accepted the item they are filed under.
@@ -116,7 +117,7 @@ def _item_view(item: ReportItem, files: dict[str, list[str]], labels: dict) -> d
 def _files_by_tag(ticket: ServiceRequest) -> dict[str, list[str]]:
     files: dict[str, list[str]] = {}
     for document in case_documents(ticket):
-        if document.tag:
+        if document.tag and document.scan_status == "clean":
             files.setdefault(document.tag, []).append(str(document.id))
     return files
 
@@ -137,7 +138,7 @@ def customer_report_view(ticket: ServiceRequest) -> dict | None:
         "items": [_item_view(i, files, CUSTOMER_ITEM_LABELS) for i in report.items],
         "progress": _progress(report),
         "preliminary_pdf_url": preliminary_url(report),
-        "signed_report_url": file_url(report.signed_document_id) if report.status == "signed" and report.signed_document_id else None,
+        "signed_report_url": file_url(report.signed_document_id) if report.status == "signed" and report.signed_document_id and any(d.id == report.signed_document_id and d.scan_status == "clean" for d in ticket.documents) else None,
         "signed_at": _iso(report.signed_at),
     }
 

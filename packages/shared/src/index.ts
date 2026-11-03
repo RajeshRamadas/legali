@@ -81,7 +81,9 @@ export type CustomerDocument = {
   tag: string | null;
   note: string | null;
   at: string;
-  download_url: string;
+  download_url: string | null;
+  scan_status: "pending" | "clean" | "infected" | "failed";
+  scanned_at: string | null;
   uploaded_by: "you" | "homexo";
   can_delete: boolean;
   check?: UploadCheck | null;
@@ -655,8 +657,8 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
   }
   return {
     // Resolve download paths; fetch these URLs with the owner/staff Authorization header.
-    fileUrl(path: string): string {
-      return `${baseUrl}${path}`;
+    fileUrl(path: string | null): string | null {
+      return path ? `${baseUrl}${path}` : null;
     },
     // `file` is a browser File/Blob, or React Native's { uri, name, type }.
     uploadDocument(ref: { ticket_number: string; contact: string }, file: Blob | { uri: string; name: string; type: string }, options: { tag?: string; note?: string; filename?: string } = {}): Promise<TicketStatus> {

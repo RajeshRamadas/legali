@@ -1,4 +1,5 @@
 "use client";
+import ScanStatus from "../ui/ScanStatus";
 import FileLink from "../ui/FileLink";
 
 import { useEffect, useRef, useState } from "react";
@@ -109,7 +110,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
                 {item.documents.length > 0 && (
                   <ul className="casefile-linked">
                     {item.documents.map((id) => docs.get(id)).filter(Boolean).map((d) => (
-                      <li key={d!.id}><FileLink href={fileHref(d!.download_url)} staff>{d!.filename}</FileLink><small> · {d!.uploaded_by} · {formatDate(d!.at)}</small></li>
+                      <li key={d!.id}><FileLink href={fileHref(d!.download_url)} staff>{d!.filename}</FileLink><ScanStatus status={d!.scan_status} /><small> · {d!.uploaded_by} · {formatDate(d!.at)}</small></li>
                     ))}
                   </ul>
                 )}
@@ -137,6 +138,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
       <DocumentList ticket={ticket} tags={tags} busy={busy}
         onTag={(id, tag) => call(id, `/documents/${id}`, "PATCH", { tag }, tag ? `Filed under #${tag}.` : "Tag removed.")}
         onDelete={(id) => call(id, `/documents/${id}`, "DELETE", undefined, "Document removed.")}
+        onScan={(id) => call(id, `/documents/${id}/scan`, "POST", undefined, "Security scan completed.")}
         onRecheck={(id) => call(id, `/documents/${id}/check`, "POST", undefined, "Document checked again.")}
         onUpload={(file, tag, note) => upload("upload", "/documents", file, { tag, note }, `${file.name} uploaded.`)}
         onProperty={(body) => call("property", "/property", "PATCH", body, "Property details saved.")} />
@@ -354,13 +356,14 @@ const PROPERTY_FIELDS: [keyof NonNullable<TicketDetail["property"]>, string][] =
   ["village", "Village"], ["hobli", "Hobli"], ["taluk", "Taluk"], ["district", "District"], ["address_line", "Address"],
 ];
 
-function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onUpload, onProperty }: {
+function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onScan, onUpload, onProperty }: {
   ticket: TicketDetail;
   tags: string[];
   busy: string;
   onTag: (id: string, tag: string) => void;
   onDelete: (id: string) => void;
   onRecheck: (id: string) => void;
+  onScan: (id: string) => void;
   onUpload: (file: File, tag: string, note: string) => Promise<boolean>;
   onProperty: (body: object) => Promise<boolean>;
 }) {
@@ -393,6 +396,8 @@ function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onUpload
               <li key={d.id}>
                 <div>
                   <FileLink href={fileHref(d.download_url)} staff><b>{d.filename}</b></FileLink>
+                  <ScanStatus status={d.scan_status} />
+                  {(d.scan_status === "failed" || d.scan_status === "pending") && <button className="admin-link" disabled={busy === d.id} onClick={() => onScan(d.id)}>Retry security scan</button>}
                   <small>{formatBytes(d.size)} · {d.uploaded_by} · {formatDate(d.at)}{d.note ? ` · ${d.note}` : ""}</small>
                   {(() => { const c = describeUploadCheck(d.check); return c && <small className={c.warn ? "casefile-check warn" : "casefile-check"}>AI check: {c.text}{d.check?.status === "done" && d.check.legible !== "yes" ? ` · legible: ${d.check.legible}` : ""}{d.check?.status === "done" && d.check.complete !== "yes" ? ` · complete: ${d.check.complete}` : ""}{d.check?.period_from || d.check?.period_to ? ` · period ${d.check.period_from || "?"} to ${d.check.period_to || "?"}` : ""}</small>; })()}
                   {(d.check?.status === "failed" || d.check?.status === "done") && <button className="admin-link" disabled={busy === d.id} onClick={() => onRecheck(d.id)}>Check again</button>}

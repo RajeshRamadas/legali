@@ -109,3 +109,7 @@ body .signin-card h1 { color: var(--ink); font-weight: 750; }
 body .admin-brand.dark { color: var(--ink); }
 body .admin-brand.dark small { color: var(--ink-2); }
 body .rr-col-bar { color: var(--on-primary); }
+
+.hx-security-status { display: block; margin-block: 5px; font-size: 12px; line-height: 1.6; color: var(--amber-ink); }
+.hx-security-status.clean { color: var(--green-ink); }
+.hx-security-status.infected { color: var(--red-ink); }

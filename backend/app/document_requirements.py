@@ -65,7 +65,7 @@ def checklist(ticket):
 def view(ticket):
     answers = intake(ticket)
     report = ticket.report
-    docs = [d for d in ticket.documents if d.document_category not in ("final_report", "signed_report")]
+    docs = [d for d in ticket.documents if d.document_category not in ("final_report", "signed_report") and d.scan_status == "clean"]
     if report and report.status != "draft":
         rows = [{"id": str(i.id), "tag": i.tag, "label": i.label, "guidance": i.guidance,
                  "status": i.status, "fetch_by": i.fetch_by, "source": gov_sources.source_view(i.source), "note": i.review_note} for i in report.items]

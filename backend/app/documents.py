@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements, upload_check
+from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements, upload_check, malware_scan
 from .admin import _detail, _get_ticket, _visible_tickets
 from .db import get_db
 from .customer_auth import current_customer, owned_ticket, _UNAUTHORIZED
@@ -140,17 +140,22 @@ def _read_upload(upload: UploadFile, allowed: tuple[str, ...] = tuple(ALLOWED_TY
     return filename, content_type, data
 
 def store_document(db: Session, ticket: ServiceRequest, filename: str, content_type: str, data: bytes, *, uploader_type: str,
-                   user: User | None = None, tag: str | None = None, note: str | None = None, category: str | None = None) -> Document:
+                   user: User | None = None, tag: str | None = None, note: str | None = None, category: str | None = None, require_clean: bool = False) -> Document:
     if category is None and len(case_files.case_documents(ticket)) >= config.MAX_DOCUMENTS_PER_TICKET:
         raise HTTPException(status_code=409, detail="This request already has the most files it can hold. Ask the case team for help.")
+    result = malware_scan.Result("clean", "server_generated") if uploader_type == "system" else malware_scan.scan(data)
+    if require_clean and result.status != "clean":
+        raise HTTPException(422 if result.status == "infected" else 503, "The signed report could not pass its security scan. Try a safe replacement or retry when the scanner is available.")
     document_id = uuid.uuid4()
     key = f"tickets/{ticket.ticket_number}/{document_id.hex}{os.path.splitext(filename)[1].lower()}"
+    if result.status != "clean":
+        key = "quarantine/" + key
     storage.put(key, data, content_type)
     document = Document(
         id=document_id, service_request_id=ticket.id, uploaded_by_user_id=user.id if user else None, uploader_type=uploader_type,
         original_filename=filename, content_type=content_type, byte_size=len(data), storage_key=key,
         checksum_sha256=hashlib.sha256(data).hexdigest(), tag=tag or None, note=(note or "").strip() or None, document_category=category,
-        created_at=utcnow(),
+        created_at=utcnow(), scan_status=result.status, scan_detail=result.detail, scanned_at=utcnow(),
     )
     db.add(document)
     ticket.documents.append(document)
@@ -205,7 +210,7 @@ def customer_upload(
     _after_customer_files(db, ticket)
     ticket.updated_at = utcnow()
     db.commit()
-    if upload_check.enabled():
+    if document.scan_status == "clean" and upload_check.enabled():
         background.add_task(upload_check.run, document.id)
     return tickets.customer_view(ticket)
 
@@ -236,6 +241,17 @@ def customer_delete(payload: CustomerDelete, account: CustomerAccount = Depends(
     case_files.sync_items(ticket)
     db.commit()
     return tickets.customer_view(ticket)
+
+@router.post("/admin/tickets/{ticket_number}/documents/{document_id}/scan")
+def retry_security_scan(ticket_number: str, document_id: uuid.UUID, background: BackgroundTasks, user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    ticket = _get_ticket(db, user, ticket_number)
+    document = db.scalars(select(Document).where(Document.id == document_id, Document.service_request_id == ticket.id).with_for_update()).first()
+    if document is None:
+        raise HTTPException(404, "Document not found")
+    malware_scan.retry(db, document, user)
+    if document.scan_status == "clean" and upload_check.enabled() and document.document_category is None:
+        background.add_task(upload_check.run, document.id)
+    return _detail(db, ticket)
 
 # ---- Downloads ----
 
@@ -271,6 +287,7 @@ def download(token: str, reader = Depends(file_reader), db: Session = Depends(ge
         _authorize_file(db, reader, ticket)
         if isinstance(reader, CustomerAccount) and document.document_category == "final_report":
             raise HTTPException(status_code=404, detail="File not found")
+        malware_scan.require_clean(document)
         inline = document.content_type == "application/pdf" or document.content_type.startswith("image/")
         return storage.download_response(document.storage_key, document.original_filename, document.content_type, inline=inline)
     report = db.get(LegalReport, uuid.UUID(claims["report"])) if claims.get("kind") == "preliminary" else None
@@ -302,7 +319,7 @@ def staff_upload(
     tickets.audit(db, user, "document.uploaded", ticket.id, filename=filename, tag=tag)
     ticket.updated_at = utcnow()
     db.commit()
-    if upload_check.enabled():
+    if document.scan_status == "clean" and upload_check.enabled():
         background.add_task(upload_check.run, document.id)
     return _detail(db, ticket)
 
@@ -320,6 +337,7 @@ def staff_recheck(ticket_number: str, document_id: uuid.UUID, user: User = Depen
     """Run the automatic upload check again, e.g. after it failed or the provider was configured later."""
     ticket = _get_ticket(db, user, ticket_number)
     document = _ticket_document(ticket, document_id)
+    malware_scan.require_clean(document)
     if not upload_check.enabled():
         raise HTTPException(status_code=409, detail="Automatic upload checks are off or the LLM is not configured on the server.")
     upload_check.run(document.id)
@@ -481,6 +499,8 @@ def review_item(ticket_number: str, item_id: uuid.UUID, payload: ItemReview, use
         raise HTTPException(status_code=422, detail="Tell the customer what is wrong with the document.")
     if payload.fetch_by:
         item.fetch_by = payload.fetch_by
+    if payload.status == "verified" and any(d.tag == item.tag and d.scan_status != "clean" for d in case_files.case_documents(ticket)):
+        raise HTTPException(409, "Security scans must pass before these documents can be accepted.")
     old = item.status
     item.status, item.review_note = payload.status, note
     item.reviewed_by_user_id, item.reviewed_at = user.id, utcnow()
@@ -501,6 +521,7 @@ def generate_final(ticket_number: str, user: User = Depends(current_staff), db: 
     """Make the final report PDF to print and sign. Needs every checklist item verified or waived."""
     ticket = _get_ticket(db, user, ticket_number)
     report = _editable_report(ticket)
+    malware_scan.require_clean_case(ticket)
     from .verification_workflow import validate_final_approval
     validate_final_approval(ticket)
     if report.status == "draft":
@@ -534,9 +555,10 @@ def upload_signed(ticket_number: str, file: UploadFile = File(...), user: User =
     report = ticket.report
     if report is None or report.status != "final_generated":
         raise HTTPException(status_code=409, detail="Generate the final report, print it and sign it first.")
+    malware_scan.require_clean_case(ticket)
     filename, content_type, data = _read_upload(file, SIGNED_TYPES)
     ext = os.path.splitext(filename)[1].lower()
-    document = store_document(db, ticket, f"{ticket.ticket_number}-signed-report{ext}", content_type, data, uploader_type="staff", user=user, category="signed_report")
+    document = store_document(db, ticket, f"{ticket.ticket_number}-signed-report{ext}", content_type, data, uploader_type="staff", user=user, category="signed_report", require_clean=True)
     db.flush()
     report.signed_document_id, report.signed_at, report.status = document.id, utcnow(), "signed"
     tickets.add_event(db, ticket, "report_signed", user)

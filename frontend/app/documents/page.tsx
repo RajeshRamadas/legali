@@ -1,4 +1,5 @@
 "use client";
+import ScanStatus from "../ui/ScanStatus";
 import FileLink from "../ui/FileLink";
 import CustomerAccess from "../account/CustomerAccess";
 
@@ -292,7 +293,7 @@ function whyText(item: ReportItem, journey?: DocumentJourney) {
 
 function CheckLine({ doc }: { doc: CustomerDocument }) {
   const c = describeUploadCheck(doc.check);
-  return c ? <small className={c.warn ? "dc-check warn" : "dc-check"} role={c.warn ? "status" : undefined}>{c.text}</small> : null;
+  return <><ScanStatus status={doc.scan_status} />{c && <small className={c.warn ? "dc-check warn" : "dc-check"} role={c.warn ? "status" : undefined}>{c.text}</small>}</>;
 }
 
 const STATUS_ICON: Record<string, string> = { verified: "✓", waived: "✓", received: "…", rejected: "!", pending: "" };

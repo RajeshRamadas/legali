@@ -1,4 +1,5 @@
 "use client";
+import ScanStatus from "../ui/ScanStatus";
 import FileLink from "../ui/FileLink";
 
 // At-a-glance view of a case for staff: the same stepper, document map and checklist the customer sees, with each
@@ -28,7 +29,7 @@ export default function VerificationOverview({ ticket }: { ticket: TicketDetail 
           <ul className="jn-files">
             {item.documents.map((id) => docs.get(id)).filter((d) => !!d).map((d) => {
               const check = describeUploadCheck(d!.check);
-              return <li key={d!.id}><FileLink href={fileHref(d!.download_url)} staff>{d!.filename}</FileLink>{check && <small className={check.warn ? "warn" : ""}>{check.text}</small>}</li>;
+              return <li key={d!.id}><FileLink href={fileHref(d!.download_url)} staff>{d!.filename}</FileLink><ScanStatus status={d!.scan_status} />{check && <small className={check.warn ? "warn" : ""}>{check.text}</small>}</li>;
             })}
           </ul>
         ) : <small>{item.fetch_by === "homexo" ? `Official-record task${item.source ? ` · ${item.source.name}` : ""}` : "Not uploaded yet"}</small>}

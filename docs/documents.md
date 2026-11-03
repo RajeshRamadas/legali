@@ -48,4 +48,6 @@ Where a property sits in either city or panchayat limits, both the khata and e-S
 
 Accepted files are PDF, JPG, PNG, WEBP, HEIC, DOC and DOCX; the first bytes must match the extension. Files are never public: views carry signed links (`/api/v1/files/<token>`) that require a current owner/staff bearer token before streaming from a bucket or disk. Turn on default encryption for the bucket (S3 does by default; R2 always encrypts). The SHA-256 of every file is recorded, and uploads, deletions and report steps are in the ticket activity and the audit log.
 
-Not done yet: virus scanning (`scan_status` stays `pending`), document upload in the mobile app, and automatic portal fetchers.
+Not done yet: document upload in the mobile app, and automatic portal fetchers.
+
+Security scanning and quarantine are implemented; see [malware scanning](malware-scanning.md) for deployment, backfilling existing files and staff retries.

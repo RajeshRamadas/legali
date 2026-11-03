@@ -170,7 +170,7 @@ def valid_evidence(evidence: Evidence, documents: list[dict]):
 
 
 def snapshot(ticket):
-    return {"documents": sorted([{"id": str(d.id), "sha256": d.checksum_sha256, "tag": d.tag} for d in case_files.case_documents(ticket)], key=lambda d: d["id"]),
+    return {"documents": sorted([{"id": str(d.id), "sha256": d.checksum_sha256, "tag": d.tag, "scan_status": d.scan_status} for d in case_files.case_documents(ticket)], key=lambda d: d["id"]),
             "property": tickets.property_view(ticket.prop) if ticket.prop else None,
             "intake": document_requirements.intake(ticket),
             "checklist": sorted([{"id": str(i.id), "status": i.status, "tag": i.tag, "label": i.label,
@@ -183,6 +183,8 @@ def fingerprint(value):
 
 
 def run_agent(ticket, request: RunRequest):
+    from .malware_scan import require_clean_case
+    require_clean_case(ticket)
     docs = case_files.case_documents(ticket)
     if not docs:
         raise HTTPException(422, "Upload at least one property document first.")

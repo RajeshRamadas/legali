@@ -174,3 +174,8 @@ SMS_DEFAULT_COUNTRY_CODE = os.getenv("SMS_DEFAULT_COUNTRY_CODE", "91")
 NOTIFY_MAX_ATTEMPTS = max(1, int(os.getenv("NOTIFY_MAX_ATTEMPTS", "5")))
 NOTIFY_RETRY_SECONDS = max(1, int(os.getenv("NOTIFY_RETRY_SECONDS", "60")))
 NOTIFY_MAX_AGE_HOURS = max(1, int(os.getenv("NOTIFY_MAX_AGE_HOURS", "24")))
+
+# ClamAV is required to release uploaded files from quarantine; there is no bypass mode.
+CLAMAV_HOST = os.getenv("CLAMAV_HOST", "127.0.0.1")
+CLAMAV_PORT = int(os.getenv("CLAMAV_PORT", "3310"))
+CLAMAV_TIMEOUT = max(1, int(os.getenv("CLAMAV_TIMEOUT", "30")))

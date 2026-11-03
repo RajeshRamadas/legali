@@ -63,6 +63,8 @@ def _iso(value: str) -> date | None:
 
 def assess(document: Document, ticket: ServiceRequest) -> dict:
     """Run the check for one document and return what to store in Document.ai_check."""
+    from .malware_scan import require_clean
+    require_clean(document)
     base = {"model": verification.model_for("classify"), "checked_at": utcnow().isoformat(), "checksum_sha256": document.checksum_sha256}
     suffix = "." + document.original_filename.rsplit(".", 1)[-1].lower() if "." in document.original_filename else ""
     if suffix not in SUPPORTED:
@@ -102,7 +104,7 @@ def run(document_id: uuid.UUID) -> None:
         return
     with SessionLocal() as db:
         document = db.get(Document, document_id)
-        if document is None:
+        if document is None or document.scan_status != "clean":
             return
         ticket = db.get(ServiceRequest, document.service_request_id)
         try:
@@ -117,6 +119,8 @@ def run(document_id: uuid.UUID) -> None:
 
 def view(document: Document) -> dict | None:
     """What both the customer and the case team see. Mismatch is computed now, so a retag updates it without a new check."""
+    if document.scan_status != "clean":
+        return None
     check = document.ai_check
     if not check:
         return {"status": "pending"} if enabled() and document.document_category is None else None

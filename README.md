@@ -168,7 +168,7 @@ Before production, implement:
 1. Password reset and MFA for admins. Customer ticket, document and booking access now requires verified phone sign-in; see `docs/customer-access.md`.
 2. SLA targets and due dates on tickets.
 3. Conversational intake with validation, consent and resumable sessions. The chat assistant answers questions but still raises tickets through the form.
-4. Virus scanning of uploads (files are type-checked and stored privately with expiring links, but `scan_status` stays `pending`), and automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.
+4. Keep ClamAV running with updated signatures and scan existing files (`docs/malware-scanning.md`). Automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.
 5. Configure email/SMS provider credentials, verified senders and destination-country registrations before enabling live delivery. Resend/Twilio adapters and retry handling are implemented; see `docs/notifications.md`.
 6. Payment integration only after selecting a compliant provider; never store card data. Lawyer bookings show the fee but don't collect it yet.
 7. Rate limiting for login, ticket intake and lookup (chat is limited already), abuse protection, backups, observability, privacy retention (including a clean-up of old chat transcripts) and security testing.

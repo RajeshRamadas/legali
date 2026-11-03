@@ -26,6 +26,8 @@ class LawReview(BaseModel):
 
 
 def evidence_fingerprint(ticket):
+    from .malware_scan import require_clean_case
+    require_clean_case(ticket)
     scope = verification.snapshot(ticket)
     return verification.fingerprint({key: scope[key] for key in ("documents", "property", "intake")})
 

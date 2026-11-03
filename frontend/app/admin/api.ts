@@ -31,7 +31,10 @@ export type StaffDocument = {
   tag: string | null;
   note: string | null;
   at: string;
-  download_url: string;
+  download_url: string | null;
+  scan_status: "pending" | "clean" | "infected" | "failed";
+  scanned_at: string | null;
+  scan_detail: string | null;
   uploaded_by: "customer" | "staff" | "system";
   checksum_sha256: string | null;
   check?: UploadCheck | null;
@@ -189,7 +192,7 @@ export async function adminUpload<T>(path: string, form: FormData): Promise<T> {
 }
 
 // Download links in ticket views are short-lived paths on the API.
-export const fileHref = (path: string) => `${BASE_URL}${path}`;
+export const fileHref = (path: string | null) => path ? `${BASE_URL}${path}` : null;
 
 const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 export const formatDate = (iso: string) => dateTime.format(new Date(iso));

@@ -88,3 +88,11 @@ def raise_ticket(client):
             authenticate_customer(client)
         return response.json()["ticket_number"]
     return _raise
+
+
+@pytest.fixture(autouse=True)
+def clean_scanner(monkeypatch):
+    # Most regressions test business workflows, not the external antivirus engine.
+    # Dedicated malware tests override this boundary with infected/failed/protocol cases.
+    from app import malware_scan
+    monkeypatch.setattr(malware_scan, "scan", lambda data: malware_scan.Result("clean"))
