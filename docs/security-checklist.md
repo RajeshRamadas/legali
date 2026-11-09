@@ -13,6 +13,7 @@
 - [ ] Store documents in private object storage; use expiring signed URLs.
 - [ ] Do not place personal data or document contents in application logs.
 - [ ] Encrypt backups and test restores.
+  Encrypted database/document backup and empty-target recovery tooling is implemented; configure scheduling, separate off-host copies/key escrow and periodic recovery drills before checking this off ([backup runbook](backups.md)).
 - [ ] Define retention, deletion, access request and incident response procedures.
 - [ ] Record consent notice version, purpose and timestamp.
 - [ ] Separate internal notes from customer-visible messages.

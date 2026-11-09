@@ -97,6 +97,7 @@ services:
       S3_BUCKET: ${S3_BUCKET:-}
       S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
       S3_REGION: ${S3_REGION:-}
+      S3_KEY_PREFIX: ${S3_KEY_PREFIX:-homexo/}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       LOCAL_STORAGE_DIR: /data/storage
@@ -107,6 +108,39 @@ services:
     depends_on:
       clamav:
         condition: service_started
+      db:
+        condition: service_healthy
+
+  backup:
+    profiles: [maintenance]
+    user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
+    build:
+      context: ./backup
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://homexo_app:change-this-local-password@db:5432/homexo}
+      BACKUP_PUBLIC_KEY_FILE: /run/keys/backup-public.asc
+      BACKUP_OUTPUT_DIR: /backups
+      LOCAL_STORAGE_DIR: /data/storage
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_KEY_PREFIX: ${S3_KEY_PREFIX:-homexo/}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    volumes:
+      - api_storage:/data/storage:ro
+      - type: bind
+        source: ${BACKUP_OUTPUT_DIR:-./backups}
+        target: /backups
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BACKUP_PUBLIC_KEY_FILE:-./backup-public.asc}
+        target: /run/keys/backup-public.asc
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
       db:
         condition: service_healthy
 
