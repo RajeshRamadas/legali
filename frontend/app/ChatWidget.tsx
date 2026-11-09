@@ -39,6 +39,17 @@ export default function ChatWidget() {
     send,
   } = useAssistant();
   const logRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    const toggle = toggleRef.current;
+    panel?.querySelector<HTMLInputElement>(".chat-input input")?.focus({ preventScroll: true });
+    return () => {
+      if (panel?.contains(document.activeElement)) toggle?.focus({ preventScroll: true });
+    };
+  }, [open]);
   useEffect(() => {
     logRef.current?.scrollTo({
       top: logRef.current.scrollHeight,
@@ -51,6 +62,7 @@ export default function ChatWidget() {
   return (
     <>
       <button
+        ref={toggleRef}
         className={`chat-fab${open ? " is-open" : ""}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -61,9 +73,13 @@ export default function ChatWidget() {
       </button>
       {open && (
         <section
+          ref={panelRef}
           className="chat-panel"
           id="chat-panel"
           aria-label="Homexo Legal assistant"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setOpen(false); toggleRef.current?.focus(); }
+          }}
         >
           <header className="chat-head">
             <span className="brandmark">H</span>
@@ -71,6 +87,7 @@ export default function ChatWidget() {
               <b>Homexo Legal assistant</b>
               <small>Answers instantly · specialists call back</small>
             </div>
+            <button type="button" className="chat-close" aria-label="Close assistant" onClick={() => { setOpen(false); toggleRef.current?.focus(); }}>×</button>
           </header>
           <div className="chat-log" ref={logRef} aria-live="polite">
             {messages.map((m) => (

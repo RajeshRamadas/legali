@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import BrandMark from "../ui/BrandMark";
+import MainContent from "../ui/MainContent";
 import MfaEnrollment from "./MfaEnrollment";
 import { adminFetch, setToken, type StaffLogin, type StaffSession, type StaffUser } from "./api";
 
@@ -30,7 +31,7 @@ export default function StaffSignIn({ onSignedIn }: { onSignedIn: (user: StaffUs
     } catch (e) { setError(e instanceof Error ? e.message : "Could not sign in."); }
     finally { setBusy(false); }
   }
-  return <div className="admin-signin"><div className="admin-card signin-card">
+  return <MainContent className="admin-signin"><div className="admin-card signin-card">
     <div className="admin-brand dark"><BrandMark /><span>homexo legal<small>Staff workspace</small></span></div>
     <h1>{setupToken ? "Protect your account" : forgot ? "Reset your password" : challenge ? "Two-factor sign-in" : "Sign in"}</h1>
     {setupToken ? <><p>Administrators must set up an authenticator before opening the workspace.</p><MfaEnrollment setupToken={setupToken} initialPassword={password} onEnabled={finish} /><button className="admin-link" onClick={restart}>Back to sign-in</button></> : <form className="mfa-enrollment" onSubmit={submit}>
@@ -40,5 +41,5 @@ export default function StaffSignIn({ onSignedIn }: { onSignedIn: (user: StaffUs
       <button className="btn" disabled={busy}>{busy ? "Please wait…" : forgot ? "Send reset link" : challenge ? "Verify and sign in" : "Sign in"}</button>
       {forgot || challenge ? <button type="button" className="admin-link" disabled={busy} onClick={restart}>Back to sign-in</button> : <button type="button" className="admin-link" disabled={busy} onClick={() => { setForgot(true); setPassword(""); setError(""); }}>Forgot password?</button>}
     </form>}
-  </div></div>;
+  </div></MainContent>;
 }

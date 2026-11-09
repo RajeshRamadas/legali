@@ -6,6 +6,7 @@ import PublicShell from "./PublicShell";
 import CustomerShell from "./CustomerShell";
 import ChatWidget from "../ChatWidget";
 import { Skeleton } from "./primitives";
+import MainContent from "./MainContent";
 export default function SiteFrame({ children }: { children: ReactNode }) {
   const path = usePathname(),
     session = useSession();
@@ -20,9 +21,9 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
   );
   if (customer && session === undefined)
     return (
-      <div className="hx-loading-page">
+      <MainContent className="hx-loading-page">
         <Skeleton height={300} />
-      </div>
+      </MainContent>
     );
   if (customer && session)
     return <CustomerShell session={session}>{children}</CustomerShell>;

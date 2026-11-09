@@ -3,6 +3,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import BrandMark from "./BrandMark";
+import Dialog from "./Dialog";
+import MainContent from "./MainContent";
+import useMediaQuery from "./useMediaQuery";
 import Icon, { type IconName } from "./Icon";
 import { Avatar, IconButton } from "./primitives";
 export type NavItem = {
@@ -43,76 +46,51 @@ export default function AppShell({
     [notices, setNotices] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [query, setQuery] = useState("");
-  const search = useRef<HTMLInputElement>(null),
-    drawer = useRef<HTMLElement>(null),
-    menuButton = useRef<HTMLButtonElement>(null);
+  const mobile = useMediaQuery("(max-width: 1000px)");
+  const search = useRef<HTMLInputElement>(null);
+  const notifications = useRef<HTMLDivElement>(null);
+  const noticeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     setMenu(false);
     setNotices(false);
     setSearchOpen(false);
-  }, [pathname]);
+  }, [pathname, mobile]);
   useEffect(() => {
-    if (!menu) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [menu]);
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
+    const key = (event: KeyboardEvent) => {
+      if (!event.defaultPrevented && !document.querySelector("dialog[open]") &&
+          (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
         setSearchOpen(true);
         setTimeout(() => search.current?.focus(), 0);
       }
-      if (e.key === "Escape") {
-        setMenu(false);
-        setNotices(false);
-        setSearchOpen(false);
-        menuButton.current?.focus();
-      }
-      if (e.key === "Tab" && menu && drawer.current) {
-        const nodes = Array.from(
-          drawer.current.querySelectorAll<HTMLElement>("a,button,input"),
-        );
-        const first = nodes[0],
-          last = nodes[nodes.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
     };
     document.addEventListener("keydown", key);
-    if (menu) drawer.current?.querySelector<HTMLElement>("button,a")?.focus();
     return () => document.removeEventListener("keydown", key);
-  }, [menu]);
+  }, []);
+  useEffect(() => {
+    if (!notices) return;
+    const panel = notifications.current?.querySelector<HTMLElement>(".hx-notifications");
+    (panel?.querySelector<HTMLElement>("a") ?? panel)?.focus();
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !notifications.current?.contains(event.target)) setNotices(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [notices]);
   const active = (href: string) =>
     href.includes("#")
       ? false
       : href.split("?")[0] === "/admin"
         ? pathname === "/admin" && !href.includes("?")
         : pathname === href || pathname.startsWith(href + "/");
-  const Content=area==="Staff workspace"?"main":"div";
-  return (
-    <div className={`hx-app-shell ${mobileTabs ? "has-bottom-tabs" : ""}`}>
-      {menu && (
-        <button
-          className="hx-menu-shade"
-          aria-label="Close navigation"
-          onClick={() => setMenu(false)}
-        />
-      )}
+  const sidebar = (
       <aside
-        ref={drawer}
-        className={`hx-sidebar ${menu ? "open" : ""}`}
+        id="workspace-navigation"
+        className="hx-sidebar"
         aria-label={`${area} sidebar`}
       >
         <button
+          type="button"
           className="hx-drawer-close hx-icon-button"
           onClick={() => setMenu(false)}
           aria-label="Close navigation"
@@ -162,20 +140,8 @@ export default function AppShell({
           Sign out
         </button>
       </aside>
-      <div className="hx-app-main">
-        <header className="hx-topbar">
-          <button
-            ref={menuButton}
-            className="hx-icon-button hx-mobile-menu"
-            onClick={() => setMenu(true)}
-            aria-label="Open navigation"
-            aria-expanded={menu}
-          >
-            <Icon name="menu" />
-          </button>
-          <Link className="hx-mobile-brand" href="/">
-            <BrandMark />homexo
-          </Link>
+  );
+  const searchForm = (
           <form
             className={`hx-shell-search ${searchOpen ? "open" : ""}`}
             onSubmit={(e) => {
@@ -204,6 +170,32 @@ export default function AppShell({
               ×
             </button>
           </form>
+  );
+  return (
+    <div className={`hx-app-shell ${mobileTabs ? "has-bottom-tabs" : ""}`}>
+      {mobile ? <Dialog open={menu} onClose={() => setMenu(false)} label={`${area} navigation`} className="hx-navigation-dialog">
+        {sidebar}
+      </Dialog> : sidebar}
+
+      <div className="hx-app-main">
+        <header className="hx-topbar">
+          <button
+            className="hx-icon-button hx-mobile-menu"
+            onClick={() => setMenu(true)}
+            aria-label="Open navigation"
+            aria-expanded={menu}
+            aria-controls="workspace-navigation"
+            aria-haspopup="dialog"
+          >
+            <Icon name="menu" />
+          </button>
+          <Link className="hx-mobile-brand" href="/">
+            <BrandMark />homexo
+          </Link>
+          {mobile ? <Dialog open={searchOpen} onClose={() => setSearchOpen(false)} label="Search workspace" className="hx-search-dialog">
+            {searchForm}
+          </Dialog> : searchForm}
+
           <div className="hx-topbar-actions">
             <span className="hx-mobile-menu">
               <IconButton
@@ -215,8 +207,17 @@ export default function AppShell({
                 }}
               />
             </span>
-            <div className="hx-notification-wrap">
+            <div className="hx-notification-wrap" ref={notifications} onBlur={(event) => {
+              if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setNotices(false);
+            }} onKeyDown={(event) => {
+              if (event.key === "Escape" && notices) {
+                event.preventDefault(); event.stopPropagation(); setNotices(false); noticeButton.current?.focus();
+              }
+            }}>
               <IconButton
+                ref={noticeButton}
+                aria-expanded={notices}
+                aria-controls="workspace-notifications"
                 icon="bell"
                 label={`Notifications (${bell?.count ?? 0})`}
                 dot={!!bell?.count}
@@ -225,6 +226,8 @@ export default function AppShell({
               {notices && (
                 <div
                   className="hx-notifications"
+                  id="workspace-notifications"
+                  tabIndex={-1}
                   role="region"
                   aria-label="Notifications"
                 >
@@ -250,7 +253,7 @@ export default function AppShell({
             </div>
           </div>
         </header>
-        <Content className="hx-app-content">{children}</Content>
+        <MainContent className="hx-app-content">{children}</MainContent>
       </div>
       {mobileTabs && (
         <nav className="hx-bottom-tabs" aria-label="Customer shortcuts">

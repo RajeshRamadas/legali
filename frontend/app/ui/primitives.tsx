@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useRef, type ButtonHTMLAttributes, type ComponentProps, type ReactNode } from "react";
 import Icon, { type IconName } from "./Icon";
 export type Tone =
   | "violet"
@@ -44,19 +44,18 @@ export function IconButton({
   icon,
   label,
   dot,
-  onClick,
+  ...props
 }: {
   icon: IconName;
   label: string;
   dot?: boolean;
-  onClick?: () => void;
-}) {
+} & ComponentProps<"button">) {
   return (
     <button
       type="button"
       className="hx-icon-button"
       aria-label={label}
-      onClick={onClick}
+      {...props}
     >
       <Icon name={icon} />
       {dot && <span className="hx-dot" />}

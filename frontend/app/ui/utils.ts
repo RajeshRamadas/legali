@@ -1,4 +1,6 @@
 export const IST = "Asia/Kolkata";
+export const preferredScrollBehavior = (): ScrollBehavior =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 export const dateLabel = (value: Date | string = new Date()) =>
   new Intl.DateTimeFormat("en-IN", {
     timeZone: IST,

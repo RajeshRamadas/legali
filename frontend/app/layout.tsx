@@ -5,8 +5,10 @@ import "./ui/views/globals.css";
 import "./ui/content-tones.css";
 import "./ui/ui.css";
 import "./ui/premium.css";
+import "./ui/accessibility.css";
 import SiteFrame from "./ui/SiteFrame";
 import { AssistantProvider } from "./ui/useAssistant";
+import SkipLink from "./ui/SkipLink";
 
 export const metadata: Metadata = {
   title:
@@ -21,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme="dark">
       <body>
+        <SkipLink />
         <AssistantProvider>
           <SiteFrame>{children}</SiteFrame>
         </AssistantProvider>

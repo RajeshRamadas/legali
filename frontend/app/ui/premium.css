@@ -93,6 +93,7 @@ body .hx-signin-page .hx-card, body .admin-login-card { border: 1px solid var(--
 
 /* Inner-page headings and panels follow the homepage's restrained contrast. */
 body .hx-public main :is(h1, h2, h3) { color: var(--ink); }
+body .hx-public main .doc-desk-copy h3 { color: var(--on-primary); }
 body .hx-public .hp-final h2 { color: var(--on-primary); }
 body .hx-public .developer-intro {
   background: linear-gradient(90deg, #0b1220f5, #0b1220e8), url('/images/property-architecture.webp') center / cover;

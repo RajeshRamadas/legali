@@ -16,3 +16,5 @@ infra/backup/.schedule.lock
 infra/backup-public.asc
 infra/backup-private.asc
 security-reports/
+frontend/playwright-report/
+frontend/test-results/

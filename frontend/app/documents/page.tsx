@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../ui/MainContent";
+
 import ScanStatus from "../ui/ScanStatus";
 import FileLink from "../ui/FileLink";
 import CustomerAccess from "../account/CustomerAccess";
@@ -48,7 +50,7 @@ function DocumentsPageContent() {
   return (
     <>
 
-      <main>
+      <MainContent>
         <section className="dc-band">
           <div className="wrap">
             <div className="eyebrow">Your documents</div>
@@ -71,7 +73,7 @@ function DocumentsPageContent() {
             <Repository key={ticket.ticket_number} ticket={ticket} reference={ref} onChange={updated=>{setTicket(updated);window.dispatchEvent(new Event("hx-account-refresh"))}} />
           )}
         </div>
-      </main>
+      </MainContent>
       <aside className="hx-context-note">
         <div className="wrap hx-tone-78cc9b2f" style={{ fontSize: 11, lineHeight: 1.7 }}>
           Files are kept in Homexo&apos;s private cloud storage and seen only by your case team. Download links expire after a few minutes. When you upload, the first pages are checked automatically by an AI service for document type, readability and dates, so we can tell you quickly if something needs fixing. An advocate still reviews every document.
@@ -391,5 +393,5 @@ function OtherUpload({ items, busy, onUpload }: { items: ReportItem[]; busy: boo
 }
 
 export default function DocumentsPage() {
-  return <CustomerAccess><DocumentsPageContent /></CustomerAccess>;
+  return <MainContent><CustomerAccess><DocumentsPageContent /></CustomerAccess></MainContent>;
 }

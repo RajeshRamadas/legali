@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import StaffSignIn from "./StaffSignIn";
 import AppShell from "../ui/AppShell";
+import MainContent from "../ui/MainContent";
 import { initials } from "../ui/utils";
 import type { NavGroup } from "../ui/AppShell";
 import {
@@ -91,8 +92,8 @@ export default function AdminShell({
     [signOut],
   );
 
-  if (pathname === "/admin/reset-password") return <>{children}</>;
-  if (checking) return <div className="admin-loading">Loading…</div>;
+  if (pathname === "/admin/reset-password") return <MainContent>{children}</MainContent>;
+  if (checking) return <MainContent className="admin-loading">Loading…</MainContent>;
   if (!user) return <StaffSignIn onSignedIn={setUser} />;
 
   const nav: NavGroup[] = [

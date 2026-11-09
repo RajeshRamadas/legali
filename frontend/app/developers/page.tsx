@@ -1,3 +1,4 @@
+import MainContent from "../ui/MainContent";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BUNDLES, LIFECYCLE } from "../content";
@@ -13,7 +14,7 @@ export default function DevelopersPage() {
   return (
     <>
 
-      <main>
+      <MainContent>
         <section className="developer-intro" id="developers">
           <div className="wrap">
             <div className="developer-hero">
@@ -86,7 +87,7 @@ export default function DevelopersPage() {
             <Link className="btn gold" href={enquire("bulk-registration-operations")}>Talk to our team ↗</Link>
           </div>
         </section>
-      </main>
+      </MainContent>
 
 
     </>

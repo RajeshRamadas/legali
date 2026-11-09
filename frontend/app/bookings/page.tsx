@@ -1,5 +1,6 @@
 "use client";
 import CustomerAccess from "../account/CustomerAccess";
+import MainContent from "../ui/MainContent";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -205,5 +206,5 @@ function BookingsPageContent() {
 }
 
 export default function BookingsPage() {
-  return <CustomerAccess><BookingsPageContent /></CustomerAccess>;
+  return <MainContent><CustomerAccess><BookingsPageContent /></CustomerAccess></MainContent>;
 }

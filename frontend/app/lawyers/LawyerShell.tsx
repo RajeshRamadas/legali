@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../ui/MainContent";
+
 
 import "../ui/views/lawyers-lawyers.css";
 
@@ -6,7 +8,7 @@ import "../ui/views/lawyers-lawyers.css";
 export default function LawyerShell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <main>{children}</main>
+      <MainContent>{children}</MainContent>
       <aside className="hx-context-note">
         <div className="wrap hx-tone-78cc9b2f" style={{ fontSize: 11, lineHeight: 1.7 }}>
           Consultations are with independent advocates enrolled with the Bar Council. Booking a consultation does not create a lawyer–client

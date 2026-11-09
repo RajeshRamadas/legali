@@ -1,3 +1,4 @@
+import MainContent from "../ui/MainContent";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DOC_SERVICES, PROCESS, VERIFY_SERVICES } from "../content";
@@ -13,7 +14,7 @@ export default function ServicesPage() {
   return (
     <>
 
-      <main>
+      <MainContent>
         <section className="section services" id="verify">
           <div className="wrap">
             <div className="section-head"><div><div className="eyebrow">What we verify &amp; handle</div><h1 className="heading hx-tone-b0e08465" style={{ fontSize: "clamp(36px,4.4vw,52px)", lineHeight: 1.06, margin: "9px 0 0" }}>Every angle of your<br />property’s legal health.</h1></div><p>From historical title and compliance to drafting, registration coordination and post-purchase paperwork. <Link className="hx-tone-b2722ad7" href="/#packages" style={{ fontWeight: 700 }}>Compare packages →</Link></p></div>
@@ -66,7 +67,7 @@ export default function ServicesPage() {
             <Link className="btn gold" href={request("general-guidance")}>Get a free callback ↗</Link>
           </div>
         </section>
-      </main>
+      </MainContent>
 
 
     </>

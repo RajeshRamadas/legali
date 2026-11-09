@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../../ui/MainContent";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PRIVACY_KIND_LABELS, PRIVACY_STATUS_LABELS, PRIVACY_RESOLUTION_LABELS, PRIVACY_REASON_LABELS, type PrivacyResolution, type PrivacyReason } from "@homexo/shared";
 import { useStaff } from "../AdminShell";
@@ -30,8 +32,8 @@ export default function PrivacyDesk() {
     finally { if (request === selection.current) setBusy(false); }
   }
   function changeFilter(value: string) { ++selection.current; setBusy(false); setSelected(null); setFilter(value); setPage(1); }
-  if (user.role !== "admin") return <main className="privacy-admin"><h1>Privacy requests</h1><p>Administrator access is required to review privacy requests.</p></main>;
-  return <main className="privacy-admin"><header className="privacy-heading"><div><div className="eyebrow">Administrator workspace</div><h1>Privacy requests</h1><p>Review scope, retention obligations and the response shared with the customer.</p></div><button className="btn small light" onClick={load}>Refresh queue</button></header>
+  if (user.role !== "admin") return <MainContent className="privacy-admin"><h1>Privacy requests</h1><p>Administrator access is required to review privacy requests.</p></MainContent>;
+  return <MainContent className="privacy-admin"><header className="privacy-heading"><div><div className="eyebrow">Administrator workspace</div><h1>Privacy requests</h1><p>Review scope, retention obligations and the response shared with the customer.</p></div><button className="btn small light" onClick={load}>Refresh queue</button></header>
     {error && <div className="privacy-error" role="alert">Could not refresh the privacy desk. {error}{data && <p>The last loaded queue is shown below.</p>}</div>}
     {retention && <section className="privacy-card"><div className="privacy-heading"><h2>Anonymous chat retention</h2><span className="privacy-badge">{retention.cleanup_enabled ? "Cleanup enabled" : "Cleanup not enabled"}</span></div><p>Preview: {retention.eligible_anonymous_chats} anonymous chats eligible after {retention.retention_days} inactive days. {retention.held_conversations} conversations are on hold.</p><p className="privacy-muted">Case-linked, consented and held conversations are preserved. Cleanup is a separate operator task governed by the reviewed retention policy.</p></section>}
     <div className="privacy-heading"><label>Queue status <select className="privacy-filter" value={filter} onChange={e => changeFilter(e.target.value)}>{[ ["open", "Open requests"], ["submitted", "Submitted"], ["in_review", "Under review"], ["closed", "Closed"], ["withdrawn", "Withdrawn"], ["all", "All requests"] ].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><span className="privacy-badge warn">{data?.overdue ?? "–"} overdue open requests</span></div>
@@ -39,7 +41,7 @@ export default function PrivacyDesk() {
       {!data ? <p role="status">Loading privacy requests…</p> : !data.items.length ? <section className="privacy-card"><h2>No requests in this view</h2><p>Change the filter to see other requests.</p></section> : data.items.map(item => <article className="privacy-card" key={item.id}><div className="privacy-heading"><h3>{PRIVACY_KIND_LABELS[item.kind]}</h3><span className={`privacy-badge ${item.overdue ? "warn" : ""}`}>{PRIVACY_STATUS_LABELS[item.status]}</span></div><p>{item.customer.name || "Verified customer"} · Phone ending {item.customer.phone_last4}</p><p className="privacy-reference">{item.reference}</p><p className="privacy-muted">Sent {date(item.created_at)} · Review target {date(item.due_at)}{item.overdue ? " · Overdue" : ""}</p><button className="btn small light" disabled={busy} onClick={() => show(item.id)}>{item.status === "submitted" || item.status === "in_review" ? "Review request" : "View decision"}</button></article>)}
       {data && (data.total > data.page_size || page > 1) && <div className="privacy-pager"><button className="btn small light" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button><span>Page {page} · {data.total} requests</span><button className="btn small light" disabled={page * data.page_size >= data.total} onClick={() => setPage(p => p + 1)}>Next</button></div>}
     </section><section className="privacy-review" aria-label="Selected privacy request">{selected ? <ReviewPanel key={`${selected.id}:${selected.revision}`} item={selected} onError={onError} onReload={() => show(selected.id)} onSaved={item => { setSelected(item); load(); }} /> : <div className="privacy-card"><h2>Choose a request</h2><p>Open a request to review its details and record a decision.</p></div>}</section></div>
-  </main>;
+  </MainContent>;
 }
 
 function ReviewPanel({ item, onError, onReload, onSaved }: { item: AdminPrivacyRequest; onError: (e: unknown) => string; onReload: () => void; onSaved: (item: AdminPrivacyRequest) => void }) {

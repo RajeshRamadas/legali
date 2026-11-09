@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../ui/MainContent";
+
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -87,7 +89,7 @@ function IntakeContent({ session }: { session: Session }) {
   const question = draft?.questions.find(q => q.key === (editing || draft.next_question));
   const answered = draft?.questions.filter(q => q.key in draft.answers) ?? [];
   const earlier = question && draft ? answered.filter(q => draft.questions.indexOf(q) < draft.questions.indexOf(question)) : [];
-  return <main className="guided-intake">
+  return <MainContent className="guided-intake">
     <header className="intake-header"><div className="eyebrow">A request, one step at a time</div><h1>{created ? "Your request is with the team" : "Tell us what you need"}</h1><p>Share the essentials. An advocate will confirm what applies to your property.</p></header>
     {error && <div className="intake-error" role="alert"><p>{error}</p>{conflict && <button className="btn small light" disabled={busy} onClick={reload}>{id ? "Reload saved answers" : "Reload privacy notice"}</button>}</div>}
     {loading ? <p role="status">Loading your saved answers…</p> : created ? <section className="intake-card intake-success"><span className="eyebrow">Request received</span><h2>{created.ticket_number}</h2><p>{created.message}</p><p>Your request is linked to your verified phone: {session.profile.phone}.</p><div className="intake-actions"><Link className="btn" href="/documents" onClick={() => openDocuments({ ticket_number: created.ticket_number, contact: session.profile.contact })}>Open documents</Link><Link className="btn light" href="/account">Track in my account</Link><Link className="text-link" href="/request">Start another request</Link></div></section> : !id ? <>
@@ -108,7 +110,7 @@ function IntakeContent({ session }: { session: Session }) {
       </section>}
     </>}
     {!loading && id && !draft && !created && <Link className="btn light" href="/request">Open saved drafts</Link>}
-  </main>;
+  </MainContent>;
 }
 
 function Question({ question: q, initial, busy, onAnswer }: { question: IntakeQuestion; initial: string; busy: boolean; onAnswer: (value: string, pause: boolean) => void }) {

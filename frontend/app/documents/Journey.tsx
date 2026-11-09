@@ -5,6 +5,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { CheckStatus, DocumentJourney, JourneyCheck, ReportItem } from "@homexo/shared";
 import "../ui/views/documents-journey.css";
+import { preferredScrollBehavior } from "../ui/utils";
 
 export const CHECK_TEXT: Record<CheckStatus, { icon: string; label: string }> = {
   passed: { icon: "✓", label: "Verified" },
@@ -122,5 +123,5 @@ export function revealCheck(key: string) {
   const el = document.getElementById(`check-${key}`);
   if (!el) return;
   if (!el.classList.contains("open")) el.querySelector<HTMLButtonElement>(".jn-check-head")?.click();
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.scrollIntoView({ behavior: preferredScrollBehavior(), block: "center" });
 }

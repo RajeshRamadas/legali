@@ -1568,7 +1568,7 @@ p {
 }
 .doc-desk-copy {
   background: var(--primary);
-  color: var(--surface);
+  color: var(--on-primary);
   border-radius: 18px;
   padding: 30px;
   display: flex;
@@ -1580,35 +1580,36 @@ p {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1.1px;
-  color: var(--red-ink);
-  border: 1px solid #ffffff35;
+  color: var(--on-primary);
+  border: 1px solid var(--on-primary);
   border-radius: 30px;
   padding: 9px 12px;
   margin-bottom: 22px;
 }
 .doc-desk-copy h3 {
+  color: var(--on-primary);
   font: 500 30px/1.1 var(--font);
   margin-bottom: 12px;
 }
 .doc-desk-copy p {
   font-size: 12px;
   line-height: 1.75;
-  color: #d0e0d8;
+  color: var(--on-primary);
 }
 .doc-benefits {
   display: grid;
   gap: 11px;
   margin: 12px 0 24px;
   font-size: 12px;
-  color: #edf6f1;
+  color: var(--on-primary);
 }
 .doc-benefits span::first-letter {
-  color: var(--primary-text);
+  color: var(--on-primary);
 }
 .doc-disclaimer {
   font-size: 12px;
   line-height: 1.6;
-  color: #b8cec4;
+  color: var(--on-primary);
   margin-top: 17px;
 }
 .doc-service-list {

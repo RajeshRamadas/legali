@@ -1,0 +1,79 @@
+/* Shared keyboard navigation and native modal surfaces. */
+.hx-skip-link {
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  z-index: 1000;
+  padding: 12px 18px;
+  border: 2px solid var(--primary);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  transform: translateY(-160%);
+}
+.hx-skip-link:focus { transform: none; }
+#main-content:focus { outline: none; }
+.hx-dialog {
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: var(--surface);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  overflow: auto;
+}
+.hx-dialog:not([open]) { display: none; }
+.hx-dialog::backdrop { background: #070e24b8; }
+.hx-callback-dialog { width: min(440px, calc(100vw - 32px)); }
+.hx-callback-dialog .modal-box { width: 100%; box-shadow: none; }
+.hx-navigation-dialog {
+  margin: 0;
+  width: min(300px, 100vw - 32px);
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0 16px 16px 0;
+}
+.hx-navigation-dialog .hx-sidebar {
+  display: flex;
+  position: static;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  border: 0;
+}
+.hx-search-dialog { margin: 12px auto; width: min(600px, calc(100vw - 32px)); }
+.hx-search-dialog .hx-shell-search {
+  position: static;
+  display: flex;
+  width: 100%;
+  padding: 12px;
+  margin: 0;
+}
+.chat-head > div { flex: 1; }
+.chat-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 24px;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+@media (pointer: coarse), (max-width: 1000px) {
+  .hx-icon-button, .modal-close, .chat-input button, .hx-search-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

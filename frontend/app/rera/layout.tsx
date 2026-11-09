@@ -1,9 +1,10 @@
+import MainContent from "../ui/MainContent";
 import "../ui/views/rera-rera.css";
 
 export default function ReraLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <main className="rr">{children}</main>
+      <MainContent className="rr">{children}</MainContent>
       <aside className="hx-context-note">
         <div className="wrap">
           <div className="copyright">

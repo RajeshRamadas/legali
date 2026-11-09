@@ -1,10 +1,11 @@
+import MainContent from "../ui/MainContent";
 import Link from "next/link";
 import AssistantPanel from "../ui/AssistantPanel";
 import { Card, ListRow, PageHeader } from "../ui/primitives";
 import Icon from "../ui/Icon";
 export default function AssistantPage() {
   return (
-    <main className="hx-assistant-page">
+    <MainContent className="hx-assistant-page">
       <PageHeader
         eyebrow="Homexo Legal"
         title="A little clarity goes a long way"
@@ -63,6 +64,6 @@ export default function AssistantPage() {
           </Card>
         </aside>
       </div>
-    </main>
+    </MainContent>
   );
 }

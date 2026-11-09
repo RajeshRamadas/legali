@@ -47,5 +47,6 @@
   Encrypted database/document backup, verification, empty-target recovery and freshness/retention commands are implemented (`backups.md`). Deployment scheduling, off-host copies, recovery drills and broader monitoring still need configuration.
   Administrator system health, database readiness and request/worker logs are implemented (`operations-monitoring.md`); connect an external collector and configure/test alert routing.
 - [ ] Accessibility and mobile QA
+  Shared skip links, main landmarks, modal focus handling and keyboard/mobile browser regressions with axe are implemented (`accessibility.md`). Complete manual screen-reader, real-device and cross-browser review before launch.
 - [ ] Load tests, incident runbook and support process
 - [ ] Pilot with limited service types and locations

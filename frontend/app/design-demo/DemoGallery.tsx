@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../ui/MainContent";
+
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./demo-gallery.css";
@@ -53,7 +55,7 @@ export default function DemoGallery() {
     setScreen(id);
     history.replaceState(null, "", `#${id}`);
   }
-  return <main className="demo-gallery" data-demo-theme={theme}>
+  return <MainContent className="demo-gallery" data-demo-theme={theme}>
     <header className="demo-reviewbar">
       <div className="demo-review-brand"><span className="demo-review-mark">H</span><div><strong>Homexo UI</strong><span>Design review · fictional sample data</span></div></div>
       <nav className="demo-review-tabs" role="tablist" aria-label="Demo screens">
@@ -76,5 +78,5 @@ export default function DemoGallery() {
     <section className={`demo-stage ${width === "mobile" ? "demo-phone" : ""}`} id="demo-screen" role="tabpanel" aria-labelledby={`demo-tab-${screen}`}>
       {ready ? <iframe ref={frame} key={screen} title={`${selected.title} interactive design demo`} src={`/demo-ui/${selected.file}`} onLoad={setFrameTheme} /> : <p className="demo-loading">Preparing design preview…</p>}
     </section>
-  </main>;
+  </MainContent>;
 }

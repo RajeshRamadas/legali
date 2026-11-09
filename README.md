@@ -26,6 +26,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
 - Docker Compose for local PostgreSQL + API.
 - GitHub Actions dependency audits, Python source checks, SQLite/PostgreSQL API regressions and web/shared-client validation, with hash-verified Python installs (`docs/dependency-security.md`).
+- Shared keyboard navigation, skip links, accessible dialogs and automated Chromium/axe checks at desktop and phone widths (`docs/accessibility.md`).
 - Requirements, architecture, API outline, implementation plan and security checklist.
 
 ## Architecture

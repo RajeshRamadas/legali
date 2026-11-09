@@ -22,6 +22,8 @@ found without a code change. Scheduled runs omit the API and web regressions.
   web/mobile/shared TypeScript, lints the frontend and builds Next.js. The build
   uses a local unavailable API address to exercise build-time fallbacks; it is
   a validation build, not a deployment artifact.
+  It also runs Chromium keyboard/mobile regressions and axe accessibility checks
+  at desktop and phone widths ([accessibility runbook](accessibility.md)).
 
 JSON security reports and API JUnit results are retained for seven days, even
 when a check fails. Actions use immutable commit references, repository access

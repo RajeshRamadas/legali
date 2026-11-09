@@ -11,6 +11,8 @@ import Link from "next/link";
 import { openDocuments } from "./documents/ref";
 import useRetryDelay from "./ui/useRetryDelay";
 import FormTrap from "./ui/FormTrap";
+import Dialog from "./ui/Dialog";
+import { preferredScrollBehavior } from "./ui/utils";
 
 const emptyForm = { name: "", phone: "", email: "", propertyType: "apartment" as PropertyType, location: "", description: "" };
 
@@ -29,6 +31,7 @@ export default function CallbackSection() {
   const [trackPrefill, setTrackPrefill] = useState({ ticket: "", contact: "", key: 0 });
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const submitButton = useRef<HTMLButtonElement>(null);
 
   function notify(text: string) {
     setToast(text);
@@ -41,7 +44,7 @@ export default function CallbackSection() {
       setService(slug);
       setSelectedPackage(pkg);
       if (description) setForm((prev) => ({ ...prev, description }));
-      document.getElementById("callback")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("callback")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "center" });
       setTimeout(() => document.getElementById("fullName")?.focus({ preventScroll: true }), 500);
       notify(message);
     }
@@ -53,13 +56,8 @@ export default function CallbackSection() {
       choose({ slug, message: `${serviceLabel(slug)} selected. Share a few details and we'll call you back.` });
     }
 
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setCreated(null);
-    }
-    document.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener(SERVICE_EVENT, onService);
-      document.removeEventListener("keydown", onKey);
     };
   }, []);
 
@@ -98,7 +96,7 @@ export default function CallbackSection() {
     if (!created) return;
     setTrackPrefill((prev) => ({ ticket: created.ticket, contact: created.contact, key: prev.key + 1 }));
     setCreated(null);
-    setTimeout(() => document.getElementById("track")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+    setTimeout(() => document.getElementById("track")?.scrollIntoView({ behavior: preferredScrollBehavior(), block: "center" }), 50);
   }
 
   return (
@@ -130,7 +128,7 @@ export default function CallbackSection() {
             <div className="field"><label htmlFor="location">Property location</label><input id="location" placeholder="Area, city" required minLength={2} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
             <div className="field wide"><label htmlFor="description">Anything we should know? (optional)</label><textarea id="description" rows={2} placeholder="e.g. Resale 2BHK, registration planned next month" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <details className="wide"><summary>Tailor the document checklist to your property</summary><p>These answers help us request the right documents automatically. Choose unknown whenever you are unsure.</p><PropertyIntakeFields value={intake} onChange={setIntake} /></details>
-            <button className="btn" type="submit" disabled={sending || retry.seconds > 0}>{sending ? "Sending…" : retry.seconds > 0 ? `Try again in ${retry.seconds}s` : "Request free callback ↗"}</button>
+            <button ref={submitButton} className="btn" type="submit" disabled={sending || retry.seconds > 0}>{sending ? "Sending…" : retry.seconds > 0 ? `Try again in ${retry.seconds}s` : "Request free callback ↗"}</button>
             {formError ? <div className="form-note form-error" role="alert">{formError}</div> : <div className="form-note">Your details are used only to respond to this request.</div>}
           </form>
         </div>
@@ -140,7 +138,7 @@ export default function CallbackSection() {
 
       <div className={`toast${toast ? " show" : ""}`} role="status" aria-live="polite">{toast}</div>
 
-      <div className={`modal${created ? " show" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modalTitle" onClick={(e) => e.target === e.currentTarget && setCreated(null)}>
+      <Dialog open={!!created} labelledBy="modalTitle" returnFocusRef={submitButton} className="hx-callback-dialog" onClose={() => setCreated(null)}>
         {created && (
           <div className="modal-box">
             <button className="modal-close" aria-label="Close dialog" onClick={() => setCreated(null)}>×</button>
@@ -152,7 +150,7 @@ export default function CallbackSection() {
             <div className="modal-actions"><button className="btn" onClick={trackCreated} autoFocus>Track this request</button><button className="btn light" onClick={() => setCreated(null)}>Continue browsing</button></div>
           </div>
         )}
-      </div>
+      </Dialog>
     </>
   );
 }

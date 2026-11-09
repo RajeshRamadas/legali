@@ -140,3 +140,18 @@ jobs:
         run: npm run lint --workspace frontend
       - name: Build production website
         run: npm run build --workspace frontend
+      - name: Install Chromium for browser regressions
+        run: npx --workspace frontend playwright install --with-deps chromium
+      - name: Check accessibility and keyboard/mobile behavior
+        run: npm run test:browser --workspace frontend
+      - name: Retain browser reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: browser-accessibility-reports
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+            security-reports/browser-results.xml
+          retention-days: 7
+          if-no-files-found: warn

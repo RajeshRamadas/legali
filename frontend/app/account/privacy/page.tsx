@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../../ui/MainContent";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PRIVACY_KIND_LABELS, PRIVACY_STATUS_LABELS, PRIVACY_RESOLUTION_LABELS, PRIVACY_REASON_LABELS, type PrivacyKind, type PrivacyNotice, type PrivacyRequestsPage, type PrivacyRequestRecord } from "@homexo/shared";
 import CustomerAccess from "../CustomerAccess";
@@ -13,10 +15,10 @@ export default function PrivacyCenter() {
   const [notice, setNotice] = useState<PrivacyNotice | null>(null), [error, setError] = useState("");
   const load = useCallback(async () => { try { setNotice(await api.privacyNotice()); setError(""); } catch { setError("The privacy notice could not load. Please try again."); } }, []);
   useEffect(() => { load(); }, [load]);
-  return <main className="privacy-center"><header><div className="eyebrow">Your information</div><h1>Privacy requests</h1><p>Ask for a copy of your information, a correction, or deletion. Track the team&apos;s review here.</p></header>
+  return <MainContent className="privacy-center"><header><div className="eyebrow">Your information</div><h1>Privacy requests</h1><p>Ask for a copy of your information, a correction, or deletion. Track the team&apos;s review here.</p></header>
     <section className="privacy-card privacy-notice"><h2>How your request is handled</h2>{notice ? <><ul>{notice.summary.map(text => <li key={text}>{text}</li>)}</ul><p className="privacy-muted">Notice version: {notice.version}</p></> : error ? <div role="alert"><p>{error}</p><button className="btn small light" onClick={load}>Reload notice</button></div> : <p role="status">Loading privacy notice…</p>}</section>
     <CustomerAccess intro="Sign in with your verified phone to send and track privacy requests for your account."><MyPrivacyRequests notice={notice} /></CustomerAccess>
-  </main>;
+  </MainContent>;
 }
 
 function MyPrivacyRequests({ notice }: { notice: PrivacyNotice | null }) {

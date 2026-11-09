@@ -10,5 +10,5 @@ export default defineConfig([
     "react-hooks/purity": "off",
     "react-hooks/preserve-manual-memoization": "off",
   } },
-  globalIgnores([".next/**", "next-env.d.ts", "public/demo-ui/**"]),
+  globalIgnores([".next/**", "next-env.d.ts", "public/demo-ui/**", "playwright-report/**", "test-results/**"]),
 ]);

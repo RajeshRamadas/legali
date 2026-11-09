@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../../ui/MainContent";
+
 import { useCallback, useEffect, useState } from "react";
 import { useStaff } from "../AdminShell";
 import { adminFetch, setToken, type StaffSession } from "../api";
@@ -44,7 +46,7 @@ export default function SecurityPage() {
     try { await adminFetch("/auth/logout-all", { method: "POST" }); signOut(); }
     catch (e) { setError(onError(e)); setBusy(false); }
   }
-  return <main className="staff-security"><header><div className="eyebrow">Your staff account</div><h1>Security</h1><p>Protect your workspace and control your sign-in sessions.</p></header>
+  return <MainContent className="staff-security"><header><div className="eyebrow">Your staff account</div><h1>Security</h1><p>Protect your workspace and control your sign-in sessions.</p></header>
     {error && <p className="admin-error" role="alert">{error}</p>}{notice && <p className="staff-security-notice" role="status">{notice}</p>}
     {!status ? <p>Loading security settings…</p> : <>
       <section className="admin-card"><h2>Two-factor sign-in</h2>
@@ -65,5 +67,5 @@ export default function SecurityPage() {
       </form></section>
       <section className="admin-card"><h2>Sign-in sessions</h2><p>Sign out every staff session, including this one, if a device is lost or shared.</p><button className="btn light" disabled={busy} onClick={revoke}>Sign out all devices</button></section>
     </>}
-  </main>;
+  </MainContent>;
 }

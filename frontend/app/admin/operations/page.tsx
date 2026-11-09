@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../../ui/MainContent";
+
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStaff } from "../AdminShell";
@@ -40,10 +42,10 @@ export default function SystemHealth() {
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
   }, [load, user.role]);
 
-  if (user.role !== "admin") return <main className="operations-page"><h1>System health</h1><p>Administrator access is required to view operational checks.</p></main>;
+  if (user.role !== "admin") return <MainContent className="operations-page"><h1>System health</h1><p>Administrator access is required to view operational checks.</p></MainContent>;
   const delayed = data?.channels.reduce((total, channel) => total + channel.delayed, 0) ?? 0;
   const failed = data?.channels.reduce((total, channel) => total + channel.failed_24h, 0) ?? 0;
-  return <main className="operations-page">
+  return <MainContent className="operations-page">
     <header className="operations-head"><div><div className="eyebrow">Administrator workspace</div><h1>System health</h1><p>Spot stalled work and delivery problems before they reach customers.</p></div><button className="btn small light" onClick={load} disabled={busy}>{busy ? "Checking…" : "Refresh checks"}</button></header>
     {error && <div className="admin-error" role="alert"><b>Could not refresh checks.</b><p>{error}</p>{data && <p>Showing the last successful snapshot below. Its checks may be out of date.</p>}</div>}
     {!data ? <p role="status">{error ? "Use Refresh checks to try again." : "Loading system checks…"}</p> : <>
@@ -71,5 +73,5 @@ export default function SystemHealth() {
         <section className="admin-card"><h2>Work needing review</h2><p>{data.deadlines.unacknowledged} deadline alerts · {data.deadlines.escalated} escalated.</p><p>{data.research.failed_24h} failed case-research scans in the last 24 hours.</p><div className="operations-links"><Link className="text-link" href="/admin/alerts">Deadline alerts →</Link><Link className="text-link" href="/admin/blog/cases">Case research →</Link></div></section></div>
       <p className="operations-footnote">Refreshes every 30 seconds while this page is visible. These application checks do not test external provider availability or backup recoverability; keep off-host backup monitoring and recovery drills running.</p>
     </>}
-  </main>;
+  </MainContent>;
 }

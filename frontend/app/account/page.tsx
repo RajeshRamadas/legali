@@ -1,4 +1,6 @@
 "use client";
+import MainContent from "../ui/MainContent";
+
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -52,13 +54,13 @@ export default function AccountPage() {
   return session ? (
     <Overview session={session} />
   ) : (
-    <main className="hx-signin-page">
+    <MainContent className="hx-signin-page">
       <PageHeader
         title="Everything in one place"
         subtitle="Sign in to follow requests, upload documents and manage consultations."
       />
       {session === null ? <SignInForm /> : <Skeleton height={300} />}
-    </main>
+    </MainContent>
   );
 }
 
@@ -191,7 +193,7 @@ function Overview({ session }: { session: Session }) {
     })),
   ].slice(0, 4);
   return (
-    <main className="hx-customer-dashboard">
+    <MainContent className="hx-customer-dashboard">
       <PageHeader
         title={greeting(session.profile.name || "there", now)}
         subtitle={dateLabel(now)}
@@ -455,7 +457,7 @@ function Overview({ session }: { session: Session }) {
           </Card>
         </aside>
       </div>
-    </main>
+    </MainContent>
   );
 }
 

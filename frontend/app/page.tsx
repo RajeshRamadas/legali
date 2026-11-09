@@ -1,3 +1,4 @@
+import MainContent from "./ui/MainContent";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -104,7 +105,7 @@ const services: {
 export default async function HomePage() {
   const { rera, flagged, lawyers, posts } = await load();
   return (
-    <main id="home" className="hx hp-home">
+    <MainContent className="hx hp-home">
       <PublicHero />
       <HomeSteps />
 
@@ -540,6 +541,6 @@ export default async function HomePage() {
           </ServiceButton>
         </div>
       </section>
-    </main>
+    </MainContent>
   );
 }
