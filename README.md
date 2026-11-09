@@ -25,7 +25,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
 - Docker Compose for local PostgreSQL + API.
-- GitHub Actions backend checks.
+- GitHub Actions dependency audits, Python source checks, SQLite/PostgreSQL API regressions and web/shared-client validation, with hash-verified Python installs (`docs/dependency-security.md`).
 - Requirements, architecture, API outline, implementation plan and security checklist.
 
 ## Architecture
@@ -127,7 +127,7 @@ With PostgreSQL running locally:
 
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install --require-hashes -r requirements-dev.txt
 export DATABASE_URL=postgresql://homexo_app:PASSWORD@localhost:5432/homexo
 export BOOTSTRAP_ADMIN_EMAIL=admin@homexo.local BOOTSTRAP_ADMIN_PASSWORD=choose-a-password
 alembic upgrade head
@@ -178,7 +178,7 @@ Before production, implement:
 4. Keep ClamAV running with updated signatures and scan existing files (`docs/malware-scanning.md`). Automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.
 5. Configure email/SMS provider credentials, verified senders and destination-country registrations before enabling live delivery. Resend/Twilio adapters and retry handling are implemented; see `docs/notifications.md`.
 6. Payment integration only after selecting a compliant provider; never store card data. Lawyer bookings show the fee but don't collect it yet.
-7. Configure and monitor API abuse budgets and schedule expired-counter cleanup (`docs/api-abuse-protection.md`). Schedule encrypted backups, arrange off-host copies/key escrow and perform recovery drills (`docs/backups.md`). Configure external log collection, alert routing and incident response (`docs/operations-monitoring.md`). Privacy request review and guarded anonymous chat retention are implemented; review the legal policy, legacy holds and business-record fulfillment procedures before enabling cleanup (`docs/privacy-and-retention.md`). Broader security testing and dependency scanning remain.
+7. Configure and monitor API abuse budgets and schedule expired-counter cleanup (`docs/api-abuse-protection.md`). Schedule encrypted backups, arrange off-host copies/key escrow and perform recovery drills (`docs/backups.md`). Configure external log collection, alert routing and incident response (`docs/operations-monitoring.md`). Privacy request review and guarded anonymous chat retention are implemented; review the legal policy, legacy holds and business-record fulfillment procedures before enabling cleanup (`docs/privacy-and-retention.md`). Automated security and regression checks are implemented; make their GitHub checks required, track the remaining moderate npm findings and arrange broader security review (`docs/dependency-security.md`).
 8. Legal review of service descriptions and authorization requirements for accessing government records.
 
 See `docs/requirements.md`, `docs/architecture.md`, `docs/api-contract.md`, `docs/implementation-plan.md` and `docs/security-checklist.md`.

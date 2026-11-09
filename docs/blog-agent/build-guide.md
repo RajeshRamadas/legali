@@ -20,7 +20,7 @@ Rules that apply to every step:
 
 1. Clone, then install:
    ```bash
-   cd backend && pip install -r requirements.txt   # includes anthropic>=1.15
+   cd backend && pip install --require-hashes -r requirements-dev.txt   # includes the locked runtime and test dependencies
    cd .. && npm install
    ```
 2. Run the existing tests: `cd backend && pytest -q`.

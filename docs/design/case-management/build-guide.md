@@ -33,7 +33,7 @@ as you go.
 
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install --require-hashes -r requirements-dev.txt
 python -m pytest -q
 cd .. && npm install && npm run typecheck --workspace frontend
 ```

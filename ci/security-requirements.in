@@ -1,0 +1,4 @@
+# Tools are isolated from the application runtime and pinned for repeatable checks.
+pip-audit==2.10.1
+bandit==1.9.4
+pip-tools==7.6.2

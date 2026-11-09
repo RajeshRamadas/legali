@@ -1,0 +1,5 @@
+# Test dependencies share all runtime pins.
+-c requirements.txt
+-r requirements.in
+pytest>=9.0.3,<10.0
+moto[s3]>=5.0,<6.0

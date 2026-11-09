@@ -4,12 +4,15 @@ import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
-from xml.etree import ElementTree
+from defusedxml import ElementTree
+from defusedxml.common import DefusedXmlException
+from PIL import Image
 
 from . import config
 
 MAX_PAGES = 15
 MAX_CHARS = 45000
+MAX_IMAGE_PIXELS = 20_000_000
 # Long edge for page images sent to vision models; larger images are downscaled by the provider anyway.
 IMAGE_EDGE = 1568
 
@@ -17,14 +20,15 @@ IMAGE_EDGE = 1568
 def model_image(path) -> bytes | None:
     """A JPEG copy of a scanned page for the extraction model. OCR text stays the quote anchor."""
     try:
-        from PIL import Image
         with Image.open(path) as image:
-            image = image.convert("RGB")
+            if image.width * image.height > MAX_IMAGE_PIXELS:
+                return None
             image.thumbnail((IMAGE_EDGE, IMAGE_EDGE))
+            image = image.convert("RGB")
             out = io.BytesIO()
             image.save(out, format="JPEG", quality=85)
             return out.getvalue()
-    except (OSError, ValueError, ImportError):
+    except (OSError, ValueError, Image.DecompressionBombError):
         return None
 
 
@@ -63,6 +67,11 @@ def extract(data: bytes, filename: str, images: dict | None = None, max_pages: i
                         warnings.append(f"Page {number} exceeds the text limit and was partially examined.")
                     pages.append({"page": number, "text": content.strip()[:10000], "method": method})
             elif suffix in (".png", ".jpg", ".jpeg", ".webp"):
+                with Image.open(path) as image:
+                    if image.width * image.height > MAX_IMAGE_PIXELS:
+                        warnings.append("Image dimensions exceed the extraction limit; resize it to at most 20 megapixels and upload a new copy.")
+                        raise ValueError("Document image exceeds extraction limit")
+                    image.verify()
                 text = command(["tesseract", str(path), "stdout", "-l", config.VERIFICATION_OCR_LANGUAGES])
                 if images is not None and (image := model_image(path)):
                     images[1] = image
@@ -74,7 +83,7 @@ def extract(data: bytes, filename: str, images: dict | None = None, max_pages: i
                     info = archive.getinfo("word/document.xml")
                     if info.file_size > 2_000_000:
                         raise ValueError("Document XML exceeds extraction limit")
-                    root = ElementTree.fromstring(archive.read(info))
+                    root = ElementTree.fromstring(archive.read(info), forbid_dtd=True, forbid_entities=True, forbid_external=True)
                 text = "\n".join("".join(p.itertext()) for p in root.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}p"))
                 if len(text) > MAX_CHARS:
                     warnings.append("DOCX text limit reached; the file was partially examined.")
@@ -82,7 +91,7 @@ def extract(data: bytes, filename: str, images: dict | None = None, max_pages: i
                 warnings.append("DOCX references use logical part 1, not printed page numbers; signatures and layout were not inspected.")
             else:
                 warnings.append("This format cannot be read by the agent. Supply a PDF, DOCX, PNG, JPEG or WEBP copy.")
-    except (OSError, subprocess.SubprocessError, ValueError, StopIteration, zipfile.BadZipFile, KeyError, ElementTree.ParseError):
+    except (OSError, subprocess.SubprocessError, ValueError, StopIteration, zipfile.BadZipFile, KeyError, ElementTree.ParseError, DefusedXmlException, Image.DecompressionBombError):
         warnings.append("Text extraction failed or timed out. Supply a legible, unencrypted copy and check OCR tools/language packs.")
     remaining = MAX_CHARS
     for page in pages:

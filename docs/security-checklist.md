@@ -21,3 +21,4 @@
 - [ ] Audit status changes, assignments, exports and permission changes.
 - [ ] Review privacy, consumer protection, professional-service and government-record access requirements with qualified counsel.
 - [ ] Test authorization failures, IDOR, prompt injection, upload abuse and data leakage.
+  Automated dependency/source checks and full SQLite/PostgreSQL API regressions are implemented. Require the workflow checks before merging, review retained reports and track the open moderate npm findings; broader manual security testing remains necessary ([dependency security](dependency-security.md)).
