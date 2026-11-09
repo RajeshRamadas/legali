@@ -113,3 +113,4 @@ body .rr-col-bar { color: var(--on-primary); }
 .hx-security-status { display: block; margin-block: 5px; font-size: 12px; line-height: 1.6; color: var(--amber-ink); }
 .hx-security-status.clean { color: var(--green-ink); }
 .hx-security-status.infected { color: var(--red-ink); }
+.hx-form-trap { position: absolute !important; inline-size: 1px; block-size: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; pointer-events: none; }

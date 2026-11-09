@@ -130,6 +130,12 @@ class StaffAuthBucket(Base):
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False)
 
+class ApiRateBucket(Base):
+    __tablename__ = "api_rate_buckets"
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+
 class Role(Base):
     __tablename__ = "roles"
 

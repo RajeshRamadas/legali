@@ -18,6 +18,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Guided customer requests at `/request`: relevant questions, private save/resume, editable review and explicit consent before a ticket is created (`docs/guided-intake.md`).
 - Case management (`/admin/cases` and each ticket page): six milestones per case, allowed status moves with closure checks and reopen, case tasks with a playbook that adds and ticks off routine work, a case team, first-response and due-date deadlines, a case fee, and a step bar for customers (see `docs/case-management.md`).
 - Case targets pause while on hold; staff deadline alerts (`/admin/alerts`) track missed targets, acknowledgements and administrator escalation with optional email (`docs/deadline-alerts.md`).
+- Shared API abuse budgets protect submissions, private lookups, uploads, authentication and expensive checks; public callback forms keep entries and show a retry countdown (`docs/api-abuse-protection.md`).
 - Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
 - Docker Compose for local PostgreSQL + API.
@@ -174,7 +175,7 @@ Before production, implement:
 4. Keep ClamAV running with updated signatures and scan existing files (`docs/malware-scanning.md`). Automatic fetching from government portals, which today is a task queue for staff because the portals have no open API.
 5. Configure email/SMS provider credentials, verified senders and destination-country registrations before enabling live delivery. Resend/Twilio adapters and retry handling are implemented; see `docs/notifications.md`.
 6. Payment integration only after selecting a compliant provider; never store card data. Lawyer bookings show the fee but don't collect it yet.
-7. Rate limiting for login, ticket intake and lookup (chat is limited already), abuse protection, backups, observability, privacy retention (including a clean-up of old chat transcripts) and security testing.
+7. Configure and monitor API abuse budgets and schedule expired-counter cleanup (`docs/api-abuse-protection.md`). Shared rate limits, bounded request bodies and public-form honeypots are implemented. Backups with restore testing, observability, privacy retention (including old chat transcripts) and broader security testing remain.
 8. Legal review of service descriptions and authorization requirements for accessing government records.
 
 See `docs/requirements.md`, `docs/architecture.md`, `docs/api-contract.md`, `docs/implementation-plan.md` and `docs/security-checklist.md`.

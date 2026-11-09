@@ -17,6 +17,7 @@ from .models import CLOSED_STATUSES, PROPERTY_TYPES, ServiceRequest, ServiceType
 router = APIRouter()
 
 class TicketCreate(BaseModel):
+    website_url: str = Field(default="", max_length=200, description="Leave empty; used by public forms to reject automated submissions.")
     property_intake: document_requirements.PropertyIntake | None = None
     customer_name: str = Field(min_length=2, max_length=120)
     contact: str = Field(min_length=5, max_length=254, description="Phone number (or email for older clients).")
@@ -63,6 +64,8 @@ def get_service(slug: str):
 
 @router.post("/api/v1/tickets", status_code=201)
 def create_ticket(payload: TicketCreate, request: Request, db: Session = Depends(get_db)):
+    if payload.website_url.strip():
+        raise HTTPException(400, "We couldn't submit this request. Reload the page and try again.")
     service = db.scalars(select(ServiceType).where(ServiceType.slug == payload.service_slug, ServiceType.is_active.is_(True))).first()
     if service is None:
         raise HTTPException(status_code=422, detail="Unknown service_slug")

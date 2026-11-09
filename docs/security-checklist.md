@@ -8,6 +8,7 @@
 - [ ] Use TLS everywhere outside local development.
 - [ ] Keep CORS restricted to known frontend origins.
 - [ ] Rate-limit public intake, login, uploads and AI endpoints.
+  Shared API budgets, request-size caps and callback-form honeypots are implemented; tune limits, verify trusted-proxy settings and schedule cleanup for deployment ([API abuse protection](api-abuse-protection.md)). Existing staff sign-in and customer OTP account limits remain in place.
 - [ ] Validate file type by content, size, extension and malware scan.
 - [ ] Store documents in private object storage; use expiring signed URLs.
 - [ ] Do not place personal data or document contents in application logs.

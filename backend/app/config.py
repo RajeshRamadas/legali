@@ -183,3 +183,12 @@ NOTIFY_MAX_AGE_HOURS = max(1, int(os.getenv("NOTIFY_MAX_AGE_HOURS", "24")))
 CLAMAV_HOST = os.getenv("CLAMAV_HOST", "127.0.0.1")
 CLAMAV_PORT = int(os.getenv("CLAMAV_PORT", "3310"))
 CLAMAV_TIMEOUT = max(1, int(os.getenv("CLAMAV_TIMEOUT", "30")))
+
+# API budgets apply to both the client address and a cryptographically verified session identity when present.
+API_SUBMISSIONS_PER_HOUR = max(1, int(os.getenv("API_SUBMISSIONS_PER_HOUR", "20")))
+API_LOOKUPS_PER_MINUTE = max(1, int(os.getenv("API_LOOKUPS_PER_MINUTE", "60")))
+API_UPLOADS_PER_MINUTE = max(1, int(os.getenv("API_UPLOADS_PER_MINUTE", "20")))
+API_AI_ACTIONS_PER_MINUTE = max(1, int(os.getenv("API_AI_ACTIONS_PER_MINUTE", "10")))
+API_WRITES_PER_MINUTE = max(1, int(os.getenv("API_WRITES_PER_MINUTE", "60")))
+API_DOWNLOADS_PER_MINUTE = max(1, int(os.getenv("API_DOWNLOADS_PER_MINUTE", "120")))
+API_AUTH_PER_MINUTE = max(1, int(os.getenv("API_AUTH_PER_MINUTE", "60")))

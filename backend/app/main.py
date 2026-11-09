@@ -10,6 +10,7 @@ from .bootstrap import sync_reference_data
 from .db import SessionLocal
 from .models import ReraProject
 from .rera_sample import load_sample
+from .abuse_protection import AbuseProtection
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -34,12 +35,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(AbuseProtection)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["Retry-After"],
 )
 
 app.include_router(public.router)

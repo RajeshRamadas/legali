@@ -14,6 +14,7 @@ import type {
   TicketStatus,
 } from "@homexo/shared";
 import { api } from "../api";
+import { ApiError } from "@homexo/shared";
 import { ASK_EVENT } from "../homeEvents";
 import { readSession } from "../account/session";
 export type NewMessage =
@@ -111,11 +112,11 @@ function useCore() {
           ticketNumber: reply.ticket_number ?? "",
           messageId: nextId.current - 1,
         });
-    } catch {
+    } catch (error) {
       if (generation !== epoch.current) return;
       push({
         from: "bot",
-        text: "I couldn't reach our team just now. Please use the callback form on this page, or try again in a moment.",
+        text: error instanceof ApiError && error.status === 429 ? error.message : "I couldn't reach our team just now. Please use the callback form on this page, or try again in a moment.",
       });
       setSuggestions(STARTERS);
     } finally {

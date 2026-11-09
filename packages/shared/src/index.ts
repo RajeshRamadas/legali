@@ -37,6 +37,7 @@ export type Service = {
 
 // Mirrors TicketCreate in backend/app/public.py.
 export type TicketCreate = {
+  website_url?: string;
   property_intake?: PropertyIntake;
   customer_name: string;
   contact: string;
@@ -621,9 +622,11 @@ export const DEFAULT_API_BASE_URL = "http://localhost:8000";
 // Thrown for any failed API call. status 401 on an account call means the session ended: sign in again.
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  retryAfterSeconds?: number;
+  constructor(message: string, status: number, retryAfterSeconds?: number) {
     super(message);
     this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -636,7 +639,10 @@ async function fetchJson<T>(baseUrl: string, path: string, init?: RequestInit): 
       typeof data.detail === "string" ? data.detail
       : Array.isArray(data.detail) && data.detail[0]?.msg ? `${data.detail[0].loc?.at(-1) ?? "Field"}: ${data.detail[0].msg}`
       : "Request failed.";
-    throw new ApiError(detail, response.status);
+    const header = response.headers.get("Retry-After");
+    const delay = header ? (/^\d+$/.test(header) ? Number(header) : Math.ceil((Date.parse(header) - Date.now()) / 1000)) : data.retry_after;
+    const retry = typeof delay === "number" && Number.isFinite(delay) ? Math.max(0, Math.min(86400, Math.ceil(delay))) : undefined;
+    throw new ApiError(detail, response.status, retry);
   }
   return data as T;
 }

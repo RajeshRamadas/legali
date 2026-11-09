@@ -14,6 +14,8 @@ import {
 } from "@homexo/shared";
 import { api } from "./api";
 import { useAssistant } from "./ui/useAssistant";
+import useRetryDelay from "./ui/useRetryDelay";
+import FormTrap from "./ui/FormTrap";
 import { TicketStatusCard } from "./TrackRequest";
 
 export default function ChatWidget() {
@@ -218,6 +220,8 @@ export function ChatRequestForm({
   const types = PROPERTY_TYPES.filter((t) =>
     service.property_types.includes(t.value),
   );
+  const retry = useRetryDelay();
+  const [website, setWebsite] = useState("");
   const [values, setValues] = useState({
     name: "",
     phone: "",
@@ -229,10 +233,12 @@ export function ChatRequestForm({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (sending || retry.seconds > 0) return;
     setError("");
     setSending(true);
     try {
       const data = await api.createTicket({
+        website_url: website,
         customer_name: values.name.trim(),
         contact: values.phone.trim(),
         property_type: values.propertyType,
@@ -244,6 +250,7 @@ export function ChatRequestForm({
       });
       onDone(data.ticket_number, values.phone.trim());
     } catch (err) {
+      retry.record(err);
       setError(
         err instanceof Error ? err.message : "Could not raise the request.",
       );
@@ -254,6 +261,7 @@ export function ChatRequestForm({
 
   return (
     <form className="chat-form" onSubmit={submit}>
+      <FormTrap value={website} onChange={setWebsite} />
       <b>{service.name}</b>
       <Link className="text-link" href={`/request?service=${encodeURIComponent(service.slug)}`}>Use guided questions and save your progress</Link>
       <input
@@ -300,8 +308,8 @@ export function ChatRequestForm({
         </small>
       )}
       <div className="chat-form-actions">
-        <button className="btn small" disabled={sending}>
-          {sending ? "Sending…" : "Raise request"}
+        <button className="btn small" disabled={sending || retry.seconds > 0}>
+          {sending ? "Sending…" : retry.seconds > 0 ? `Try again in ${retry.seconds}s` : "Raise request"}
         </button>
         <button type="button" className="text-link" onClick={onCancel}>
           Cancel

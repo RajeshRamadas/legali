@@ -9,6 +9,8 @@ import { SERVICE_EVENT, type ServiceRequest } from "./homeEvents";
 import PropertyIntakeFields, { EMPTY_INTAKE } from "./PropertyIntakeFields";
 import Link from "next/link";
 import { openDocuments } from "./documents/ref";
+import useRetryDelay from "./ui/useRetryDelay";
+import FormTrap from "./ui/FormTrap";
 
 const emptyForm = { name: "", phone: "", email: "", propertyType: "apartment" as PropertyType, location: "", description: "" };
 
@@ -20,6 +22,8 @@ export default function CallbackSection() {
   const [form, setForm] = useState(emptyForm);
   const [intake, setIntake] = useState(EMPTY_INTAKE);
   const [sending, setSending] = useState(false);
+  const [website, setWebsite] = useState("");
+  const retry = useRetryDelay();
   const [formError, setFormError] = useState("");
   const [created, setCreated] = useState<{ ticket: string; contact: string; name: string; message: string } | null>(null);
   const [trackPrefill, setTrackPrefill] = useState({ ticket: "", contact: "", key: 0 });
@@ -61,10 +65,12 @@ export default function CallbackSection() {
 
   async function submitCallback(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (sending || retry.seconds > 0) return;
     setFormError("");
     setSending(true);
     try {
       const data = await api.createTicket({
+        website_url: website,
         property_intake: intake,
         customer_name: form.name.trim(),
         contact: form.phone.trim(),
@@ -78,8 +84,10 @@ export default function CallbackSection() {
       });
       setCreated({ ticket: data.ticket_number, contact: form.phone.trim(), name: form.name.trim(), message: data.message });
       setForm(emptyForm);
+      setWebsite("");
       setSelectedPackage(null);
     } catch (error) {
+      retry.record(error);
       setFormError(error instanceof Error ? error.message : "We couldn't send your request. Please try again.");
     } finally {
       setSending(false);
@@ -105,6 +113,7 @@ export default function CallbackSection() {
             {selectedPackage && <p className="selected-package">Package: <b>{selectedPackage}</b> <button type="button" className="text-link" onClick={() => setSelectedPackage(null)}>Remove</button></p>}
           </div>
           <form className="callback-form" onSubmit={submitCallback}>
+            <FormTrap value={website} onChange={setWebsite} />
             <div className="field"><label htmlFor="fullName">Full name</label><input id="fullName" placeholder="Your name" autoComplete="name" required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             <div className="field"><label htmlFor="phone">Phone number</label><input id="phone" type="tel" placeholder="10-digit mobile number" autoComplete="tel" pattern="[0-9+\(\) \-]{8,18}" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" placeholder="you@email.com" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
@@ -121,7 +130,7 @@ export default function CallbackSection() {
             <div className="field"><label htmlFor="location">Property location</label><input id="location" placeholder="Area, city" required minLength={2} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
             <div className="field wide"><label htmlFor="description">Anything we should know? (optional)</label><textarea id="description" rows={2} placeholder="e.g. Resale 2BHK, registration planned next month" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <details className="wide"><summary>Tailor the document checklist to your property</summary><p>These answers help us request the right documents automatically. Choose unknown whenever you are unsure.</p><PropertyIntakeFields value={intake} onChange={setIntake} /></details>
-            <button className="btn" type="submit" disabled={sending}>{sending ? "Sending…" : "Request free callback ↗"}</button>
+            <button className="btn" type="submit" disabled={sending || retry.seconds > 0}>{sending ? "Sending…" : retry.seconds > 0 ? `Try again in ${retry.seconds}s` : "Request free callback ↗"}</button>
             {formError ? <div className="form-note form-error" role="alert">{formError}</div> : <div className="form-note">Your details are used only to respond to this request.</div>}
           </form>
         </div>
