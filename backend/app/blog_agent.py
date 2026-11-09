@@ -28,6 +28,7 @@ from . import blog_checks, config
 from .db import SessionLocal, get_db
 from .models import CASE_LEAD_STATUSES, AuditLog, CaseLead, CaseScanRun, Post, User, utcnow
 from .security import require_admin
+from .telemetry import observe_worker, WorkerConfigurationError
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/admin")
@@ -440,14 +441,21 @@ def _due() -> bool:
     last = last if last.tzinfo else last.replace(tzinfo=now.tzinfo)
     return now - last >= timedelta(hours=config.BLOG_AGENT_INTERVAL_HOURS)
 
+@observe_worker("blog_scan")
+def _scheduled_tick(force=False, trigger="schedule"):
+    if get_client() is None:
+        raise WorkerConfigurationError()
+    if force or _due():
+        run_scheduled(trigger)
+
+
 async def worker_loop() -> None:
     """Checks every 15 minutes whether a scheduled scan is due, so restarts do not reset the schedule."""
     while True:
         try:
-            if get_client() is not None and await asyncio.to_thread(_due):
-                await asyncio.to_thread(run_scheduled)
+            await asyncio.to_thread(_scheduled_tick)
         except Exception:
-            log.exception("Scheduled case scan failed")
+            pass  # The observation wrapper emits a privacy-safe failure event.
         await asyncio.sleep(900)
 
 # --- Admin API --------------------------------------------------------------------------------------------------
@@ -567,4 +575,7 @@ if __name__ == "__main__":
             scan_id = start_scan(session, "cli").id
         scan_by_id(scan_id)
     else:
-        run_scheduled("cli")
+        try:
+            _scheduled_tick(force=True, trigger="cli")
+        except Exception:
+            raise SystemExit(1) from None

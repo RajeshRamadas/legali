@@ -3,6 +3,7 @@ import AdminShell from "./AdminShell";
 import "../ui/views/admin-admin.css";
 import "./cases.css";
 import "./security.css";
+import "./operations.css";
 
 export const metadata: Metadata = {
   title: "Homexo Legal · Staff workspace",

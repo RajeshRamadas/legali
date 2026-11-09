@@ -136,6 +136,18 @@ class ApiRateBucket(Base):
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False)
 
+class WorkerPulse(Base):
+    """Latest observations of a logical worker group, shared across API/CLI processes."""
+    __tablename__ = "worker_pulses"
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_failure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    error_code: Mapped[str | None] = mapped_column(Text)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
+
 class Role(Base):
     __tablename__ = "roles"
 

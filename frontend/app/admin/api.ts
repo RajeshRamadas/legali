@@ -11,6 +11,15 @@ export type StaffUser = {
   mfa_enabled: boolean;
 };
 export type StaffSession = { access_token: string; user: StaffUser; recovery_codes?: string[] };
+export type OperationsHealth = {
+  checked_at: string; status: "healthy" | "attention"; database: "ready"; queue_warn_minutes: number;
+  workers: { name: "notifications" | "blog_scan"; state: "healthy" | "failed" | "stale" | "starting" | "not_observed" | "disabled";
+    enabled_in_api: boolean; stale_after_seconds: number; started_at: string | null; finished_at: string | null;
+    last_success_at: string | null; last_failure_at: string | null; duration_ms: number | null; consecutive_failures: number; error_code: string | null }[];
+  channels: { name: "email" | "sms" | "whatsapp"; configured: boolean; due: number; scheduled: number; delayed: number; failed_24h: number; oldest_due_at: string | null }[];
+  documents: { pending: number; delayed: number; failed: number; infected: number };
+  deadlines: { unacknowledged: number; escalated: number }; research: { failed_24h: number };
+};
 export type StaffLogin = StaffSession | { mfa_required: true; challenge_token: string } | { mfa_setup_required: true; setup_token: string };
 export type TeamMember = StaffUser & { lawyer: boolean };
 export type StaffRef = { id: string; name: string } | null;
@@ -184,7 +193,7 @@ export async function adminFetch<T>(path: string, init: RequestInit = {}): Promi
     const detail = typeof data.detail === "string" ? data.detail
       : Array.isArray(data.detail) && data.detail[0]?.msg ? `${data.detail[0].loc?.at(-1) ?? "Field"}: ${data.detail[0].msg}`
       : "Request failed.";
-    throw new Error(detail);
+    throw new Error(withReference(detail, response));
   }
   return data as T;
 }
@@ -195,8 +204,13 @@ export async function adminUpload<T>(path: string, form: FormData): Promise<T> {
   const response = await fetch(`${BASE_URL}/api/v1${path}`, { method: "POST", body: form, headers: token ? { Authorization: `Bearer ${token}` } : {} });
   const data = await response.json().catch(() => ({}));
   if (response.status === 401) throw new UnauthorizedError("Sign in to continue.");
-  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Upload failed.");
+  if (!response.ok) throw new Error(withReference(typeof data.detail === "string" ? data.detail : "Upload failed.", response));
   return data as T;
+}
+
+function withReference(detail: string, response: Response): string {
+  const reference = response.headers.get("X-Request-ID");
+  return response.status >= 500 && reference && /^[a-f0-9]{32}$/.test(reference) ? `${detail} Reference: ${reference}.` : detail;
 }
 
 // Download links in ticket views are short-lived paths on the API.

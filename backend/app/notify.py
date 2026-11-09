@@ -20,6 +20,7 @@ from .db import SessionLocal
 from .meetings import render
 from .models import Meeting, Notification, ServiceRequest, User, utcnow
 from .tickets import aware
+from .telemetry import observe_worker
 
 log = logging.getLogger("homexo.notify")
 
@@ -158,6 +159,7 @@ def queue_daily_agendas(db: Session, now: datetime | None = None) -> int:
     db.commit()
     return queued
 
+@observe_worker("notifications")
 def run_once() -> None:
     with SessionLocal() as db:
         payments.release_unpaid(db)
@@ -170,7 +172,7 @@ async def worker_loop() -> None:
         try:
             await asyncio.to_thread(run_once)
         except Exception:
-            log.exception("Notification run failed")
+            pass  # observe_worker recorded a fixed error category without provider/SQL details.
         await asyncio.sleep(config.NOTIFY_INTERVAL_SECONDS)
 
 if __name__ == "__main__":
@@ -179,7 +181,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     while True:
-        run_once()
+        try:
+            run_once()
+        except Exception:
+            if not args.loop:
+                raise SystemExit(1) from None  # The observation wrapper already emitted a safe event.
         if not args.loop:
             break
         time.sleep(config.NOTIFY_INTERVAL_SECONDS)

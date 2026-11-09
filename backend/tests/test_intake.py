@@ -210,8 +210,10 @@ def test_retired_service_requires_reselection_and_submit_is_transactional(client
         original(*args, **kwargs)
         raise RuntimeError("Synthetic failure before consent commit")
     monkeypatch.setattr(tickets, "create_ticket", fail)
-    with pytest.raises(RuntimeError):
-        submit(client, draft)
+    response = submit(client, draft)
+    assert response.status_code == 500
+    assert response.json()["request_id"] == response.headers["x-request-id"]
+    assert "Synthetic failure" not in response.text
     with SessionLocal() as db:
         assert db.scalar(select(func.count()).select_from(ServiceRequest)) == 0
         assert db.get(IntakeDraft, uuid.UUID(draft["id"])).status == "draft"

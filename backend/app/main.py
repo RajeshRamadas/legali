@@ -11,9 +11,14 @@ from .db import SessionLocal
 from .models import ReraProject
 from .rera_sample import load_sample
 from .abuse_protection import AbuseProtection
+from . import operations
+from .telemetry import RequestTelemetry, disable_raw_access_logs
+
+disable_raw_access_logs()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    disable_raw_access_logs()
     # Tables come from Alembic migrations (`alembic upgrade head`); this only syncs reference data.
     with SessionLocal() as db:
         sync_reference_data(db)
@@ -36,14 +41,6 @@ app = FastAPI(
 )
 
 app.add_middleware(AbuseProtection)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=config.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
-    expose_headers=["Retry-After"],
-)
 
 app.include_router(public.router)
 app.include_router(chat.router)
@@ -62,6 +59,7 @@ app.include_router(rera.router)
 app.include_router(accounts.router)
 app.include_router(verification.router)
 app.include_router(verification_workflow.router)
+app.include_router(operations.router)
 
 
 @app.middleware("http")
@@ -73,3 +71,15 @@ async def private_customer_responses(request, call_next):
         if "authorization" not in vary.lower():
             response.headers["Vary"] = f"{vary}, Authorization".strip(", ")
     return response
+
+
+# CORS wraps telemetry so even unexpected, sanitized error responses expose the reference.
+app.add_middleware(RequestTelemetry)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["Retry-After", "X-Request-ID"],
+)

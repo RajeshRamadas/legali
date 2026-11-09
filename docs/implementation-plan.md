@@ -44,6 +44,7 @@
 - [ ] Privacy notice, terms and grievance/contact details
 - [ ] Backup/restore test and monitoring
   Encrypted database/document backup, verification, empty-target recovery and freshness/retention commands are implemented (`backups.md`). Deployment scheduling, off-host copies, recovery drills and broader monitoring still need configuration.
+  Administrator system health, database readiness and request/worker logs are implemented (`operations-monitoring.md`); connect an external collector and configure/test alert routing.
 - [ ] Accessibility and mobile QA
 - [ ] Load tests, incident runbook and support process
 - [ ] Pilot with limited service types and locations

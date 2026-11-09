@@ -192,3 +192,6 @@ API_AI_ACTIONS_PER_MINUTE = max(1, int(os.getenv("API_AI_ACTIONS_PER_MINUTE", "1
 API_WRITES_PER_MINUTE = max(1, int(os.getenv("API_WRITES_PER_MINUTE", "60")))
 API_DOWNLOADS_PER_MINUTE = max(1, int(os.getenv("API_DOWNLOADS_PER_MINUTE", "120")))
 API_AUTH_PER_MINUTE = max(1, int(os.getenv("API_AUTH_PER_MINUTE", "60")))
+
+# Delayed notification/document queues are highlighted in administrator system health.
+OPS_QUEUE_WARN_MINUTES = max(1, int(os.getenv("OPS_QUEUE_WARN_MINUTES", "15")))

@@ -130,6 +130,7 @@ class AbuseProtection:
             await self.app(scope, receive, send)
             return
         headers = scope.get("headers", [])
+        scope["homexo.policy"] = policy.group
         authorizations = [value for name, value in headers if name.lower() == b"authorization"]
         if len(authorizations) > 1:
             await reject(scope, receive, send, 400, "Use one Authorization header.")

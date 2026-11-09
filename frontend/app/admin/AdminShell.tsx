@@ -122,10 +122,11 @@ export default function AdminShell({
     ...(user.role === "admin"
       ? [
           {
-            label: "Content",
+            label: "Administration",
             items: [
               { href: "/admin/blog", label: "Blog", icon: "pen" as const },
               { href: "/admin/staff", label: "Staff", icon: "users" as const },
+              { href: "/admin/operations", label: "System health", icon: "settings" as const },
             ],
           },
         ]
