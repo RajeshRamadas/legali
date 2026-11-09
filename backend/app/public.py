@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from . import tickets, document_requirements
 from .catalogue import SERVICES, SERVICES_BY_SLUG
 from .db import get_db
-from .customer_auth import current_customer, owned_ticket
+from .customer_auth import current_customer, optional_customer, owned_ticket
 from .models import CustomerAccount
 from .models import CLOSED_STATUSES, PROPERTY_TYPES, ServiceRequest, ServiceType, Conversation
 
@@ -63,7 +63,7 @@ def get_service(slug: str):
     return service
 
 @router.post("/api/v1/tickets", status_code=201)
-def create_ticket(payload: TicketCreate, request: Request, db: Session = Depends(get_db)):
+def create_ticket(payload: TicketCreate, request: Request, db: Session = Depends(get_db), account: CustomerAccount | None = Depends(optional_customer)):
     if payload.website_url.strip():
         raise HTTPException(400, "We couldn't submit this request. Reload the page and try again.")
     service = db.scalars(select(ServiceType).where(ServiceType.slug == payload.service_slug, ServiceType.is_active.is_(True))).first()
@@ -76,8 +76,10 @@ def create_ticket(payload: TicketCreate, request: Request, db: Session = Depends
         raise HTTPException(status_code=422, detail="contact: Enter a valid phone number.")
     if payload.conversation_id:
         from .chat import client_key
-        conversation = db.get(Conversation, payload.conversation_id)
-        if conversation is not None and (conversation.customer_id is not None or conversation.client_key != client_key(request)):
+        conversation = db.scalar(select(Conversation).where(Conversation.id == payload.conversation_id).with_for_update())
+        if conversation is not None and (conversation.customer_id is not None
+            or (conversation.account_id is not None and (account is None or conversation.account_id != account.id))
+            or (conversation.account_id is None and conversation.client_key != client_key(request))):
             raise HTTPException(status_code=404, detail="Conversation not found.")
     ticket = tickets.create_ticket(
         db, customer_name=payload.customer_name.strip(), phone=phone, email=(email or "").strip() or None,

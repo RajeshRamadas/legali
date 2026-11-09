@@ -127,6 +127,7 @@ export default function AdminShell({
               { href: "/admin/blog", label: "Blog", icon: "pen" as const },
               { href: "/admin/staff", label: "Staff", icon: "users" as const },
               { href: "/admin/operations", label: "System health", icon: "settings" as const },
+              { href: "/admin/privacy", label: "Privacy requests", icon: "shield" as const },
             ],
           },
         ]

@@ -173,17 +173,23 @@ def _history(conversation: Conversation) -> list[dict]:
 def chat(payload: ChatMessage, request: Request, account: CustomerAccount | None = Depends(optional_customer), db: Session = Depends(get_db)):
     key = client_key(request)
     _rate_limit(db, key)
-    conversation = db.get(Conversation, payload.conversation_id) if payload.conversation_id else None
+    conversation = db.scalar(select(Conversation).where(Conversation.id == payload.conversation_id).with_for_update()) if payload.conversation_id else None
     if conversation is None:
-        conversation = Conversation(client_key=key)
+        conversation = Conversation(client_key=key, account_id=account.id if account else None)
         db.add(conversation)
         db.flush()
         history = [turn.model_dump() for turn in payload.history[-HISTORY_TURNS:]]
     else:
+        if conversation.account_id and (account is None or conversation.account_id != account.id):
+            raise HTTPException(status_code=404, detail="Conversation not found.")
         if conversation.customer_id:
             owner = db.get(Customer, conversation.customer_id)
             if account is None or owner is None or owner.phone_normalized != account.phone_normalized:
                 raise HTTPException(status_code=404, detail="Conversation not found.")
+        elif conversation.account_id is None and conversation.client_key != key:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        if account and conversation.account_id is None:
+            conversation.account_id = account.id
         history = _history(conversation)
 
     ticket = None

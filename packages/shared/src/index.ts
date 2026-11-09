@@ -70,6 +70,24 @@ export type IntakeDraft = {
   updated_at: string; expires_at: string; ticket: TicketCreated | null; notice: IntakeNotice;
 };
 
+export type PrivacyKind = "access" | "correction" | "deletion";
+export type PrivacyStatus = "submitted" | "in_review" | "closed" | "withdrawn";
+export type PrivacyResolution = "fulfilled" | "partial" | "declined";
+export type PrivacyReason = "legal_retention" | "scope_or_identity" | "not_held" | "other";
+export const PRIVACY_KIND_LABELS = { access: "Access to information", correction: "Correction", deletion: "Deletion" };
+export const PRIVACY_STATUS_LABELS = { submitted: "Submitted", in_review: "Under review", closed: "Closed", withdrawn: "Withdrawn" };
+export const PRIVACY_RESOLUTION_LABELS = { fulfilled: "Fulfilled", partial: "Partially fulfilled", declined: "Declined" };
+export const PRIVACY_REASON_LABELS = { legal_retention: "Applicable retention requirements", scope_or_identity: "Scope or identity could not be confirmed", not_held: "Information is not held", other: "Other reason explained in the response" };
+export type PrivacyNotice = { version: string; review_target_days: number; chat_retention_days: number; summary: string[] };
+export type PrivacyRequestSummary = {
+  id: string; reference: string; kind: PrivacyKind; status: PrivacyStatus; revision: number; ticket_number: string | null;
+  created_at: string; updated_at: string; due_at: string; overdue: boolean; review_started_at: string | null; closed_at: string | null;
+  resolution: PrivacyResolution | null; retention_reason: PrivacyReason | null; customer_response: string | null;
+};
+export type PrivacyRequestRecord = PrivacyRequestSummary & { details: string; notice_version: string };
+export type PrivacyRequestsPage = { items: PrivacyRequestRecord[]; total: number; page: number; page_size: number };
+export type PrivacyRequestCreate = { kind: PrivacyKind; details: string; ticket_number?: string | null; submission_key: string; notice_version: string };
+
 // Mirrors meeting_view in backend/app/tickets.py. meet_link is null once a meeting is cancelled or completed.
 export type CustomerMeeting = {
   id: string;
@@ -674,6 +692,10 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     }
   }
   return {
+    privacyNotice(): Promise<PrivacyNotice> { return request(baseUrl, "/api/v1/privacy/notice"); },
+    privacyRequests(page = 1): Promise<PrivacyRequestsPage> { return request(baseUrl, `/api/v1/account/privacy-requests?page=${page}`); },
+    createPrivacyRequest(payload: PrivacyRequestCreate): Promise<PrivacyRequestRecord> { return request(baseUrl, "/api/v1/account/privacy-requests", post(payload)); },
+    withdrawPrivacyRequest(id: string, revision: number): Promise<PrivacyRequestRecord> { return request(baseUrl, `/api/v1/account/privacy-requests/${encodeURIComponent(id)}/withdraw`, post({ revision })); },
     intakeNotice(): Promise<IntakeNotice> { return request<IntakeNotice>(baseUrl, "/api/v1/intake/notice"); },
     intakeDrafts(): Promise<{ items: IntakeDraft[]; notice: IntakeNotice }> { return request(baseUrl, "/api/v1/intake/drafts"); },
     startIntake(noticeVersion: string, consent: boolean, serviceSlug?: string): Promise<IntakeDraft> {

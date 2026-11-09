@@ -1,4 +1,4 @@
-import { DEFAULT_API_BASE_URL, type UploadCheck, type CustomerMeeting, type GovSource, type ReportItem, type ReportSection, type DocumentRequest } from "@homexo/shared";
+import { DEFAULT_API_BASE_URL, type UploadCheck, type CustomerMeeting, type GovSource, type ReportItem, type ReportSection, type DocumentRequest, type PrivacyRequestRecord, type PrivacyRequestSummary } from "@homexo/shared";
 
 // Staff workspace API (backend/app/admin.py). Kept out of @homexo/shared because only the website uses it.
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
@@ -11,6 +11,9 @@ export type StaffUser = {
   mfa_enabled: boolean;
 };
 export type StaffSession = { access_token: string; user: StaffUser; recovery_codes?: string[] };
+export type AdminPrivacyRequest = PrivacyRequestRecord & { customer: { name: string | null; phone_last4: string }; internal_note: string | null };
+export type AdminPrivacyQueue = { items: (PrivacyRequestSummary & Pick<AdminPrivacyRequest, "customer">)[]; total: number; overdue: number; page: number; page_size: number };
+export type PrivacyRetention = { cleanup_enabled: boolean; retention_days: number; eligible_anonymous_chats: number; held_conversations: number };
 export type OperationsHealth = {
   checked_at: string; status: "healthy" | "attention"; database: "ready"; queue_warn_minutes: number;
   workers: { name: "notifications" | "blog_scan"; state: "healthy" | "failed" | "stale" | "starting" | "not_observed" | "disabled";

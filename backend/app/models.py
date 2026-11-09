@@ -251,9 +251,11 @@ class Conversation(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint(_check_in("state", ("active", "submitted", "closed", "abandoned")), name="ck_conversations_state"),
         Index("idx_conversations_client_key", "client_key"),
+        Index("ix_conversations_retention", "retention_hold", "updated_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="SET NULL", name="fk_conversations_account"))
     customer_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customers.id", ondelete="SET NULL"))
     property_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("properties.id", ondelete="SET NULL"))
     service_type_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("service_types.id", ondelete="SET NULL"))
@@ -263,6 +265,7 @@ class Conversation(TimestampMixin, Base):
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Salted hash of the chat client's address, for rate limiting across API workers. Never the raw IP.
     client_key: Mapped[str | None] = mapped_column(Text)
+    retention_hold: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
 
     messages: Mapped[list["ConversationMessage"]] = relationship(order_by="ConversationMessage.created_at")
 
@@ -701,6 +704,37 @@ class Notification(Base):
     error_code: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+class PrivacyRequest(TimestampMixin, Base):
+    __tablename__ = "privacy_requests"
+    __table_args__ = (
+        CheckConstraint("kind IN ('access','correction','deletion')", name="ck_privacy_requests_kind"),
+        CheckConstraint("status IN ('submitted','in_review','closed','withdrawn')", name="ck_privacy_requests_status"),
+        CheckConstraint("resolution IS NULL OR resolution IN ('fulfilled','partial','declined')", name="ck_privacy_requests_resolution"),
+        CheckConstraint("revision >= 1", name="ck_privacy_requests_revision"),
+        UniqueConstraint("account_id", "submission_key", name="uq_privacy_requests_submission"),
+        Index("uq_privacy_requests_open_kind", "account_id", "kind", unique=True,
+            postgresql_where=text("status IN ('submitted','in_review')"), sqlite_where=text("status IN ('submitted','in_review')")),
+        Index("ix_privacy_requests_queue", "status", "due_at"),
+        Index("ix_privacy_requests_account_created", "account_id", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="RESTRICT"), nullable=False)
+    service_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="SET NULL"))
+    submission_key: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    details: Mapped[str] = mapped_column(Text, nullable=False)
+    notice_version: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="submitted", server_default="submitted", nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    review_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolution: Mapped[str | None] = mapped_column(Text)
+    retention_reason: Mapped[str | None] = mapped_column(Text)
+    customer_response: Mapped[str | None] = mapped_column(Text)
+    internal_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
 
 class Consent(Base):
     __tablename__ = "consents"

@@ -116,7 +116,7 @@ def create_ticket(db: Session, *, customer_name: str, phone: str, email: str | N
 
 def link_conversation(db: Session, ticket: ServiceRequest, conversation_id: uuid.UUID) -> None:
     """Attach the chat a ticket was raised from, so staff can read what the customer asked first."""
-    conversation = db.get(Conversation, conversation_id)
+    conversation = db.scalar(select(Conversation).where(Conversation.id == conversation_id).with_for_update())
     if conversation is None:
         return
     ticket.conversation_id = conversation.id

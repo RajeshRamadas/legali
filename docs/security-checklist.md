@@ -15,6 +15,7 @@
 - [ ] Encrypt backups and test restores.
   Encrypted database/document backup and empty-target recovery tooling is implemented; configure scheduling, separate off-host copies/key escrow and periodic recovery drills before checking this off ([backup runbook](backups.md)).
 - [ ] Define retention, deletion, access request and incident response procedures.
+  Verified privacy requests, administrator decisions and guarded anonymous chat cleanup are implemented; review business-record retention/fulfillment, legacy holds and scheduling before enabling deletion ([privacy and retention](privacy-and-retention.md)).
 - [ ] Record consent notice version, purpose and timestamp.
 - [ ] Separate internal notes from customer-visible messages.
 - [ ] Audit status changes, assignments, exports and permission changes.

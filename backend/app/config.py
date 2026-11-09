@@ -195,3 +195,8 @@ API_AUTH_PER_MINUTE = max(1, int(os.getenv("API_AUTH_PER_MINUTE", "60")))
 
 # Delayed notification/document queues are highlighted in administrator system health.
 OPS_QUEUE_WARN_MINUTES = max(1, int(os.getenv("OPS_QUEUE_WARN_MINUTES", "15")))
+
+PRIVACY_REVIEW_DAYS = max(1, int(os.getenv("PRIVACY_REVIEW_DAYS", "30")))
+PRIVACY_REQUESTS_PER_DAY = max(1, int(os.getenv("PRIVACY_REQUESTS_PER_DAY", "5")))
+CHAT_RETENTION_DAYS = max(1, int(os.getenv("CHAT_RETENTION_DAYS", "90")))
+CHAT_RETENTION_ENABLED = os.getenv("CHAT_RETENTION_ENABLED", "false").lower() == "true"
