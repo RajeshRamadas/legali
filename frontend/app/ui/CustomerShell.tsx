@@ -64,6 +64,7 @@ export default function CustomerShell({
         { href: "/bookings", label: "Consultations", icon: "video" as const },
         { href: "/account#payments", label: "Payments", icon: "card" as const },
         { href: "/account/privacy", label: "Privacy requests", icon: "shield" as const },
+        { href: "/account/support", label: "Support & complaints", icon: "inbox" as const },
       ],
     },
     {

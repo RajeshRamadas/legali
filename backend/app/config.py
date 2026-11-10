@@ -200,3 +200,9 @@ PRIVACY_REVIEW_DAYS = max(1, int(os.getenv("PRIVACY_REVIEW_DAYS", "30")))
 PRIVACY_REQUESTS_PER_DAY = max(1, int(os.getenv("PRIVACY_REQUESTS_PER_DAY", "5")))
 CHAT_RETENTION_DAYS = max(1, int(os.getenv("CHAT_RETENTION_DAYS", "90")))
 CHAT_RETENTION_ENABLED = os.getenv("CHAT_RETENTION_ENABLED", "false").lower() == "true"
+
+# Operational support targets/abuse caps; these are not statutory grievance deadlines.
+SUPPORT_RESPONSE_HOURS = max(1, min(720, int(os.getenv("SUPPORT_RESPONSE_HOURS", "72"))))
+SUPPORT_OPEN_LIMIT = max(1, min(100, int(os.getenv("SUPPORT_OPEN_LIMIT", "5"))))
+SUPPORT_REQUESTS_PER_DAY = max(1, min(100, int(os.getenv("SUPPORT_REQUESTS_PER_DAY", "10"))))
+SUPPORT_MESSAGES_PER_DAY = max(1, min(1000, int(os.getenv("SUPPORT_MESSAGES_PER_DAY", "50"))))

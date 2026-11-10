@@ -70,6 +70,21 @@ export type IntakeDraft = {
   updated_at: string; expires_at: string; ticket: TicketCreated | null; notice: IntakeNotice;
 };
 
+export type SupportKind = "case_update" | "documents" | "payment" | "complaint" | "other";
+export type SupportStatus = "open" | "in_progress" | "waiting_for_customer" | "resolved";
+export const SUPPORT_KIND_LABELS: Record<SupportKind, string> = { case_update: "Case update", documents: "Document issue", payment: "Payment question", complaint: "Service complaint", other: "Other help" };
+export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = { open: "Open", in_progress: "Being reviewed", waiting_for_customer: "Waiting for you", resolved: "Resolved" };
+export const SUPPORT_STAFF_STATUS_LABELS: Record<SupportStatus, string> = { ...SUPPORT_STATUS_LABELS, waiting_for_customer: "Waiting for customer" };
+export type SupportSummary = {
+  id: string; reference: string; kind: SupportKind; subject: string; status: SupportStatus; revision: number;
+  ticket_number: string | null; created_at: string; updated_at: string; reply_due_at: string | null; overdue: boolean; resolved_at: string | null;
+  customer?: { name: string | null; phone_last4: string };
+};
+export type SupportRecord = SupportSummary & { details: string };
+export type SupportPage = { items: SupportSummary[]; total: number; page: number; page_size: number; overdue?: number };
+export type SupportMessages = { items: { id: string; body: string; author_type: "customer" | "staff"; visibility: "customer" | "internal"; created_at: string }[]; total: number; page: number; page_size: number };
+export type SupportCreate = { kind: SupportKind; subject: string; details: string; ticket_number?: string | null; submission_key: string };
+
 export type PrivacyKind = "access" | "correction" | "deletion";
 export type PrivacyStatus = "submitted" | "in_review" | "closed" | "withdrawn";
 export type PrivacyResolution = "fulfilled" | "partial" | "declined";
@@ -692,6 +707,11 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     }
   }
   return {
+    supportRequests(page = 1): Promise<SupportPage> { return request(baseUrl, `/api/v1/account/support-requests?page=${page}`); },
+    supportRequest(id: string): Promise<SupportRecord> { return request(baseUrl, `/api/v1/account/support-requests/${encodeURIComponent(id)}`); },
+    supportMessages(id: string, page = 1): Promise<SupportMessages> { return request(baseUrl, `/api/v1/account/support-requests/${encodeURIComponent(id)}/messages?page=${page}`); },
+    createSupportRequest(payload: SupportCreate): Promise<SupportRecord> { return request(baseUrl, "/api/v1/account/support-requests", post(payload)); },
+    replySupportRequest(id: string, body: string, submission_key: string): Promise<SupportRecord> { return request(baseUrl, `/api/v1/account/support-requests/${encodeURIComponent(id)}/messages`, post({ body, submission_key })); },
     privacyNotice(): Promise<PrivacyNotice> { return request(baseUrl, "/api/v1/privacy/notice"); },
     privacyRequests(page = 1): Promise<PrivacyRequestsPage> { return request(baseUrl, `/api/v1/account/privacy-requests?page=${page}`); },
     createPrivacyRequest(payload: PrivacyRequestCreate): Promise<PrivacyRequestRecord> { return request(baseUrl, "/api/v1/account/privacy-requests", post(payload)); },

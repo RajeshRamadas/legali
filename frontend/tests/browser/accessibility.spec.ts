@@ -45,7 +45,7 @@ async function contained(page: Page, dialog: Locator) {
   await expect(first).toBeFocused();
 }
 
-for (const path of ["/", "/services", "/account", "/documents", "/bookings", "/request", "/admin"]) {
+for (const path of ["/", "/services", "/account", "/documents", "/bookings", "/request", "/account/support", "/admin"]) {
   test(`public ${path}: main landmark, skip link, accessibility and viewport`, async ({ page }) => {
     await page.goto(path);
     await expect(page.locator("#main-content")).toBeVisible();
@@ -182,4 +182,79 @@ test("reduced motion disables smooth scrolling and callback jumps", async ({ pag
   });
   await page.getByRole("button", { name: "Start property review", exact: true }).first().click();
   await expect(page.locator("#callback")).toHaveAttribute("data-scroll-behavior", "auto");
+});
+
+const supportFixture = () => ({ id: "e6ca47dc-c4c4-42ad-b6d6-e528dd3b2145", reference: "SR-E6CA47DCC4C442ADB6D6E528DD3B2145", kind: "complaint", subject: "Delayed case response", details: "Please help me follow up on my delayed case.", status: "open", revision: 1, ticket_number: null, created_at: "2026-11-10T08:00:00Z", updated_at: "2026-11-10T08:00:00Z", reply_due_at: "2026-11-13T08:00:00Z", overdue: false, resolved_at: null as string | null });
+
+test("customer can submit a support request and follow up in an accessible thread", async ({ page }) => {
+  let record = supportFixture(); let created = false;
+  const replies: { id: string; body: string; author_type: string; visibility: string; created_at: string }[] = [];
+  const keys: string[] = [];
+  await page.route("**/api/v1/account/support-requests**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type", "access-control-allow-methods": "GET,POST,OPTIONS" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON(); keys.push(body.submission_key);
+      if (path.endsWith("/messages")) { replies.unshift({ id: "reply-1", body: body.body, author_type: "customer", visibility: "customer", created_at: record.created_at }); record = { ...record, revision: 2 }; }
+      else { created = true; record = { ...record, subject: body.subject, details: body.details, kind: body.kind }; }
+      return route.fulfill({ status: 201, headers, json: record });
+    }
+    if (path.endsWith("/messages")) return route.fulfill({ headers, json: { items: replies, total: replies.length, page: 1, page_size: 20 } });
+    return route.fulfill({ headers, json: path.endsWith(record.id) ? record : { items: created ? [record] : [], total: created ? 1 : 0, page: 1, page_size: 20 } });
+  });
+  await customer(page); await page.goto("/account/support");
+  await expect(page.getByRole("heading", { name: "Support and complaints" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Category", exact: true }).selectOption("complaint");
+  await page.getByLabel("Subject", { exact: true }).fill(record.subject);
+  await page.getByLabel("How can we help?").fill(record.details);
+  await page.getByRole("button", { name: "Send support request", exact: true }).click();
+  await expect(page.getByRole("heading", { name: record.subject })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Support request sent");
+  await page.getByLabel("Your reply", { exact: true }).fill("Please also confirm the next expected update.");
+  await page.getByRole("button", { name: "Send reply", exact: true }).click();
+  await expect(page.getByText("Please also confirm the next expected update.", { exact: true })).toBeVisible();
+  expect(keys.length).toBe(2); expect(new Set(keys).size).toBe(2);
+  await accessible(page);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test("administrator support review preserves a conflicting draft and separates internal notes", async ({ page }) => {
+  let record = { ...supportFixture(), customer: { name: "Asha Customer", phone_last4: "3210" } };
+  const rows: { id: string; body: string; author_type: string; visibility: string; created_at: string }[] = [];
+  let conflict = true;
+  await page.route("**/api/v1/admin/support-requests**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type", "access-control-allow-methods": "GET,PATCH,OPTIONS" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON();
+      if (conflict) { conflict = false; record = { ...record, revision: 2 }; return route.fulfill({ headers, status: 409, json: { detail: "This request changed. Reload it before saving; your draft has been kept." } }); }
+      expect(body.revision).toBe(2);
+      rows.push({ id: "staff-reply", body: body.customer_response, author_type: "staff", visibility: "customer", created_at: record.created_at }, { id: "staff-note", body: body.internal_note, author_type: "staff", visibility: "internal", created_at: record.created_at });
+      record = { ...record, revision: 3, status: body.status, resolved_at: record.created_at };
+      return route.fulfill({ headers, json: record });
+    }
+    if (path.endsWith("/messages")) return route.fulfill({ headers, json: { items: rows, total: rows.length, page: 1, page_size: 20 } });
+    return route.fulfill({ headers, json: path.endsWith(record.id) ? record : { items: [record], total: 1, overdue: 0, page: 1, page_size: 20 } });
+  });
+  await staff(page); await page.goto("/admin/support");
+  await page.getByRole("button", { name: /Delayed case response/ }).click();
+  const response = page.getByLabel("Reply shown to customer"), note = page.getByLabel("Internal note (administrators only)");
+  await response.fill("We reviewed the case and contacted your case team."); await note.fill("Internal escalation context");
+  await page.getByLabel("Request status").selectOption("resolved");
+  await page.getByRole("button", { name: "Save support update" }).click();
+  await expect(page.getByRole("region", { name: "Selected support request" }).getByRole("alert")).toContainText("This request changed");
+  await expect(response).toHaveValue("We reviewed the case and contacted your case team.");
+  await expect(note).toHaveValue("Internal escalation context");
+  await page.getByRole("button", { name: "Reload latest request" }).click();
+  await expect(response).toHaveValue("");
+  await response.fill("We reviewed the case and contacted your case team."); await note.fill("Internal escalation context");
+  await page.getByLabel("Request status").selectOption("resolved");
+  await page.getByRole("button", { name: "Save support update" }).click();
+  await expect(page.getByText("Internal note · administrators only", { exact: true })).toBeVisible();
+  await expect(page.getByText("Internal escalation context", { exact: true })).toBeVisible();
+  await expect(page.locator(".support-status")).toHaveText("Resolved");
+  await accessible(page);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });

@@ -49,4 +49,5 @@
 - [ ] Accessibility and mobile QA
   Shared skip links, main landmarks, modal focus handling and keyboard/mobile browser regressions with axe are implemented (`accessibility.md`). Complete manual screen-reader, real-device and cross-browser review before launch.
 - [ ] Load tests, incident runbook and support process
+  Verified support/complaint requests, administrator review and private conversations are implemented (`customer-support.md`). Assign a support owner and review schedule; broader load tests and the incident runbook remain.
 - [ ] Pilot with limited service types and locations

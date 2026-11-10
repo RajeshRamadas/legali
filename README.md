@@ -22,6 +22,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Encrypted PostgreSQL and document backups, safe recovery to empty destinations, freshness checks and retention tooling are available as an opt-in maintenance command (`docs/backups.md`).
 - Administrator system health (`/admin/operations`) shows worker observations and delivery/scan backlogs, with database readiness and privacy-safe request references/logs (`docs/operations-monitoring.md`).
 - Customer privacy requests (`/account/privacy`), administrator review (`/admin/privacy`) and an opt-in, preview-first anonymous chat retention tool preserve case-linked records and explicit holds (`docs/privacy-and-retention.md`).
+- Verified customer support and complaints (`/account/support`), with optional owned-case links, private replies, administrator triage (`/admin/support`), separate internal notes and response targets (`docs/customer-support.md`).
 - Video consultations on tickets: Google Calendar events with Google Meet links, WhatsApp invites and reminders for the customer and the lawyer, and a Join button on the customer's tracking card (see `docs/meetings.md`).
 - PostgreSQL schema (SQLAlchemy models + Alembic migrations in `backend/migrations`) for customers, properties, service requests/tickets, assignments, ticket events, messages, documents, notifications and audit logs.
 - Docker Compose for local PostgreSQL + API.

@@ -736,6 +736,48 @@ class PrivacyRequest(TimestampMixin, Base):
     internal_note: Mapped[str | None] = mapped_column(Text)
     reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
 
+class SupportRequest(TimestampMixin, Base):
+    __tablename__ = "support_requests"
+    __table_args__ = (
+        CheckConstraint("kind IN ('case_update','documents','payment','complaint','other')", name="ck_support_kind"),
+        CheckConstraint("status IN ('open','in_progress','waiting_for_customer','resolved')", name="ck_support_status"),
+        CheckConstraint("revision >= 1", name="ck_support_revision"),
+        UniqueConstraint("account_id", "submission_key", name="uq_support_submission"),
+        Index("ix_support_account_created", "account_id", "created_at"),
+        Index("ix_support_queue", "status", "reply_due_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="RESTRICT"), nullable=False)
+    service_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="SET NULL"))
+    submission_key: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    details: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="open", server_default="open", nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    reply_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+    __table_args__ = (
+        CheckConstraint("author_type IN ('customer','staff')", name="ck_support_message_author"),
+        CheckConstraint("visibility IN ('customer','internal')", name="ck_support_message_visibility"),
+        CheckConstraint("author_type = 'staff' OR visibility = 'customer'", name="ck_support_customer_visibility"),
+        UniqueConstraint("support_request_id", "submission_key", name="uq_support_message_submission"),
+        Index("ix_support_message_thread", "support_request_id", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    support_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("support_requests.id", ondelete="CASCADE"), nullable=False)
+    submission_key: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    author_type: Mapped[str] = mapped_column(Text, nullable=False)
+    author_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    visibility: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
 class Consent(Base):
     __tablename__ = "consents"
 
