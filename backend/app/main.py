@@ -11,7 +11,7 @@ from .db import SessionLocal
 from .models import ReraProject
 from .rera_sample import load_sample
 from .abuse_protection import AbuseProtection
-from . import operations, privacy, support, site_policies, refunds, review_moderation, customer_reviews, notification_preferences, service_availability
+from . import operations, privacy, support, site_policies, refunds, review_moderation, customer_reviews, notification_preferences, service_availability, time_off
 from .telemetry import RequestTelemetry, disable_raw_access_logs
 
 disable_raw_access_logs()
@@ -67,13 +67,14 @@ app.include_router(review_moderation.router)
 app.include_router(customer_reviews.router)
 app.include_router(notification_preferences.router)
 app.include_router(service_availability.router)
+app.include_router(time_off.router)
 app.include_router(refunds.router)
 
 
 @app.middleware("http")
 async def private_customer_responses(request, call_next):
     response = await call_next(request)
-    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/auth", "/api/v1/account", "/api/v1/intake", "/api/v1/files/")) or request.url.path == "/api/v1/chat":
+    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/auth", "/api/v1/account", "/api/v1/intake", "/api/v1/files/", "/api/v1/admin/time-off")) or request.url.path == "/api/v1/chat":
         response.headers["Cache-Control"] = "private, no-store"
         vary = response.headers.get("Vary", "")
         if "authorization" not in vary.lower():

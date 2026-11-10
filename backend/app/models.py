@@ -633,6 +633,24 @@ class LawyerProfile(TimestampMixin, Base):
 
     user: Mapped[User] = relationship(lazy="joined")
 
+class LawyerTimeOff(Base):
+    __tablename__ = "lawyer_time_off"
+    __table_args__ = (
+        CheckConstraint("ends_at > starts_at", name="ck_lawyer_time_off_range"),
+        UniqueConstraint("lawyer_user_id", "submission_key", name="uq_lawyer_time_off_submission"),
+        Index("ix_lawyer_time_off_window", "lawyer_user_id", "starts_at", "ends_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lawyer_user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    submission_key: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+
 class LawyerReview(Base):
     """A customer's rating of a consultation they had. One per meeting."""
     __tablename__ = "lawyer_reviews"

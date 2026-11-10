@@ -18,6 +18,7 @@ from .db import get_db
 from .models import CLOSED_STATUSES, Meeting, Notification, ServiceRequest, User, utcnow
 from .security import current_staff
 from .notification_preferences import queue_customer_notification
+from .time_off import ensure_available
 
 router = APIRouter(prefix="/api/v1/admin")
 
@@ -63,6 +64,7 @@ def _as_utc(value: datetime) -> datetime:
 def _check_times(db: Session, lawyer: User, starts_at: datetime, ends_at: datetime, ignore: uuid.UUID | None = None) -> None:
     if starts_at <= utcnow():
         raise HTTPException(status_code=422, detail="Pick a time in the future.")
+    ensure_available(db, lawyer.id, starts_at, ends_at)
     clash = db.scalars(select(Meeting).where(
         Meeting.lawyer_user_id == lawyer.id, Meeting.status == "scheduled", Meeting.starts_at < ends_at, Meeting.ends_at > starts_at,
         *([Meeting.id != ignore] if ignore else []),
@@ -133,7 +135,7 @@ def _get_meeting(db: Session, user: User, meeting_id: uuid.UUID) -> Meeting:
 
 def lock_lawyer(db: Session, lawyer_id: uuid.UUID) -> User | None:
     """Load the lawyer with a row lock, so two bookings for the same time can't both pass the clash check."""
-    return db.get(User, lawyer_id, with_for_update=True)
+    return db.get(User, lawyer_id, with_for_update={"key_share": True})
 
 def create_meeting(db: Session, ticket: ServiceRequest, lawyer: User, starts_at: datetime, ends_at: datetime, *, actor: User | None,
                    agenda: str | None = None, meet_link: str | None = None, require_link: bool = True) -> Meeting:
@@ -195,13 +197,15 @@ def schedule_meeting(ticket_number: str, payload: MeetingCreate, user: User = De
     ticket = admin._get_ticket(db, user, ticket_number)
     if ticket.status in CLOSED_STATUSES:
         raise HTTPException(status_code=422, detail="Reopen the ticket before booking a meeting.")
-    lawyer = lock_lawyer(db, user.id)
+    lawyer = None
     if payload.lawyer_id and payload.lawyer_id != user.id:
         if not user.is_admin:
             raise HTTPException(status_code=403, detail="Agents can book meetings only for themselves.")
         lawyer = lock_lawyer(db, payload.lawyer_id)
         if lawyer is None or lawyer.account_status != "active" or not (lawyer.role_names & {"agent", "admin", "super_admin"}):
             raise HTTPException(status_code=422, detail="Choose an active staff member.")
+    else:
+        lawyer = lock_lawyer(db, user.id)
     starts_at = _as_utc(payload.starts_at)
     ends_at = starts_at + timedelta(minutes=payload.duration_minutes)
     create_meeting(db, ticket, lawyer, starts_at, ends_at, actor=user, agenda=(payload.agenda or "").strip() or None, meet_link=payload.meet_link)

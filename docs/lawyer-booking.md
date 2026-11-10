@@ -42,6 +42,11 @@ Every staff member can open **Lawyer profile** in `/admin` to edit their headlin
 
 Slots are the weekly hours cut into consultation-length pieces, in `MEETING_TIMEZONE`. Anything already on the lawyer's calendar (online bookings and meetings staff scheduled) is blocked out, so staff keep booking meetings from tickets as before.
 
+Staff can also block leave or other unavailable periods in **Time off**
+(`/admin/time-off`). These periods remove slots and prevent booking/move
+conflicts without changing weekly hours. Private reasons stay with the staff
+member and administrators; see [time off](lawyer-time-off.md).
+
 ## Settings
 
 | Variable | Default | Meaning |

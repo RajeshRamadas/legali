@@ -42,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Respect lawyer time off across online bookings and staff scheduling
+  Private confirmed periods, cancellation history, shared admission locks and rollback protection are implemented (`lawyer-time-off.md`). Staff must resolve conflicting existing meetings and review their calendar before adding time off.
 - [x] Add administrator service admission controls for a limited pilot
   Confirmed pause/resume decisions, private history, shared request-admission locks and customer availability messaging are implemented (`service-availability.md`). Existing cases/bookings continue; deployment capacity and pilot scope still require operational review.
 - [x] Give verified customers control over automated notification channels

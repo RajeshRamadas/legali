@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from . import config, meetings, payments, tickets
 from .db import get_db
 from .models import (
-    CLOSED_STATUSES, WEEKDAYS, Assignment, Customer, LawyerProfile, LawyerReview, Meeting, ServiceRequest, ServiceType, User, utcnow,
+    CLOSED_STATUSES, WEEKDAYS, Assignment, Customer, LawyerProfile, LawyerReview, LawyerTimeOff, Meeting, ServiceRequest, ServiceType, User, utcnow,
 )
 from .public import NOT_FOUND, _find_for_customer
 from .customer_auth import current_customer
@@ -75,6 +75,9 @@ def _busy(db: Session, lawyer_ids: list[uuid.UUID], start: datetime, end: dateti
     )).all()
     busy: dict = {}
     for lawyer_id, starts_at, ends_at in rows:
+        busy.setdefault(lawyer_id, []).append((tickets.aware(starts_at), tickets.aware(ends_at)))
+    for lawyer_id, starts_at, ends_at in db.execute(select(LawyerTimeOff.lawyer_user_id, LawyerTimeOff.starts_at, LawyerTimeOff.ends_at).where(
+        LawyerTimeOff.lawyer_user_id.in_(lawyer_ids), LawyerTimeOff.cancelled_at.is_(None), LawyerTimeOff.starts_at < end, LawyerTimeOff.ends_at > start)):
         busy.setdefault(lawyer_id, []).append((tickets.aware(starts_at), tickets.aware(ends_at)))
     return busy
 
@@ -260,7 +263,8 @@ def lawyer_profile(slug: str, response: Response, db: Session = Depends(get_db))
     }
 
 @router.get("/api/v1/lawyers/{slug}/slots")
-def lawyer_slots(slug: str, days: int = Query(7, ge=1, le=31), db: Session = Depends(get_db)):
+def lawyer_slots(slug: str, response: Response, days: int = Query(7, ge=1, le=31), db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
     profile = _get_listed(db, slug)
     now = utcnow()
     days = min(days, config.BOOKING_DAYS_AHEAD)

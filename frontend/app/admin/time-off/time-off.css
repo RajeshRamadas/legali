@@ -1,0 +1,18 @@
+.time-off-page { max-width: 1040px; margin: 0 auto; display: grid; gap: 20px; }
+.time-off-card { padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; min-width: 0; }
+.time-off-card h2 { font-size: 20px; margin: 0 0 12px; }
+.time-off-card label { display: grid; gap: 8px; margin: 12px 0; font-weight: 600; }
+.time-off-card input:not([type=checkbox]), .time-off-card textarea, .time-off-card select { min-width: 0; width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); }
+.time-off-card fieldset { border: 0; padding: 0; min-width: 0; }
+.time-off-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+.time-off-card .time-off-confirm { display: flex; align-items: flex-start; gap: 12px; font-weight: 400; }
+.time-off-confirm input { width: 20px; height: 20px; flex-shrink: 0; }
+.time-off-muted { color: var(--ink-2); }
+.time-off-list { list-style: none; padding: 0; }
+.time-off-list li { border-top: 1px solid var(--line); padding: 20px 0; overflow-wrap: anywhere; }
+.time-off-list h3 { font-size: 16px; }
+.time-off-reason { white-space: pre-wrap; }
+.time-off-card nav, .time-off-cancel { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.time-off-cancel p { flex-basis: 100%; }
+.time-off-card [role=status]:focus { outline: 2px solid var(--primary); outline-offset: 4px; }
+@media(max-width:600px) { .time-off-card { padding: 16px; } .time-off-fields { grid-template-columns: 1fr; gap: 0; } }

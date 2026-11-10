@@ -105,6 +105,7 @@ export default function AdminShell({
         { href: "/admin/cases", label: "Case board", icon: "inbox" },
         { href: "/admin/alerts", label: "Deadline alerts", icon: "bell", count: deadlineCount },
         { href: "/admin/calendar", label: "Calendar", icon: "cal" },
+        { href: "/admin/time-off", label: "Time off", icon: "cal" },
         {
           href: "/admin/fetches",
           label: "Government fetches",
