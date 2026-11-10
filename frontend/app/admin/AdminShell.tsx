@@ -130,6 +130,7 @@ export default function AdminShell({
               { href: "/admin/operations", label: "System health", icon: "settings" as const },
               { href: "/admin/privacy", label: "Privacy requests", icon: "shield" as const },
               { href: "/admin/policies", label: "Public policies", icon: "file" as const },
+              { href: "/admin/refunds", label: "Refund tracking", icon: "card" as const },
               { href: "/admin/support", label: "Support queue", icon: "inbox" as const },
             ],
           },

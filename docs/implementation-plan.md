@@ -41,6 +41,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Track partial, pending and processed booking refunds with an administrator queue
+  Signed provider events, exact paise totals, unmatched-event retention and private follow-up notes are implemented (`refund-tracking.md`). Refund initiation remains in the provider dashboard; reconcile historical review flags before relying on past totals.
 - [ ] Security review and dependency scanning
   Automated dependency audits, Python source scans, hashed dependency locks and API/web regressions are implemented (`dependency-security.md`). Configure required GitHub checks, resolve remaining moderate npm findings and complete broader manual security review.
 - [ ] Privacy notice, terms and grievance/contact details

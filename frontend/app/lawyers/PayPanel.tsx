@@ -74,7 +74,7 @@ function PayPanelContent({ bookingRef, booking, onChange }: { bookingRef: Bookin
       <b>{paymentLabel(payment)}</b>
       {due && payment.pay_by && <span>Pay by {time(payment.pay_by)} to keep this time. After that it’s released for others.</span>}
       {payment.status === "paid" && <span>Paid{payment.method ? ` by ${payment.method.toUpperCase()}` : ""}{payment.reference ? ` · ${payment.reference}` : ""}</span>}
-      {payment.status === "refund_due" && <span>Refunds reach the original payment method within 5 to 7 working days.</span>}
+      {(payment.status === "refund_due" || payment.refund_pending_paise || payment.refund_review_required) && <span>The team handles refunds with the payment provider. Processing and bank timing vary; contact support if you need help.</span>}
       {payment.last_error && <span className="lw-pay-error">Last try didn’t go through: {payment.last_error}</span>}
       {error && <span className="lw-pay-error" role="alert">{error}</span>}
       {payment.can_pay && (

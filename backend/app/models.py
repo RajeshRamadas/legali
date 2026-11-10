@@ -647,6 +647,7 @@ class Payment(TimestampMixin, Base):
         CheckConstraint(_check_in("provider", PAYMENT_PROVIDERS), name="ck_payments_provider"),
         CheckConstraint(_check_in("kind", PAYMENT_KINDS), name="ck_payments_kind"),
         CheckConstraint("amount_paise > 0", name="ck_payments_amount"),
+        CheckConstraint("refunded_paise >= 0 AND refunded_paise <= amount_paise AND refund_pending_paise >= 0", name="ck_payment_refund_amounts"),
         Index("idx_payments_request", "service_request_id"),
     )
 
@@ -665,8 +666,33 @@ class Payment(TimestampMixin, Base):
     # The last failed attempt's reason from Razorpay, shown so the customer can try another way.
     failure_reason: Mapped[str | None] = mapped_column(Text)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refunded_paise: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"), nullable=False)
+    refund_pending_paise: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"), nullable=False)
+    refund_review_reason: Mapped[str | None] = mapped_column(Text)
 
     service_request: Mapped[ServiceRequest] = relationship()
+
+class Refund(Base):
+    __tablename__ = "refunds"
+    __table_args__ = (
+        UniqueConstraint("provider_refund_id", name="uq_refund_provider_id"),
+        CheckConstraint("status IN ('pending','processed','failed')", name="ck_refund_status"),
+        CheckConstraint("amount_paise > 0 AND revision >= 1", name="ck_refund_values"),
+        Index("ix_refund_provider_payment", "provider_payment_id"),
+        Index("ix_refund_payment_status", "payment_id", "status"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("payments.id", ondelete="SET NULL"))
+    provider_refund_id: Mapped[str] = mapped_column(Text, nullable=False)
+    provider_payment_id: Mapped[str] = mapped_column(Text, nullable=False)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    review_code: Mapped[str | None] = mapped_column(Text)
+    internal_note: Mapped[str] = mapped_column(Text, default="", server_default="", nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class Notification(Base):
     __tablename__ = "notifications"

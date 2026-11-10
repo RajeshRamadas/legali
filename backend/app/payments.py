@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import config, meetings, tickets
+from . import config, meetings, tickets, refunds
 from .db import get_db
 from .models import Meeting, Payment, ServiceRequest, utcnow
 
@@ -95,6 +95,9 @@ def payment_view(db: Session, ticket: ServiceRequest, meeting: Meeting) -> dict 
         "mode": mode(),
         "can_pay": status == "due" and open_booking and mode() != "off",
         "last_error": rows[-1].failure_reason if rows and status == "due" else None,
+        "refunded_paise": settled.refunded_paise if settled else 0,
+        "refund_pending_paise": settled.refund_pending_paise if settled else 0,
+        "refund_review_required": bool(settled.refund_review_reason) if settled else False,
     }
 
 def start(db: Session, ticket: ServiceRequest, kind: str) -> dict:
@@ -171,7 +174,14 @@ def refresh(db: Session, ticket: ServiceRequest) -> None:
             mark_paid(db, payment, captured[-1]["id"] if captured else None, captured[-1].get("method") if captured else None)
 
 def mark_paid(db: Session, payment: Payment, payment_id: str | None, method: str | None = None) -> None:
+    known_reference = db.scalar(select(Payment.provider_payment_id).where(Payment.id == payment.id))
+    refunds.lock_references(db, payment_id, known_reference)
+    db.refresh(payment, with_for_update=True)
+    if payment.provider_payment_id and payment.provider_payment_id not in (payment_id, known_reference):
+        raise PaymentError("This payment changed. Refresh the booking and retry verification.", 409)
     if payment.status != "created":
+        if payment.provider == "razorpay" and payment.provider_payment_id:
+            refunds.attach(db, payment.provider_payment_id)
         return
     ticket = payment.service_request
     already = any(p.status != "created" for p in _rows(db, ticket) if p.id != payment.id)
@@ -183,6 +193,9 @@ def mark_paid(db: Session, payment: Payment, payment_id: str | None, method: str
         _refund_due(db, payment, "Paid twice for one booking." if already else "Paid after the booking was cancelled.")
     tickets.queue_notifications(db, ticket, "payment_received", f"Payment update on {ticket.ticket_number}. Sign in to view the details.")
     tickets.audit(db, None, "payment.received", ticket.id, payment_id=str(payment.id), amount=rupees)
+    db.flush()
+    if payment.provider == "razorpay" and payment.provider_payment_id:
+        refunds.attach(db, payment.provider_payment_id)
 
 def _refund_due(db: Session, payment: Payment, reason: str) -> None:
     payment.status = "refund_due"
@@ -231,12 +244,25 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
     """Razorpay events: order.paid, payment_link.paid, payment.failed and refund.processed. Others are ignored."""
     if not config.RAZORPAY_WEBHOOK_SECRET:
         raise HTTPException(status_code=503, detail="Webhook secret not configured.")
-    body = await request.body()
+    chunks, size = [], 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > 128 * 1024:
+            raise HTTPException(413, "Payment event is too large.")
+        chunks.append(chunk)
+    body = b"".join(chunks)
     if not _valid(body, request.headers.get("X-Razorpay-Signature"), config.RAZORPAY_WEBHOOK_SECRET):
         raise HTTPException(status_code=400, detail="Bad signature.")
-    event = json.loads(body)
+    try:
+        event = json.loads(body)
+        if not isinstance(event, dict) or not isinstance(event.get("payload", {}), dict): raise ValueError
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Invalid payment event.")
     name, payload = event.get("event"), event.get("payload") or {}
-    entity = lambda key: (payload.get(key) or {}).get("entity") or {}
+    def entity(key):
+        container = payload.get(key)
+        value = container.get("entity") if isinstance(container, dict) else None
+        return value if isinstance(value, dict) else {}
     paid = entity("payment")
     by_order = lambda order_id: db.scalars(select(Payment).where(Payment.provider_order_id == order_id)).first() if order_id else None
 
@@ -249,11 +275,7 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
         if payment and payment.status == "created":
             payment.failure_reason = (paid.get("error_description") or "The payment didn't go through.")[:300]
             tickets.add_event(db, payment.service_request, "payment_failed", None, new={"amount": payment.amount_paise // 100, "method": paid.get("method")}, reason=payment.failure_reason)
-    elif name == "refund.processed":
-        refund = entity("refund")
-        payment = db.scalars(select(Payment).where(Payment.provider_payment_id == refund.get("payment_id"))).first() if refund.get("payment_id") else None
-        if payment and payment.status in ("paid", "refund_due"):
-            payment.status = "refunded"
-            tickets.add_event(db, payment.service_request, "payment_refunded", None, new={"amount": int(refund.get("amount") or payment.amount_paise) // 100, "reference": refund.get("id")})
+    elif name in ("refund.created", "refund.processed", "refund.failed"):
+        refunds.ingest(db, entity("refund"), {"refund.created": "pending", "refund.processed": "processed", "refund.failed": "failed"}[name])
     db.commit()
     return {"ok": True}

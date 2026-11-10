@@ -370,6 +370,9 @@ export type BookingPayment = {
   mode: "razorpay" | "test" | "off";
   can_pay: boolean;
   last_error: string | null;
+  refunded_paise?: number;
+  refund_pending_paise?: number;
+  refund_review_required?: boolean;
 };
 // What the client needs to open Razorpay Checkout (kind "checkout") or the payment page (kind "link").
 export type PaymentCheckout = {
@@ -409,7 +412,7 @@ export type AccountRequest = {
   needs_you: string | null;
   progress?: CaseProgress;
 };
-export type AccountPayment = Pick<BookingPayment, "status" | "amount" | "paid_at" | "method" | "reference" | "can_pay"> & {
+export type AccountPayment = Pick<BookingPayment, "status" | "amount" | "paid_at" | "method" | "reference" | "can_pay" | "refunded_paise" | "refund_pending_paise" | "refund_review_required"> & {
   ticket_number: string;
   description: string;
   when: string;
@@ -429,12 +432,19 @@ export const testPayment = (checkout: PaymentCheckout): PaymentResult => ({
   order_id: checkout.order_id, payment_id: `pay_test_${Date.now().toString(36)}`, signature: "",
 });
 
-export const paymentLabel = (payment: Pick<BookingPayment, "status" | "amount">): string => ({
+export const formatPaise = (paise: number, currency = "INR") => new Intl.NumberFormat("en-IN", { style: "currency", currency, minimumFractionDigits: paise % 100 ? 2 : 0, maximumFractionDigits: 2 }).format(paise / 100);
+
+export const paymentLabel = (payment: Pick<BookingPayment, "status" | "amount" | "refunded_paise" | "refund_pending_paise" | "refund_review_required">): string => {
+  if (payment.refund_review_required) return "Refund details under review";
+  if (payment.refunded_paise && payment.refunded_paise < payment.amount * 100) return `${formatPaise(payment.refunded_paise)} refunded · partial refund`;
+  if (payment.refund_pending_paise) return `${formatPaise(payment.refund_pending_paise)} refund processing`;
+  return ({
   due: `${formatFee(payment.amount)} to pay`,
   paid: `${formatFee(payment.amount)} paid`,
-  refund_due: `Refund of ${formatFee(payment.amount)} on its way`,
+  refund_due: `Refund due: ${formatPaise(Math.max(0, payment.amount * 100 - (payment.refunded_paise || 0)))}`,
   refunded: `${formatFee(payment.amount)} refunded`,
 })[payment.status];
+};
 
 export type PostType = "article" | "case_study";
 

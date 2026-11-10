@@ -179,7 +179,7 @@ def _payment_row(booking: dict) -> dict:
         "ticket_number": booking["ticket_number"],
         "description": f"Consultation with {booking['lawyer']['name']}",
         "when": booking["meeting"]["when"],
-        **{key: payment[key] for key in ("status", "amount", "paid_at", "method", "reference", "can_pay")},
+        **{key: payment[key] for key in ("status", "amount", "paid_at", "method", "reference", "can_pay", "refunded_paise", "refund_pending_paise", "refund_review_required")},
     }
 
 def _customer_tickets(db: Session, account: CustomerAccount) -> list[ServiceRequest]:
