@@ -28,6 +28,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Docker Compose for local PostgreSQL + API.
 - GitHub Actions dependency audits, Python source checks, SQLite/PostgreSQL API regressions and web/shared-client validation, with hash-verified Python installs (`docs/dependency-security.md`).
 - Shared keyboard navigation, skip links, accessible dialogs and automated Chromium/axe checks at desktop and phone widths (`docs/accessibility.md`).
+- Isolated PostgreSQL API load checks with synthetic fixtures, latency/error gates and sanitized CI reports (`docs/performance-checks.md`), plus an incident-response runbook (`docs/incident-response.md`).
 - Requirements, architecture, API outline, implementation plan and security checklist.
 
 ## Architecture

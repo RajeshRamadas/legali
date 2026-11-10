@@ -1,0 +1,72 @@
+name: API performance checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-performance:
+    name: Isolated API performance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: legali_perf_ci
+          POSTGRES_USER: legali_perf
+          POSTGRES_PASSWORD: performance-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U legali_perf -d legali_perf_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      APP_ENV: performance
+      DATABASE_URL: postgresql+psycopg://legali_perf:performance-ci-only@127.0.0.1:5432/legali_perf_ci
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install verified dependencies
+        run: python -m pip install --require-hashes -r backend/requirements-dev.txt
+      - name: Check benchmark failure policies
+        working-directory: backend
+        env:
+          TEST_DATABASE_URL: sqlite://
+          JWT_SECRET: performance-unit-test-only-session-secret
+          NOTIFY_WORKER_ENABLED: 'false'
+          BLOG_AGENT_ENABLED: 'false'
+        run: python -m pytest -q tests/test_performance.py
+      - name: Run the isolated API workload
+        run: python -m scripts.performance.check
+      - name: Publish aggregate summary
+        if: always()
+        run: |
+          if [ -f performance-reports/results.md ]; then
+            cat performance-reports/results.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Retain sanitized performance reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: api-performance-results
+          path: performance-reports/
+          retention-days: 7
+          if-no-files-found: warn

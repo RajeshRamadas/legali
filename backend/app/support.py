@@ -68,11 +68,12 @@ def find(db, request_id, account_id=None, *, lock=False):
     return item
 
 
-def view(db, item, *, staff=False, detail=True):
-    ticket = db.get(ServiceRequest, item.service_request_id) if item.service_request_id else None
+def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=None):
+    ticket_number = (ticket_numbers.get(item.service_request_id) if ticket_numbers is not None else
+        db.scalar(select(ServiceRequest.ticket_number).where(ServiceRequest.id == item.service_request_id)) if item.service_request_id else None)
     result = {"id": str(item.id), "reference": "SR-" + item.id.hex.upper(), "kind": item.kind,
         "subject": item.subject, "status": item.status, "revision": item.revision,
-        "ticket_number": ticket.ticket_number if ticket else None,
+        "ticket_number": ticket_number,
         "created_at": item.created_at.isoformat(), "updated_at": item.updated_at.isoformat(),
         "reply_due_at": item.reply_due_at.isoformat() if item.reply_due_at else None,
         "overdue": item.status != "resolved" and item.reply_due_at is not None and aware(item.reply_due_at) < utcnow(),
@@ -80,8 +81,11 @@ def view(db, item, *, staff=False, detail=True):
     if detail:
         result["details"] = item.details
     if staff:
-        account = db.get(CustomerAccount, item.account_id)
-        result["customer"] = {"name": account.full_name, "phone_last4": account.phone_normalized[-4:]}
+        if customers is not None:
+            result["customer"] = customers[item.account_id]
+        else:
+            account = db.get(CustomerAccount, item.account_id)
+            result["customer"] = {"name": account.full_name, "phone_last4": account.phone_normalized[-4:]}
     return result
 
 
@@ -125,7 +129,12 @@ def create(payload: Create, response: Response, account: CustomerAccount = Depen
 def listing(db, query, page, page_size, *, staff=False):
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     items = db.scalars(query.order_by(SupportRequest.updated_at.desc(), SupportRequest.id).offset((page - 1) * page_size).limit(page_size)).all()
-    return {"items": [view(db, item, staff=staff, detail=False) for item in items], "total": total, "page": page, "page_size": page_size}
+    ticket_ids = {item.service_request_id for item in items if item.service_request_id}
+    ticket_numbers = dict(db.execute(select(ServiceRequest.id, ServiceRequest.ticket_number).where(ServiceRequest.id.in_(ticket_ids))).all()) if ticket_ids else {}
+    account_ids = {item.account_id for item in items}
+    customers = {account_id: {"name": name, "phone_last4": phone[-4:]} for account_id, name, phone in db.execute(
+        select(CustomerAccount.id, CustomerAccount.full_name, CustomerAccount.phone_normalized).where(CustomerAccount.id.in_(account_ids)))} if staff and account_ids else {}
+    return {"items": [view(db, item, staff=staff, detail=False, ticket_numbers=ticket_numbers, customers=customers) for item in items], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/account/support-requests")

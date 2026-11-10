@@ -1,0 +1,21 @@
+{
+  "concurrency": 4,
+  "requests": 32,
+  "warmup": 2,
+  "rate_per_second": 20,
+  "timeout_seconds": 5,
+  "max_seconds": 120,
+  "p95_ms": 1500,
+  "max_error_rate": 0,
+  "scenarios": [
+    {"name":"liveness","path":"/health","auth":"public","expect":{"status":"ok"}},
+    {"name":"readiness","path":"/ready","auth":"public","expect":{"status":"ready"}},
+    {"name":"catalogue","path":"/api/v1/services","auth":"public","expect":{"items":"nonempty_list"}},
+    {"name":"lawyer_search","path":"/api/v1/lawyers","auth":"public","expect":{"items":"nonempty_list"}},
+    {"name":"rera_search","path":"/api/v1/rera/projects?page_size=20","auth":"public","expect":{"items":"nonempty_list"}},
+    {"name":"customer_account","path":"/api/v1/account","auth":"customer","expect":{"requests":"nonempty_list"}},
+    {"name":"customer_support","path":"/api/v1/account/support-requests","auth":"customer","expect":{"items":"nonempty_list"}},
+    {"name":"staff_queue","path":"/api/v1/admin/tickets?page_size=25","auth":"admin","expect":{"items":"nonempty_list"}},
+    {"name":"support_queue","path":"/api/v1/admin/support-requests","auth":"admin","expect":{"items":"nonempty_list"}}
+  ]
+}

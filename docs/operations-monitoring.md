@@ -37,6 +37,11 @@ The app disables Uvicorn's raw access logger at import/startup, and the Docker c
 
 ## Alert and incident setup
 
+Use the [incident-response runbook](incident-response.md) for triage, containment,
+customer communication and recovery verification. The [isolated API performance
+checks](performance-checks.md) provide repeatable baselines without loading the
+live service.
+
 Connect stderr JSON events and endpoint checks to your hosting provider's log/monitoring system. No external telemetry service or alert recipient is configured by this feature. Recommended alerts are repeated `/ready` failures, sustained HTTP 5xx/latency increases, `worker_failed`/observation failures and stale worker observations or growing delayed queues. Restrict automated access to `/api/v1/admin/operations` to an appropriate staff-admin session; it is not a public metrics endpoint. For expired sessions, use external readiness/log alerts instead of bypassing staff MFA or ownership checks.
 
 Use the request reference to find the corresponding event, then inspect the relevant worker, provider or case history. Verify database availability/migrations before restarting workers. Inspect provider outcomes before resending messages. For backup freshness and actual recoverability, follow [the backup runbook](backups.md); application health does not claim that backups or off-host copies are safe. Document alert routing and test incident response before production.

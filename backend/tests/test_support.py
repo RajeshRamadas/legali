@@ -191,3 +191,28 @@ def test_support_routes_share_write_and_lookup_budgets():
     assert policy_for('POST',BASE).group=='customer_writes'
     assert policy_for('POST',BASE+'/id/messages').group=='customer_writes'
     assert policy_for('PATCH',ADMIN+'/id').group=='customer_writes'
+
+
+def test_queue_metadata_queries_do_not_grow_per_row(client,admin_headers,raise_ticket):
+    from sqlalchemy import event
+    from app.models import CustomerAccount, ServiceRequest
+    ticket_number=raise_ticket()
+    with SessionLocal() as db:
+        ticket=db.scalar(select(ServiceRequest).where(ServiceRequest.ticket_number==ticket_number))
+        account=db.scalar(select(CustomerAccount).where(CustomerAccount.phone_normalized=='9876543210'))
+        for index in range(20):
+            db.add(SupportRequest(account_id=account.id,service_request_id=ticket.id,submission_key=uuid.uuid4(),kind='case_update',subject=f'Batch fixture {index}',details='Synthetic query-count regression fixture.'))
+        db.commit()
+    selects=[]
+    def capture(connection,cursor,statement,parameters,context,executemany):
+        if statement.lstrip().upper().startswith('SELECT'): selects.append(statement)
+    event.listen(engine,'before_cursor_execute',capture)
+    try:
+        first=client.get(ADMIN+'?page_size=1',headers=admin_headers)
+        assert first.status_code==200
+        small=len(selects); selects.clear()
+        result=client.get(ADMIN+'?page_size=20',headers=admin_headers)
+        assert result.status_code==200 and len(result.json()['items'])==20
+        assert len(selects) <= small+2
+        assert all(row['ticket_number']==ticket_number and row['customer']['phone_last4']=='3210' for row in result.json()['items'])
+    finally: event.remove(engine,'before_cursor_execute',capture)

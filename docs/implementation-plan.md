@@ -48,6 +48,8 @@
   Administrator system health, database readiness and request/worker logs are implemented (`operations-monitoring.md`); connect an external collector and configure/test alert routing.
 - [ ] Accessibility and mobile QA
   Shared skip links, main landmarks, modal focus handling and keyboard/mobile browser regressions with axe are implemented (`accessibility.md`). Complete manual screen-reader, real-device and cross-browser review before launch.
-- [ ] Load tests, incident runbook and support process
-  Verified support/complaint requests, administrator review and private conversations are implemented (`customer-support.md`). Assign a support owner and review schedule; broader load tests and the incident runbook remain.
+- [x] Add bounded API load smoke checks and incident/support runbooks
+  Isolated PostgreSQL workloads, latency/error gates and CI reports are implemented (`performance-checks.md`), alongside the incident runbook (`incident-response.md`) and verified support workflow (`customer-support.md`).
+- [ ] Run deployment capacity/soak tests and an incident-response drill
+  Assign operational/support owners, configure and test external alert routing, agree deployment SLOs and exercise recovery before launch.
 - [ ] Pilot with limited service types and locations
