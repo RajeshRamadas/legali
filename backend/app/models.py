@@ -240,6 +240,7 @@ class Property(TimestampMixin, Base):
 
 class ServiceType(TimestampMixin, Base):
     __tablename__ = "service_types"
+    __table_args__ = (CheckConstraint("availability_revision >= 1", name="ck_service_availability_revision"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
@@ -256,6 +257,8 @@ class ServiceType(TimestampMixin, Base):
     location_rules: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
     disclaimer: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    intake_paused: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
+    availability_revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
 
 class Conversation(TimestampMixin, Base):
     __tablename__ = "conversations"

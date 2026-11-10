@@ -65,6 +65,7 @@ export type IntakeQuestion = {
   min_length?: number; max_length?: number; options: { value: string; label: string }[];
 };
 export type IntakeDraft = {
+  service_available?: boolean;
   id: string; status: "draft" | "submitted"; revision: number; answers: Record<string, string>;
   questions: IntakeQuestion[]; next_question: string | null; completed: number; total: number;
   updated_at: string; expires_at: string; ticket: TicketCreated | null; notice: IntakeNotice;
@@ -312,6 +313,7 @@ export type NotificationPreferences = { email: boolean; sms: boolean; whatsapp: 
 export type NotificationChoices = Pick<NotificationPreferences, "email" | "sms" | "whatsapp" | "revision">;
 export type LawyerReview = { rating: number; comment: string; reviewer_name: string; at: string; moderation_status?: keyof typeof REVIEW_MODERATION_LABELS };
 export type LawyerProfile = LawyerCard & {
+  booking_paused?: boolean;
   bio: string;
   // True when the fee is paid online right after booking (Razorpay, or test mode in development).
   pay_online: boolean;

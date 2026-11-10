@@ -11,6 +11,7 @@
 
 ## Phase 1 — Service catalogue and intake
 - [ ] Store services and dynamic intake forms in PostgreSQL
+  Public service choices now read the database and administrator admission controls persist across startup (`service-availability.md`). Catalogue descriptions and dynamic question definitions remain code-managed.
 - [x] Build guided chat state machine per service
 - [x] Add save/resume and request summary review
 - [x] Add consent capture and privacy notice version
@@ -41,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Add administrator service admission controls for a limited pilot
+  Confirmed pause/resume decisions, private history, shared request-admission locks and customer availability messaging are implemented (`service-availability.md`). Existing cases/bookings continue; deployment capacity and pilot scope still require operational review.
 - [x] Give verified customers control over automated notification channels
   Email/SMS/WhatsApp choices, queued-alert cancellation, worker checks, private audit and rollback protection are implemented (`notification-preferences.md`). Requested sign-in codes remain available; cancelled alerts are never replayed.
 - [x] Give verified customers control over withdrawal of consultation reviews

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PROPERTY_TYPES, type PropertyType } from "@homexo/shared";
+import { PROPERTY_TYPES, type PropertyType, type Service } from "@homexo/shared";
 import { api } from "./api";
 import TrackRequest from "./TrackRequest";
 import { SERVICE_OPTIONS, serviceLabel } from "./content";
@@ -20,6 +20,13 @@ const emptyForm = { name: "", phone: "", email: "", propertyType: "apartment" as
 // with requestService() on this page, or with a link like /?service=affidavit-drafting#callback.
 export default function CallbackSection() {
   const [service, setService] = useState("general-guidance");
+  const [available, setAvailable] = useState<Service[] | null>(null), [availabilityError, setAvailabilityError] = useState(false);
+  const serviceUnavailable = available !== null && !available.some(item => item.slug === service);
+  async function refreshAvailability() {
+    try { setAvailable(await api.listServices()); setAvailabilityError(false); }
+    catch { setAvailabilityError(true); }
+  }
+  useEffect(() => { refreshAvailability(); }, []);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [intake, setIntake] = useState(EMPTY_INTAKE);
@@ -63,7 +70,7 @@ export default function CallbackSection() {
 
   async function submitCallback(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (sending || retry.seconds > 0) return;
+    if (sending || retry.seconds > 0 || serviceUnavailable) return;
     setFormError("");
     setSending(true);
     try {
@@ -117,8 +124,11 @@ export default function CallbackSection() {
             <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" placeholder="you@email.com" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
             <div className="field"><label htmlFor="service">Service needed</label>
               <select id="service" value={service} onChange={(e) => { setService(e.target.value); setSelectedPackage(null); }}>
-                {SERVICE_OPTIONS.map((option) => <option key={option.slug} value={option.slug}>{option.label}</option>)}
+                {serviceUnavailable && <option value={service} disabled>{serviceLabel(service)} — unavailable</option>}
+                {(available ? available.map(item => ({ slug: item.slug, label: item.name })) : SERVICE_OPTIONS).map((option) => <option key={option.slug} value={option.slug}>{option.label}</option>)}
               </select>
+              {serviceUnavailable && <p role="status">{available?.length ? "This service is not accepting new requests. Choose another service." : "No services are currently accepting new requests. Please try again later."} <button className="text-link" type="button" onClick={refreshAvailability}>Refresh availability</button></p>}
+              {availabilityError && <p>Current availability will be checked when you submit. <button className="text-link" type="button" onClick={refreshAvailability}>Refresh availability</button></p>}
             </div>
             <div className="field"><label htmlFor="propertyType">Property type</label>
               <select id="propertyType" value={form.propertyType} onChange={(e) => setForm({ ...form, propertyType: e.target.value as PropertyType })}>
@@ -128,7 +138,7 @@ export default function CallbackSection() {
             <div className="field"><label htmlFor="location">Property location</label><input id="location" placeholder="Area, city" required minLength={2} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
             <div className="field wide"><label htmlFor="description">Anything we should know? (optional)</label><textarea id="description" rows={2} placeholder="e.g. Resale 2BHK, registration planned next month" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <details className="wide"><summary>Tailor the document checklist to your property</summary><p>These answers help us request the right documents automatically. Choose unknown whenever you are unsure.</p><PropertyIntakeFields value={intake} onChange={setIntake} /></details>
-            <button ref={submitButton} className="btn" type="submit" disabled={sending || retry.seconds > 0}>{sending ? "Sending…" : retry.seconds > 0 ? `Try again in ${retry.seconds}s` : "Request free callback ↗"}</button>
+            <button ref={submitButton} className="btn" type="submit" disabled={sending || retry.seconds > 0 || serviceUnavailable}>{sending ? "Sending…" : retry.seconds > 0 ? `Try again in ${retry.seconds}s` : "Request free callback ↗"}</button>
             {formError ? <div className="form-note form-error" role="alert">{formError}</div> : <div className="form-note">Your details are used only to respond to this request.</div>}
           </form>
         </div>

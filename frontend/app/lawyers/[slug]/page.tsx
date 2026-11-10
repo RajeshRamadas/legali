@@ -141,9 +141,9 @@ export default function LawyerPage() {
                   <span>Consultation fee<b>{formatFee(lawyer.consultation_fee)}</b></span>
                   <span>{lawyer.consultation_minutes} min · Google Meet</span>
                 </div>
-                <SlotPicker slug={lawyer.slug} selected={slot?.starts_at ?? null} onSelect={setSlot} refreshKey={slotsKey} />
+                {lawyer.booking_paused ? <p role="status">New consultations are temporarily paused. Existing bookings remain available in <Link href="/bookings">your consultations</Link>.</p> : <SlotPicker slug={lawyer.slug} selected={slot?.starts_at ?? null} onSelect={setSlot} refreshKey={slotsKey} />}
                 {error && <p className="lw-error" role="alert">{error}</p>}
-                {slot && (
+                {slot && !lawyer.booking_paused && (
                   <form className="lw-form" onSubmit={book}>
                     <div className="lw-summary"><span>Your slot<b>{slot.day}, {slot.label}</b></span><button type="button" className="lw-clear" onClick={() => setSlot(null)}>Change</button></div>
                     <label>Your name<input required minLength={2} maxLength={120} autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>

@@ -62,7 +62,10 @@ def _text(key, prompt, *, required=False, maximum=100, minimum=0, kind="text", h
             "help": help, "options": []}
 
 def questions(db, answers):
-    services = list(db.scalars(select(ServiceType).where(ServiceType.is_active.is_(True)).order_by(ServiceType.name)))
+    # Keep the selected service in a saved draft so a pause never discards its
+    # answers. Only available services can be selected for a new draft.
+    services = list(db.scalars(select(ServiceType).where(ServiceType.is_active.is_(True),
+        (ServiceType.intake_paused.is_(False)) | (ServiceType.slug == answers.get("service_slug", ""))).order_by(ServiceType.name)))
     service = next((s for s in services if s.slug == answers.get("service_slug")), None)
     rows = [_select("service_slug", "What would you like help with?", [(s.slug, s.name) for s in services]),
         _text("goal", "Tell us what you want to achieve.", required=True, minimum=10, maximum=2000, kind="textarea", help="A short description is enough. An advocate will assess the legal questions."),
@@ -150,7 +153,9 @@ def _created(db, draft):
 def view(db, draft):
     answers = clean(db, draft.answers) if draft.status == "draft" else draft.answers
     rows = questions(db, answers)
+    from .service_availability import accepts_requests
     return {"id": str(draft.id), "status": draft.status, "revision": draft.revision, "answers": answers, "questions": rows,
+            "service_available": accepts_requests(db, answers["service_slug"]) if answers.get("service_slug") else True,
             "next_question": next((q["key"] for q in rows if q["key"] not in answers), None),
             "completed": sum(q["key"] in answers for q in rows), "total": len(rows),
             "updated_at": tickets.aware(draft.updated_at).isoformat(),
@@ -192,6 +197,10 @@ def start(payload: Start, account: CustomerAccount = Depends(current_customer), 
         raise HTTPException(429, "Resume or discard an existing draft. You can start up to five active drafts and twenty drafts in 24 hours.")
     answers = {k: v for k, v in {"customer_name": account.full_name, "email": account.email}.items() if v}
     if payload.service_slug:
+        from .service_availability import accepts_requests, PAUSED
+        selected = db.scalar(select(ServiceType).where(ServiceType.slug == payload.service_slug))
+        if selected is not None and selected.is_active and not accepts_requests(db, payload.service_slug):
+            raise HTTPException(409, PAUSED)
         validate(questions(db, {})[0], payload.service_slug)
         answers["service_slug"] = payload.service_slug
     draft = IntakeDraft(account_id=account.id, answers=clean(db, answers), saving_notice_version=NOTICE_VERSION, saving_consented_at=now)

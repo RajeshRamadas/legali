@@ -1,0 +1,18 @@
+.service-availability { max-width:1000px; min-width:0; margin:0 auto; display:grid; gap:24px; }
+.service-availability h1 { font-size:clamp(28px,4vw,40px); margin:8px 0 12px; }
+.service-availability p { color:var(--ink-2); line-height:1.7; }
+.service-availability :is(h1,h2,p,label,strong,span) { overflow-wrap:anywhere; }
+.service-availability-card { min-width:0; padding:24px; background:var(--surface); border:1px solid var(--line); border-radius:16px; }
+.service-availability label { display:grid; gap:9px; margin:16px 0; font-weight:600; }
+.service-availability :is(select,textarea) { box-sizing:border-box; width:100%; min-width:0; max-width:100%; padding:12px; color:var(--ink); background:var(--surface-2,var(--bg)); border:1px solid var(--line); border-radius:8px; font:inherit; }
+.service-availability select { text-overflow:ellipsis; }
+.service-availability fieldset { padding:0; margin:0; border:0; min-width:0; }
+.service-availability .service-availability-confirm { display:flex; align-items:center; gap:12px; }
+.service-availability input[type="checkbox"] { width:22px; height:22px; flex:none; accent-color:var(--primary); }
+.service-availability-state { color:var(--primary); font-size:13px; }
+.service-availability-history { padding-left:22px; }
+.service-availability-history li { padding:10px 0; border-bottom:1px solid var(--line); }
+.service-availability-history p { white-space:pre-wrap; }
+.service-availability nav { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.service-availability [tabindex="-1"]:focus-visible { outline:2px solid var(--primary); outline-offset:4px; }
+@media(max-width:640px) { .service-availability-card { padding:18px; } }

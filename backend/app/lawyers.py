@@ -22,6 +22,7 @@ from .models import (
 )
 from .public import NOT_FOUND, _find_for_customer
 from .customer_auth import current_customer
+from .service_availability import accepts_requests, admit_new_request
 from .models import CustomerAccount
 from .security import current_staff
 
@@ -221,7 +222,8 @@ def search_lawyers(
     _, start, end = _window(config.BOOKING_DAYS_AHEAD, now)
     busy = _busy(db, ids, start, end) if ids else {}
     stats = _stats(db, ids) if ids else {}
-    cards = [_card(p, stats[p.user_id], _next_slot(p, busy.get(p.user_id, []), now)) for p in profiles]
+    bookings_open = accepts_requests(db, BOOKING_SERVICE)
+    cards = [_card(p, stats[p.user_id], _next_slot(p, busy.get(p.user_id, []), now) if bookings_open else None) for p in profiles]
 
     if available:
         horizon = datetime.combine(now.astimezone(_zone()).date() + timedelta(days=1 if available == "today" else 3), time.min, tzinfo=_zone())
@@ -248,6 +250,7 @@ def lawyer_profile(slug: str, response: Response, db: Session = Depends(get_db))
     reviews = db.scalars(select(LawyerReview).where(LawyerReview.lawyer_user_id == profile.user_id, LawyerReview.moderation_status == "published", LawyerReview.withdrawn_at.is_(None)).order_by(LawyerReview.created_at.desc(), LawyerReview.id).limit(20)).all()
     return {
         **_card(profile, _stats(db, [profile.user_id])[profile.user_id], _next_slot(profile, busy, now)),
+        "booking_paused": not accepts_requests(db, BOOKING_SERVICE),
         "bio": profile.bio,
         "pay_online": payments.online(profile.consultation_fee),
         "bar_enrolment": profile.bar_enrolment,
@@ -347,6 +350,10 @@ def booking_view(db: Session, ticket: ServiceRequest, meeting: Meeting) -> dict:
 @router.post("/api/v1/lawyers/{slug}/bookings", status_code=201)
 def book_lawyer(slug: str, payload: BookingCreate, db: Session = Depends(get_db)):
     profile = _get_listed(db, slug)
+    # Service admission precedes the lawyer lock. Availability audit writes may
+    # reference that same staff member, so both flows must use this lock order.
+    service = db.scalars(select(ServiceType).where(ServiceType.slug == BOOKING_SERVICE)).one()
+    admit_new_request(db, service)
     lawyer = meetings.lock_lawyer(db, profile.user_id)
     starts_at = _slot_open(db, profile, payload.starts_at)
     phone = tickets.normalize_phone(payload.phone)
@@ -357,8 +364,6 @@ def book_lawyer(slug: str, payload: BookingCreate, db: Session = Depends(get_db)
     ))
     if upcoming >= config.MAX_UPCOMING_BOOKINGS_PER_PHONE:
         raise HTTPException(status_code=429, detail=f"This number already has {upcoming} upcoming consultations. Cancel one, or call us to book more.")
-    service = db.scalars(select(ServiceType).where(ServiceType.slug == BOOKING_SERVICE)).one()
-
     ticket = tickets.create_ticket(
         db, customer_name=payload.customer_name.strip(), phone=payload.phone.strip(), email=(payload.email or "").strip() or None,
         property_type="other", service=service, package=None, location=f"Video consultation · {profile.city}",

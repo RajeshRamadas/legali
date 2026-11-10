@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from . import case_files, case_management, config, document_requirements
 from .notification_preferences import queue_customer_notification
+from .service_availability import admit_new_request
 from .models import (
     CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
@@ -82,6 +83,7 @@ def queue_notifications(db: Session, ticket: ServiceRequest, template_key: str, 
 
 def create_ticket(db: Session, *, customer_name: str, phone: str, email: str | None, property_type: str, service: ServiceType,
                   package: str | None, location: str, description: str, source: str, property_intake: dict | None = None) -> ServiceRequest:
+    admit_new_request(db, service)
     phone_normalized = normalize_phone(phone)
     # Returning customers are matched on phone so their tickets stay together.
     customer = db.scalars(select(Customer).where(Customer.phone_normalized == phone_normalized).order_by(Customer.created_at)).first() if phone_normalized else None

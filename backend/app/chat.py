@@ -207,6 +207,9 @@ def chat(payload: ChatMessage, request: Request, account: CustomerAccount | None
     message = payload.message.strip()
     reply = assistant.answer(message, history, ticket_view) or rule_based_reply(message, ticket_view)
     reply = {"sources": [], "mode": "rules", **reply}
+    from .service_availability import accepts_requests, PAUSED
+    if reply.get("service") and not accepts_requests(db, reply["service"]["slug"]):
+        reply = {**reply, "reply": PAUSED, "action": None, "service": None}
     db.add(ConversationMessage(conversation_id=conversation.id, sender_type="customer", body=message))
     db.add(ConversationMessage(
         conversation_id=conversation.id, sender_type="assistant", body=reply["reply"],

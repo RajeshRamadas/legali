@@ -2,13 +2,13 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import tickets, document_requirements
-from .catalogue import SERVICES, SERVICES_BY_SLUG
+from .service_availability import public_view
 from .db import get_db
 from .customer_auth import current_customer, optional_customer, owned_ticket
 from .models import CustomerAccount
@@ -52,15 +52,18 @@ def health():
     return {"status": "ok", "service": "homexo-api"}
 
 @router.get("/api/v1/services")
-def list_services():
-    return {"items": SERVICES}
+def list_services(response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
+    rows = db.scalars(select(ServiceType).where(ServiceType.is_active.is_(True), ServiceType.intake_paused.is_(False)).order_by(ServiceType.category, ServiceType.name))
+    return {"items": [public_view(service) for service in rows]}
 
 @router.get("/api/v1/services/{slug}")
-def get_service(slug: str):
-    service = SERVICES_BY_SLUG.get(slug)
+def get_service(slug: str, response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
+    service = db.scalar(select(ServiceType).where(ServiceType.slug == slug, ServiceType.is_active.is_(True), ServiceType.intake_paused.is_(False)))
     if service is None:
-        raise HTTPException(status_code=404, detail="Service not found")
-    return service
+        raise HTTPException(status_code=404, detail="Service not found", headers={"Cache-Control": "no-store"})
+    return public_view(service)
 
 @router.post("/api/v1/tickets", status_code=201)
 def create_ticket(payload: TicketCreate, request: Request, db: Session = Depends(get_db), account: CustomerAccount | None = Depends(optional_customer)):
