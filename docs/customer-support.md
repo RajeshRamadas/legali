@@ -38,8 +38,11 @@ over a newer customer follow-up. Internal notes have a separate field, are
 labelled in the administrator thread and are filtered out before customer thread
 counts and pagination. Agents cannot access this queue or its API.
 
-Replies are available in the account. This version does not send email,
-WhatsApp or SMS alerts; the support owner must monitor the queue. Set an
+Replies are available in the account, with unread badges on the support link,
+request list and notification bell. Customers can explicitly mark loaded replies
+read while preserving their draft; newer replies stay unread
+([unread support replies](support-unread-replies.md)). This version does not send
+email, WhatsApp or SMS alerts; the support owner must monitor the queue. Set an
 operational owner and review schedule before relying on it for live support.
 
 ## Targets and limits

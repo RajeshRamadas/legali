@@ -29,4 +29,7 @@
 .support-messages li > div { display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
 .support-messages time { color: var(--ink-2); font-size: 12px; }
 .support-error { color: var(--red-ink); overflow-wrap: anywhere; }
+.support-list button .support-unread { color: var(--primary); font-weight: 700; }
+.support-receipt { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 18px; }
+.support-receipt [role=status]:focus { outline: 2px solid var(--primary); outline-offset: 3px; }
 @media(max-width:850px) { .support-grid { grid-template-columns: 1fr; } .support-page { padding: 22px 0; } .hx-public .support-page { padding-inline: 16px; } .support-card { padding: 18px; } .support-filters { grid-template-columns: 1fr; } }

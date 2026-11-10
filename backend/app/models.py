@@ -827,6 +827,7 @@ class SupportRequest(TimestampMixin, Base):
         CheckConstraint("kind IN ('case_update','documents','payment','complaint','other')", name="ck_support_kind"),
         CheckConstraint("status IN ('open','in_progress','waiting_for_customer','resolved')", name="ck_support_status"),
         CheckConstraint("revision >= 1", name="ck_support_revision"),
+        CheckConstraint("customer_update_revision >= 0 AND customer_read_revision >= 0 AND customer_read_revision <= customer_update_revision", name="ck_support_unread_replies"),
         UniqueConstraint("account_id", "submission_key", name="uq_support_submission"),
         Index("ix_support_account_created", "account_id", "created_at"),
         Index("ix_support_queue", "status", "reply_due_at"),
@@ -840,6 +841,9 @@ class SupportRequest(TimestampMixin, Base):
     details: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, default="open", server_default="open", nullable=False)
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    # Counts only customer-visible staff responses, independently of internal revisions.
+    customer_update_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
+    customer_read_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"), nullable=False)
     reply_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

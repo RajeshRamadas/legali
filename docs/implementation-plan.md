@@ -42,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Surface unread support replies without exposing private team notes
+  Account/list/bell badges, explicit read acknowledgements, draft preservation and loaded-reply concurrency protection are implemented (`support-unread-replies.md`). External support delivery alerts remain outside this in-app feature.
 - [x] Respect lawyer time off across online bookings and staff scheduling
   Private confirmed periods, cancellation history, shared admission locks and rollback protection are implemented (`lawyer-time-off.md`). Staff must resolve conflicting existing meetings and review their calendar before adding time off.
 - [x] Add administrator service admission controls for a limited pilot

@@ -80,10 +80,11 @@ export type SupportSummary = {
   id: string; reference: string; kind: SupportKind; subject: string; status: SupportStatus; revision: number;
   ticket_number: string | null; created_at: string; updated_at: string; reply_due_at: string | null; overdue: boolean; resolved_at: string | null;
   customer?: { name: string | null; phone_last4: string };
+  unread_replies?: number; customer_update_revision?: number; customer_read_revision?: number;
 };
 export type SupportRecord = SupportSummary & { details: string };
 export type SupportPage = { items: SupportSummary[]; total: number; page: number; page_size: number; overdue?: number };
-export type SupportMessages = { items: { id: string; body: string; author_type: "customer" | "staff"; visibility: "customer" | "internal"; created_at: string }[]; total: number; page: number; page_size: number };
+export type SupportMessages = { items: { id: string; body: string; author_type: "customer" | "staff"; visibility: "customer" | "internal"; created_at: string }[]; total: number; page: number; page_size: number; customer_update_revision?: number };
 export type SupportCreate = { kind: SupportKind; subject: string; details: string; ticket_number?: string | null; submission_key: string };
 
 export type PrivacyKind = "access" | "correction" | "deletion";
@@ -725,6 +726,8 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
   }
   return {
     supportRequests(page = 1): Promise<SupportPage> { return request(baseUrl, `/api/v1/account/support-requests?page=${page}`); },
+    supportUnread(): Promise<{ requests: number; unread_replies: number }> { return request(baseUrl, "/api/v1/account/support-requests/unread"); },
+    readSupportReplies(id: string, through_revision: number): Promise<SupportRecord> { return request(baseUrl, `/api/v1/account/support-requests/${encodeURIComponent(id)}/read`, post({ through_revision })); },
     supportRequest(id: string): Promise<SupportRecord> { return request(baseUrl, `/api/v1/account/support-requests/${encodeURIComponent(id)}`); },
     supportMessages(id: string, page = 1): Promise<SupportMessages> { return request(baseUrl, `/api/v1/account/support-requests/${encodeURIComponent(id)}/messages?page=${page}`); },
     createSupportRequest(payload: SupportCreate): Promise<SupportRecord> { return request(baseUrl, "/api/v1/account/support-requests", post(payload)); },

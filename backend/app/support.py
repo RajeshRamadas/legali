@@ -5,8 +5,8 @@ from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import func, or_, select
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from . import config
@@ -52,6 +52,11 @@ class Review(TextFields):
     internal_note: str = Field(default="", max_length=4000)
 
 
+class ReadReplies(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    through_revision: int = Field(strict=True, ge=0, le=2147483647)
+
+
 def lock_account(db, account_id):
     db.scalar(select(CustomerAccount.id).where(CustomerAccount.id == account_id).with_for_update())
 
@@ -73,6 +78,9 @@ def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=N
         db.scalar(select(ServiceRequest.ticket_number).where(ServiceRequest.id == item.service_request_id)) if item.service_request_id else None)
     result = {"id": str(item.id), "reference": "SR-" + item.id.hex.upper(), "kind": item.kind,
         "subject": item.subject, "status": item.status, "revision": item.revision,
+        "customer_update_revision": item.customer_update_revision,
+        "customer_read_revision": item.customer_read_revision,
+        "unread_replies": item.customer_update_revision - item.customer_read_revision,
         "ticket_number": ticket_number,
         "created_at": item.created_at.isoformat(), "updated_at": item.updated_at.isoformat(),
         "reply_due_at": item.reply_due_at.isoformat() if item.reply_due_at else None,
@@ -142,6 +150,30 @@ def mine(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=50), ac
     return listing(db, select(SupportRequest).where(SupportRequest.account_id == account.id), page, page_size)
 
 
+@router.get("/account/support-requests/unread")
+def unread(account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    difference = SupportRequest.customer_update_revision - SupportRequest.customer_read_revision
+    count, total = db.execute(select(func.count(), func.coalesce(func.sum(difference), 0)).select_from(SupportRequest).where(
+        SupportRequest.account_id == account.id, difference > 0)).one()
+    return {"requests": count, "unread_replies": total}
+
+
+@router.post("/account/support-requests/{request_id}/read")
+def read_replies(request_id: uuid.UUID, payload: ReadReplies, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
+    lock_account(db, account.id)
+    item = find(db, request_id, account.id, lock=True)
+    if payload.through_revision > item.customer_update_revision:
+        raise HTTPException(409, "Reload the conversation before marking newer replies as read.")
+    if payload.through_revision > item.customer_read_revision:
+        # A read receipt must not reorder the work queue, alter response targets or invalidate drafts.
+        db.execute(update(SupportRequest).where(SupportRequest.id == item.id).values(
+            customer_read_revision=payload.through_revision, updated_at=SupportRequest.updated_at),
+            execution_options={"synchronize_session": False})
+        db.commit()
+        db.refresh(item)
+    return view(db, item)
+
+
 @router.get("/account/support-requests/{request_id}")
 def detail(request_id: uuid.UUID, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     return view(db, find(db, request_id, account.id))
@@ -154,7 +186,7 @@ def thread(db, item, page, page_size, *, staff=False):
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     items = db.scalars(query.order_by(SupportMessage.created_at.desc(), SupportMessage.id).offset((page - 1) * page_size).limit(page_size)).all()
     return {"items": [{"id": str(row.id), "body": row.body, "author_type": row.author_type, "visibility": row.visibility, "created_at": row.created_at.isoformat()} for row in items],
-        "total": total, "page": page, "page_size": page_size}
+        "total": total, "page": page, "page_size": page_size, **({"customer_update_revision": item.customer_update_revision} if not staff else {})}
 
 
 @router.get("/account/support-requests/{request_id}/messages")
@@ -230,10 +262,13 @@ def review(request_id: uuid.UUID, payload: Review, actor: User = Depends(require
     if item.status == "resolved" and payload.status != "resolved": open_limit(db, item.account_id)
     if item.status == payload.status and not payload.customer_response and not payload.internal_note:
         raise HTTPException(422, "Add a response, internal note or status change.")
+    if payload.customer_response and item.customer_update_revision >= 2147483647:
+        raise HTTPException(409, "This support conversation has reached its update limit. Open a new request.")
     previous = item.status
     item.status, item.revision = payload.status, item.revision + 1
     item.resolved_at = (item.resolved_at or utcnow()) if item.status == "resolved" else None
     if payload.customer_response:
+        item.customer_update_revision += 1
         item.reply_due_at = None
     elif previous == "resolved" and item.status != "resolved":
         item.reply_due_at = utcnow() + timedelta(hours=config.SUPPORT_RESPONSE_HOURS)
