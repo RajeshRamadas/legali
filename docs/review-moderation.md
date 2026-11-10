@@ -28,6 +28,10 @@ Customer-facing booking information shows publication status without the
 moderator's identity, reason or note. A hidden review still exists privately;
 it does not grant another rating submission for the same consultation.
 
+Customers can now withdraw their own feedback from **My reviews**. Those records
+appear separately as **Withdrawn by customer** and cannot be moderated or
+republished; see the [withdrawal and rollback runbook](customer-reviews.md).
+
 Every change appends a private decision record with its actor, time, reason,
 note and revision. General audit metadata records the transition/revision/code,
 excluding free-text feedback and notes. History follows the review's database

@@ -4,7 +4,7 @@
 .review-page h3 { font-size:16px; }
 .review-page p { color:var(--ink-2); line-height:1.7; }
 .review-page :is(h2,h3,p,a) { overflow-wrap:anywhere; }
-.review-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.review-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
 .review-stat,.review-card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:20px; min-width:0; }
 .review-stat { color:var(--ink); text-align:left; cursor:pointer; }
 .review-stat[aria-pressed=true] { border-color:var(--primary); }

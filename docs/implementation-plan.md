@@ -41,6 +41,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Give verified customers control over withdrawal of consultation reviews
+  The private My reviews centre, confirmed/idempotent withdrawal, moderator restrictions and rollback protection are implemented (`customer-reviews.md`). Retained-record deletion continues through the privacy workflow.
 - [x] Moderate consultation feedback before public display and rating aggregation
   Administrator publication decisions, private history, conflict protection and customer publication status are implemented (`review-moderation.md`). Review the publication policy and existing pending feedback before launch.
 - [x] Track partial, pending and processed booking refunds with an administrator queue

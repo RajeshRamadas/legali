@@ -153,6 +153,9 @@ for (const [area, load] of [["Customer portal", customer], ["Staff workspace", s
       await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
       await expect(page.getByRole("navigation", { name: area, exact: true })).toBeVisible();
       await page.setViewportSize(viewport);
+      // Browser viewport updates can finish before React switches back to mobile controls.
+      await expect(page.locator(".hx-search-dialog")).toBeAttached();
+      await expect(page.locator(".hx-navigation-dialog")).toBeAttached();
     }
     await page.keyboard.press("Control+k");
     const query = page.getByRole("textbox", { name: /Search requests|Search tickets/ });

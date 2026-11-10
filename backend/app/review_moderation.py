@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from .db import get_db
@@ -35,25 +35,27 @@ def view(row):
     review, lawyer_name, ticket = row
     return {"id": str(review.id), "rating": review.rating, "comment": review.comment,
         "reviewer_name": review.reviewer_name, "created_at": iso(review.created_at), "updated_at": iso(review.updated_at),
-        "status": review.moderation_status, "revision": review.revision, "ticket_number": ticket,
+        "status": review.publication_status, "withdrawn_at": iso(review.withdrawn_at) if review.withdrawn_at else None,
+        "revision": review.revision, "ticket_number": ticket,
         "lawyer": {"id": str(review.lawyer_user_id), "name": lawyer_name}}
 
 
 @router.get("")
-def queue(status: Literal["pending", "published", "hidden", "all"] = "pending",
+def queue(status: Literal["pending", "published", "hidden", "withdrawn", "all"] = "pending",
           q: str = Query("", max_length=120), page: int = Query(1, ge=1, le=10000),
           _: User = Depends(require_admin), db: Session = Depends(get_db)):
     query = review_query()
-    if status != "all": query = query.where(LawyerReview.moderation_status == status)
+    publication = case((LawyerReview.withdrawn_at.is_not(None), "withdrawn"), else_=LawyerReview.moderation_status)
+    if status != "all": query = query.where(publication == status)
     if q.strip():
         needle = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         query = query.where(or_(User.display_name.ilike(needle, escape="\\"), ServiceRequest.ticket_number.ilike(needle, escape="\\")))
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     order = (LawyerReview.created_at.asc(), LawyerReview.id) if status == "pending" else (LawyerReview.updated_at.desc(), LawyerReview.id)
     rows = db.execute(query.order_by(*order).offset((page - 1) * 20).limit(20)).all()
-    counts = dict(db.execute(select(LawyerReview.moderation_status, func.count()).group_by(LawyerReview.moderation_status)).all())
+    counts = dict(db.execute(select(publication, func.count()).group_by(publication)).all())
     return {"items": [view(row) for row in rows], "total": total, "page": page, "page_size": 20,
-        "counts": {key: counts.get(key, 0) for key in ("pending", "published", "hidden")}}
+        "counts": {key: counts.get(key, 0) for key in ("pending", "published", "hidden", "withdrawn")}}
 
 
 @router.get("/{review_id}")
@@ -96,11 +98,12 @@ class Decision(BaseModel):
 def decide(review_id: uuid.UUID, payload: Decision, actor: User = Depends(require_admin), db: Session = Depends(get_db)):
     review = db.get(LawyerReview, review_id)
     if review is None: raise HTTPException(404, "Review not found.")
+    if review.withdrawn_at is not None: raise HTTPException(409, "The customer withdrew this review. It cannot be republished or moderated.")
     if review.lawyer_user_id == actor.id: raise HTTPException(403, "Another administrator must moderate reviews of your own profile.")
     if review.revision != payload.revision or review.moderation_status == payload.status:
         raise HTTPException(409, "This review changed or already has that status. Reload before deciding.")
     previous = review.moderation_status
-    changed = db.execute(update(LawyerReview).where(LawyerReview.id == review_id, LawyerReview.revision == payload.revision)
+    changed = db.execute(update(LawyerReview).where(LawyerReview.id == review_id, LawyerReview.revision == payload.revision, LawyerReview.withdrawn_at.is_(None))
         .values(moderation_status=payload.status, revision=payload.revision + 1, updated_at=utcnow()).returning(LawyerReview.id)).scalar_one_or_none()
     if changed is None: raise HTTPException(409, "This review changed. Reload before deciding.")
     db.add(LawyerReviewDecision(review_id=review_id, actor_id=actor.id, from_status=previous, to_status=payload.status,

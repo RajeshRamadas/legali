@@ -1,0 +1,17 @@
+.my-reviews { max-width:1000px; min-width:0; margin:0 auto; display:grid; gap:24px; }
+.my-reviews h1 { font-size:clamp(28px,4vw,40px); margin:8px 0 12px; }
+.my-reviews h2 { font-size:21px; }
+.my-reviews h3 { font-size:17px; }
+.my-reviews p { color:var(--ink-2); line-height:1.7; }
+.my-reviews :is(h1,h2,h3,p) { overflow-wrap:anywhere; }
+.my-reviews a { color:var(--primary); text-decoration:underline; }
+.my-review-notice,.my-review-card { min-width:0; padding:24px; background:var(--surface); border:1px solid var(--line); border-radius:16px; }
+.my-review-card { margin:20px 0; }
+.my-review-card :is(h2,h3) { scroll-margin-top:110px; }
+.my-review-card :is(h2,h3):focus-visible { outline:2px solid var(--primary); outline-offset:3px; }
+.my-review-status { display:inline-block; padding:5px 10px; border-radius:8px; color:var(--primary); background:var(--primary-50); font-size:12px; }
+.my-review-reference { font-size:12px; }
+.my-review-text { white-space:pre-wrap; }
+.my-review-toolbar,.my-review-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; }
+.my-review-confirm { border-top:1px solid var(--line); margin-top:20px; padding-top:16px; }
+@media(max-width:640px) { .my-review-notice,.my-review-card { padding:18px; } .my-review-actions { align-items:stretch; flex-direction:column; } }

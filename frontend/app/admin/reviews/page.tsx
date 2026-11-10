@@ -6,13 +6,13 @@ import { useStaff } from "../AdminShell";
 import { adminFetch } from "../api";
 import "./reviews.css";
 
-type Status = "pending" | "published" | "hidden";
+type Status = "pending" | "published" | "hidden" | "withdrawn";
 type Review = { id: string; rating: number; comment: string; reviewer_name: string; created_at: string; updated_at: string;
-  status: Status; revision: number; ticket_number: string; lawyer: { id: string; name: string } };
+  status: Status; withdrawn_at?: string | null; revision: number; ticket_number: string; lawyer: { id: string; name: string } };
 type Decision = { id: string; from_status: Status; to_status: Status; reason: string; note: string; revision: number; actor: string; created_at: string };
 type Detail = { review: Review; history: Decision[]; total: number; page: number; page_size: number };
 type Queue = { items: Review[]; counts: Record<Status, number>; total: number; page: number; page_size: number };
-const statuses = { pending: "Waiting for review", published: "Published", hidden: "Not published", all: "All reviews" };
+const statuses = { pending: "Waiting for review", published: "Published", hidden: "Not published", withdrawn: "Withdrawn by customer", all: "All reviews" };
 const reasons = { approved: "Suitable for publication", privacy: "Personal or confidential information", abuse: "Abusive or threatening content", off_topic: "Not about the consultation", authenticity: "Authenticity needs investigation", other: "Other policy concern" };
 const date = (value: string) => new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
@@ -35,7 +35,7 @@ export default function ReviewModeration() {
   return <MainContent className="review-page">
     <header><div className="eyebrow">Publication review</div><h1>Review moderation</h1>
       <p>Check feedback for privacy, abuse and relevance before publication. Apply the same policy to positive and negative ratings. Customer wording and star ratings cannot be edited here.</p></header>
-    <div className="review-stats" aria-label="Review queue counts">{(["pending", "published", "hidden"] as Status[]).map(status =>
+    <div className="review-stats" aria-label="Review queue counts">{(["pending", "published", "hidden", "withdrawn"] as Status[]).map(status =>
       <button className="review-stat" key={status} aria-pressed={state === status} onClick={() => { setState(status); setPage(1); }}><span>{statuses[status]}</span><strong>{data?.counts[status] ?? "–"}</strong></button>)}</div>
     <div className="review-toolbar"><label>Review status<select value={state} onChange={event => { setState(event.target.value); setPage(1); }}>{Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <form onSubmit={event => { event.preventDefault(); setQuery(input.trim()); setPage(1); }}><label>Lawyer or case number<input value={input} onChange={event => setInput(event.target.value)} maxLength={120} /></label><button className="btn light">Search reviews</button></form><button className="btn light" onClick={changed}>Refresh queue</button></div>
@@ -81,7 +81,7 @@ function DecisionForm({ review, ownId, onSaved, onReload, onError }: { review: R
     finally { guard.current = false; setBusy(false); }
   }
   return <div className="review-editor"><h3>{snapshot.lawyer.name} · {snapshot.rating} / 5 stars</h3><p>From {snapshot.reviewer_name} · {statuses[snapshot.status]} · editing revision {snapshot.revision}</p><p className="review-text">{snapshot.comment || "No written comment."}</p>
-    {snapshot.lawyer.id === ownId ? <p className="review-warning">Another administrator must moderate reviews of your own profile.</p> : <form onSubmit={submit}>
+    {snapshot.status === "withdrawn" ? <p className="review-warning">The customer withdrew this feedback{snapshot.withdrawn_at ? ` on ${date(snapshot.withdrawn_at)}` : ""}. It cannot be republished.</p> : snapshot.lawyer.id === ownId ? <p className="review-warning">Another administrator must moderate reviews of your own profile.</p> : <form onSubmit={submit}>
       <label>Publication decision<select value={status} disabled={busy} onChange={event => { const value = event.target.value as "published" | "hidden"; setStatus(value); setReason(value === "published" ? "approved" : "privacy"); }}><option value="published" disabled={snapshot.status === "published"}>Publish feedback</option><option value="hidden" disabled={snapshot.status === "hidden"}>Do not publish / hide feedback</option></select></label>
       <label>Decision reason<select value={reason} disabled={busy} onChange={event => setReason(event.target.value)}>{Object.entries(reasons).filter(([key]) => status === "published" ? key === "approved" : key !== "approved").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <label>Private decision note<textarea required minLength={5} maxLength={1000} rows={3} value={note} disabled={busy} onChange={event => setNote(event.target.value)} /></label>

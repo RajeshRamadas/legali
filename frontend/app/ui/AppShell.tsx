@@ -82,7 +82,7 @@ export default function AppShell({
       ? false
       : href.split("?")[0] === "/admin"
         ? pathname === "/admin" && !href.includes("?")
-        : pathname === href || pathname.startsWith(href + "/");
+        : href === "/account" ? pathname === href : pathname === href || pathname.startsWith(href + "/");
   const sidebar = (
       <aside
         id="workspace-navigation"

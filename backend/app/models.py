@@ -626,6 +626,7 @@ class LawyerReview(Base):
         CheckConstraint("rating BETWEEN 1 AND 5", name="ck_lawyer_reviews_rating"),
         Index("idx_lawyer_reviews_lawyer_created", "lawyer_user_id", "created_at"),
         CheckConstraint("moderation_status IN ('pending','published','hidden') AND revision >= 1", name="ck_lawyer_review_moderation"),
+        CheckConstraint("withdrawn_at IS NULL OR moderation_status = 'hidden'", name="ck_lawyer_review_withdrawal"),
         Index("ix_lawyer_review_moderation_queue", "moderation_status", "created_at"),
     )
 
@@ -640,6 +641,11 @@ class LawyerReview(Base):
     moderation_status: Mapped[str] = mapped_column(Text, default="pending", server_default="pending", nullable=False)
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=text("CURRENT_TIMESTAMP"), nullable=False)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def publication_status(self):
+        return "withdrawn" if self.withdrawn_at is not None else self.moderation_status
 
 class LawyerReviewDecision(Base):
     __tablename__ = "lawyer_review_decisions"

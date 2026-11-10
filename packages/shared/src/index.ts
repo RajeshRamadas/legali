@@ -305,7 +305,9 @@ export type LawyerCard = {
   consultations: number;
   next_available: (LawyerSlot & { day: string }) | null;
 };
-export const REVIEW_MODERATION_LABELS = { pending: "Waiting for review", published: "Published", hidden: "Not published" };
+export const REVIEW_MODERATION_LABELS = { pending: "Waiting for review", published: "Published", hidden: "Not published", withdrawn: "Withdrawn by you" };
+export type CustomerReview = { id: string; lawyer_name: string; ticket_number: string; rating: number; comment: string; created_at: string; status: keyof typeof REVIEW_MODERATION_LABELS; withdrawn_at: string | null };
+export type CustomerReviewsPage = { items: CustomerReview[]; total: number; page: number; page_size: number };
 export type LawyerReview = { rating: number; comment: string; reviewer_name: string; at: string; moderation_status?: keyof typeof REVIEW_MODERATION_LABELS };
 export type LawyerProfile = LawyerCard & {
   bio: string;
@@ -855,6 +857,12 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     },
     reviewBooking(ref: BookingRef, rating: number, comment: string): Promise<Booking> {
       return request(baseUrl, "/api/v1/bookings/review", post({ ...ref, rating, comment }));
+    },
+    myReviews(page = 1): Promise<CustomerReviewsPage> {
+      return request(baseUrl, `/api/v1/account/reviews?page=${page}`);
+    },
+    withdrawMyReview(id: string): Promise<CustomerReview> {
+      return request(baseUrl, `/api/v1/account/reviews/${encodeURIComponent(id)}/withdraw`, post({ confirmed: true }));
     },
     startPayment(ref: BookingRef, kind: PaymentCheckout["kind"] = "checkout"): Promise<{ booking: Booking; checkout: PaymentCheckout }> {
       return request(baseUrl, "/api/v1/bookings/pay", post({ ...ref, kind }));

@@ -52,12 +52,12 @@ def policy_for(method, path):
     if method == "GET":
         if path.startswith("/api/v1/files/"):
             return Policy("downloads", config.API_DOWNLOADS_PER_MINUTE)
-        if path == "/api/v1/account" or path.startswith(("/api/v1/account/requests/", "/api/v1/account/privacy-requests", "/api/v1/intake/drafts", "/api/v1/account/support-requests", "/api/v1/admin/support-requests", "/api/v1/admin/site-policies", "/api/v1/admin/refunds", "/api/v1/admin/reviews")):
+        if path == "/api/v1/account" or path.startswith(("/api/v1/account/requests/", "/api/v1/account/privacy-requests", "/api/v1/intake/drafts", "/api/v1/account/support-requests", "/api/v1/account/reviews", "/api/v1/admin/support-requests", "/api/v1/admin/site-policies", "/api/v1/admin/refunds", "/api/v1/admin/reviews")):
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
     if method in ("POST", "PUT", "PATCH", "DELETE") and (
         path in ("/api/v1/tickets/messages", "/api/v1/tickets/property-intake", "/api/v1/tickets/documents/tag", "/api/v1/tickets/documents/delete", "/api/v1/account", "/api/v1/account/logout-all")
         or path.startswith("/api/v1/intake/drafts") or path.startswith("/api/v1/bookings/") or path.startswith("/api/v1/account/privacy-requests") or path.startswith("/api/v1/admin/privacy-requests")
-        or path.startswith("/api/v1/account/support-requests") or path.startswith("/api/v1/admin/support-requests") or path.startswith("/api/v1/admin/site-policies") or path.startswith("/api/v1/admin/refunds") or path.startswith("/api/v1/admin/reviews")):
+        or path.startswith("/api/v1/account/support-requests") or path.startswith("/api/v1/account/reviews") or path.startswith("/api/v1/admin/support-requests") or path.startswith("/api/v1/admin/site-policies") or path.startswith("/api/v1/admin/refunds") or path.startswith("/api/v1/admin/reviews")):
         return Policy("customer_writes", config.API_WRITES_PER_MINUTE)
     return None
 

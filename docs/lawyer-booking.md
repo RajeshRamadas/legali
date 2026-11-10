@@ -67,6 +67,7 @@ Slots are the weekly hours cut into consultation-length pieces, in `MEETING_TIME
 - Managing a booking requires the verified account that owns it; a booking number/contact alone never grants access. Wrong ownership uses the same not-found response.
 - Reviews are tied to a meeting that has ended, one per meeting, and show the reviewer as first name and initial.
   Only published reviews are public or included in ratings. Administrators review feedback without editing it, with private decision history and conflict protection ([moderation runbook](review-moderation.md)).
+  Verified customers can inspect and withdraw their own feedback from `/account/reviews`; withdrawn reviews stay private and cannot be republished by staff ([customer review controls](customer-reviews.md)).
 
 ## Not built yet
 

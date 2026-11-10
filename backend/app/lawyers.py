@@ -125,7 +125,7 @@ def _next_slot(profile: LawyerProfile, busy: list, now: datetime) -> dict | None
 # ---- Views ----
 
 def _stats(db: Session, lawyer_ids: list[uuid.UUID]) -> dict[uuid.UUID, dict]:
-    ratings = db.execute(select(LawyerReview.lawyer_user_id, func.avg(LawyerReview.rating), func.count()).where(LawyerReview.lawyer_user_id.in_(lawyer_ids), LawyerReview.moderation_status == "published").group_by(LawyerReview.lawyer_user_id)).all()
+    ratings = db.execute(select(LawyerReview.lawyer_user_id, func.avg(LawyerReview.rating), func.count()).where(LawyerReview.lawyer_user_id.in_(lawyer_ids), LawyerReview.moderation_status == "published", LawyerReview.withdrawn_at.is_(None)).group_by(LawyerReview.lawyer_user_id)).all()
     done = db.execute(select(Meeting.lawyer_user_id, func.count()).where(Meeting.lawyer_user_id.in_(lawyer_ids), Meeting.status == "completed").group_by(Meeting.lawyer_user_id)).all()
     stats = {i: {"rating": None, "review_count": 0, "consultations": 0} for i in lawyer_ids}
     for lawyer_id, avg, count in ratings:
@@ -245,7 +245,7 @@ def lawyer_profile(slug: str, response: Response, db: Session = Depends(get_db))
     now = utcnow()
     _, start, end = _window(config.BOOKING_DAYS_AHEAD, now)
     busy = _busy(db, [profile.user_id], start, end).get(profile.user_id, [])
-    reviews = db.scalars(select(LawyerReview).where(LawyerReview.lawyer_user_id == profile.user_id, LawyerReview.moderation_status == "published").order_by(LawyerReview.created_at.desc(), LawyerReview.id).limit(20)).all()
+    reviews = db.scalars(select(LawyerReview).where(LawyerReview.lawyer_user_id == profile.user_id, LawyerReview.moderation_status == "published", LawyerReview.withdrawn_at.is_(None)).order_by(LawyerReview.created_at.desc(), LawyerReview.id).limit(20)).all()
     return {
         **_card(profile, _stats(db, [profile.user_id])[profile.user_id], _next_slot(profile, busy, now)),
         "bio": profile.bio,
@@ -340,7 +340,7 @@ def booking_view(db: Session, ticket: ServiceRequest, meeting: Meeting) -> dict:
         "meeting": tickets.meeting_view(meeting),
         "can_change": scheduled and tickets.aware(meeting.starts_at) - now > timedelta(hours=config.CUSTOMER_CHANGE_HOURS) and profile is not None,
         "can_review": meeting.status != "cancelled" and tickets.aware(meeting.ends_at) <= now and review is None,
-        "review": {**_review_view(review), "moderation_status": review.moderation_status} if review else None,
+        "review": {**_review_view(review), "moderation_status": review.publication_status} if review else None,
         "payment": payments.payment_view(db, ticket, meeting),
     }
 

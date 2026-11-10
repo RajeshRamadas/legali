@@ -69,6 +69,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
       </div>
       <PayPanel bookingRef={ref} booking={booking} onChange={onChange} />
       {booking.review && <div className="lw-fine"><p>You rated this {"★".repeat(booking.review.rating)}{booking.review.comment ? `: “${booking.review.comment}”` : ""}</p><p role="status">{REVIEW_MODERATION_LABELS[booking.review.moderation_status ?? "pending"]}{booking.review.moderation_status === "pending" ? ". Your feedback is private until it is published." : "."}</p></div>}
+      {booking.review && <p><Link className="dc-link" href="/account/reviews">Manage your reviews</Link></p>}
       {error && <p className="lw-error" role="alert">{error}</p>}
 
       {mode === "" && (

@@ -123,7 +123,7 @@ def test_queue_search_filters_and_unknown_records_are_bounded(client, lawyer, ad
     identifier, _ = submitted(client, lawyer)
     path = "/api/v1/admin/reviews"
     queue = client.get(path, headers=admin_headers).json()
-    assert queue["counts"] == {"pending": 1, "published": 0, "hidden": 0} and queue["total"] == 1
+    assert queue["counts"] == {"pending": 1, "published": 0, "hidden": 0, "withdrawn": 0} and queue["total"] == 1
     assert client.get(path, params={"q": "%"}, headers=admin_headers).json()["total"] == 0
     assert client.get(path, params={"page": 2}, headers=admin_headers).json()["items"] == []
     assert client.get(path, params={"page": 10001}, headers=admin_headers).status_code == 422
