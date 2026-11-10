@@ -1,4 +1,10 @@
 import os
+from .deployment import DEPLOYED_ENVIRONMENTS, https_origin, startup_errors
+
+_deployment_errors = startup_errors(os.environ)
+if _deployment_errors:
+    raise RuntimeError("Unsafe deployment configuration: " + ", ".join(_deployment_errors)
+        + ". Run python -m app.deployment_check --target staging|production for sanitized guidance.")
 
 APP_ENV = os.getenv("APP_ENV", "development")
 # Property document agent: keys never travel to browsers or enter saved reports.
@@ -20,6 +26,9 @@ VERIFICATION_LLM_BASE_URL = os.getenv("VERIFICATION_LLM_BASE_URL", "https://api.
 VERIFICATION_OCR_LANGUAGES = os.getenv("VERIFICATION_OCR_LANGUAGES", "eng")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://homexo_app:change-this-local-password@localhost:5432/homexo")
 CORS_ORIGINS = [item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if item.strip()]
+if APP_ENV in DEPLOYED_ENVIRONMENTS:
+    # Match the browser's serialized Origin, including IDNA hosts and omitted default ports.
+    CORS_ORIGINS = [https_origin(item) for item in CORS_ORIGINS]
 
 # Signs staff access tokens. Must be set to a long random value outside development.
 JWT_SECRET = os.getenv("JWT_SECRET", "")

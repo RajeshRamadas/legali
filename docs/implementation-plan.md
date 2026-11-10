@@ -6,6 +6,7 @@
 - [x] Add PostgreSQL schema draft
 - [x] Add Docker Compose and GitHub CI
 - [ ] Configure development/staging/production environments
+  Separate deployed environment templates, offline preflight/startup guards and rendered Compose profile checks are implemented (`deployment-readiness.md`). Provision real secrets, HTTPS/network boundaries and external services; verify delivery, recovery and deployment ownership before launch.
 - [ ] Add Alembic migrations and DB-backed repositories
 
 ## Phase 1 — Service catalogue and intake

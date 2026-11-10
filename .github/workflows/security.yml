@@ -103,6 +103,9 @@ jobs:
         env:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
         run: python -m alembic upgrade head
+      - name: Validate rendered deployment profiles without starting containers
+        if: matrix.database == 'sqlite'
+        run: python scripts/check_deployment_profiles.py
       - name: Run API security and business regressions
         working-directory: backend
         run: python -m pytest -q --junitxml=../security-reports/api-${{ matrix.database }}.xml

@@ -2,6 +2,7 @@
 
 - [ ] Never commit API keys, `.env`, database dumps or customer documents.
 - [ ] Use managed secrets and rotate credentials.
+  Staging/production startup rejects unsafe configuration; use the sanitized preflight and separate profiles before deployment ([deployment readiness](deployment-readiness.md)). Secret storage/rotation and external capability checks remain operational responsibilities.
 - [ ] Implement authentication, MFA for admins, RBAC and least privilege.
   Staff password recovery and MFA are implemented; configure and verify the deployment policy in [staff security](staff-security.md).
 - [ ] Verify identity/ownership before exposing ticket data or files.
