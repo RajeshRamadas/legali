@@ -17,6 +17,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Staff password recovery, authenticator two-factor sign-in with recovery codes, password changes and session revocation from **Security** (`docs/staff-security.md`).
 - Administrator review moderation keeps consultation feedback private until publication, excludes unpublished reviews from ratings, and records private decision history (`docs/review-moderation.md`).
 - Customer **My reviews** shows owned consultation feedback and supports confirmed withdrawal, with protection against staff republication (`docs/customer-reviews.md`).
+- Customer **Notifications** controls automated email, SMS and WhatsApp alerts, cancels queued messages on disabled channels and preserves requested sign-in codes (`docs/notification-preferences.md`).
 - Guided customer requests at `/request`: relevant questions, private save/resume, editable review and explicit consent before a ticket is created (`docs/guided-intake.md`).
 - Case management (`/admin/cases` and each ticket page): six milestones per case, allowed status moves with closure checks and reopen, case tasks with a playbook that adds and ticks off routine work, a case team, first-response and due-date deadlines, a case fee, and a step bar for customers (see `docs/case-management.md`).
 - Case targets pause while on hold; staff deadline alerts (`/admin/alerts`) track missed targets, acknowledgements and administrator escalation with optional email (`docs/deadline-alerts.md`).

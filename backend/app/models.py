@@ -184,6 +184,17 @@ class CustomerAccount(TimestampMixin, Base):
     # Part of every session token; raising it signs the account out on every device.
     token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
 
+class CustomerNotificationPreference(Base):
+    __tablename__ = "customer_notification_preferences"
+    __table_args__ = (CheckConstraint("revision >= 1", name="ck_customer_notification_preferences_revision"),)
+
+    account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="CASCADE"), primary_key=True)
+    email: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    sms: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    whatsapp: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
 class LoginCode(Base):
     """A one-time sign-in code sent to a phone. Only a hash of the code is kept."""
     __tablename__ = "login_codes"

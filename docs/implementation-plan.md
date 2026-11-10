@@ -41,6 +41,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Give verified customers control over automated notification channels
+  Email/SMS/WhatsApp choices, queued-alert cancellation, worker checks, private audit and rollback protection are implemented (`notification-preferences.md`). Requested sign-in codes remain available; cancelled alerts are never replayed.
 - [x] Give verified customers control over withdrawal of consultation reviews
   The private My reviews centre, confirmed/idempotent withdrawal, moderator restrictions and rollback protection are implemented (`customer-reviews.md`). Retained-record deletion continues through the privacy workflow.
 - [x] Moderate consultation feedback before public display and rating aggregation

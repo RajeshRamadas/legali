@@ -308,6 +308,8 @@ export type LawyerCard = {
 export const REVIEW_MODERATION_LABELS = { pending: "Waiting for review", published: "Published", hidden: "Not published", withdrawn: "Withdrawn by you" };
 export type CustomerReview = { id: string; lawyer_name: string; ticket_number: string; rating: number; comment: string; created_at: string; status: keyof typeof REVIEW_MODERATION_LABELS; withdrawn_at: string | null };
 export type CustomerReviewsPage = { items: CustomerReview[]; total: number; page: number; page_size: number };
+export type NotificationPreferences = { email: boolean; sms: boolean; whatsapp: boolean; revision: number; updated_at: string | null };
+export type NotificationChoices = Pick<NotificationPreferences, "email" | "sms" | "whatsapp" | "revision">;
 export type LawyerReview = { rating: number; comment: string; reviewer_name: string; at: string; moderation_status?: keyof typeof REVIEW_MODERATION_LABELS };
 export type LawyerProfile = LawyerCard & {
   bio: string;
@@ -857,6 +859,12 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     },
     reviewBooking(ref: BookingRef, rating: number, comment: string): Promise<Booking> {
       return request(baseUrl, "/api/v1/bookings/review", post({ ...ref, rating, comment }));
+    },
+    notificationPreferences(): Promise<NotificationPreferences> {
+      return request(baseUrl, "/api/v1/account/notification-preferences");
+    },
+    saveNotificationPreferences(choices: NotificationChoices): Promise<NotificationPreferences> {
+      return request(baseUrl, "/api/v1/account/notification-preferences", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(choices) });
     },
     myReviews(page = 1): Promise<CustomerReviewsPage> {
       return request(baseUrl, `/api/v1/account/reviews?page=${page}`);

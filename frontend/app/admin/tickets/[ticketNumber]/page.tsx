@@ -222,7 +222,7 @@ export default function TicketPage() {
                     <b>{TEMPLATE_TEXT[n.template] ?? n.template.replace(/_/g, " ")}{n.to === "staff" && " (lawyer)"}</b>
                     <small>
                       {n.channel === "whatsapp" ? "WhatsApp" : n.channel.toUpperCase()} · {n.status === "queued" && !n.processing && meta?.notifications?.[n.channel] === false ? "channel not configured" : n.processing ? "processing" : n.status === "sent" ? "accepted by provider" : n.status === "queued" && n.send_after && new Date(n.send_after) > new Date() ? `due ${formatDate(n.send_after)}` : n.status}
-                      {n.error && n.error !== "superseded" && ` (${n.error})`} · {formatDate(n.at)}
+                      {n.error && n.error !== "superseded" && ` (${n.error === "preference_disabled" ? "channel disabled by customer" : n.error})`} · {formatDate(n.at)}
                       {n.attempts > 0 && ` · ${n.attempts} attempt${n.attempts === 1 ? "" : "s"}`}
                       {n.provider_reference && ` · Provider reference: ${n.provider_reference}`}
                       {n.error?.includes("outcome_unknown") && " · Check provider history before retrying."}

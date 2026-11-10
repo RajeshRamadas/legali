@@ -21,6 +21,7 @@ from .meetings import render
 from .models import Meeting, Notification, ServiceRequest, User, utcnow
 from .tickets import aware
 from .telemetry import observe_worker
+from .notification_preferences import delivery_allowed
 
 log = logging.getLogger("homexo.notify")
 
@@ -61,6 +62,11 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             .with_for_update(skip_locked=True).limit(1)).first()
         if notification is None:
             break
+        if not delivery_allowed(db, notification):
+            notification.delivery_status, notification.error_code = "cancelled", "preference_disabled"
+            notification.processing_until = notification.claim_token = None
+            db.commit()
+            continue
         meeting = db.get(Meeting, notification.meeting_id) if notification.meeting_id else None
         due_at = aware(notification.send_after or notification.created_at)
         allowed = sla_alerts.delivery_allowed(db, notification, now)
@@ -98,6 +104,11 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             # Refresh after claim commit, so cancellation before sending is respected.
             db.refresh(notification)
             if notification.delivery_status != "queued" or notification.claim_token != claim:
+                continue
+            if not delivery_allowed(db, notification):
+                db.execute(update(Notification).where(Notification.id == notification_id, Notification.claim_token == claim)
+                    .values(delivery_status="cancelled", error_code="preference_disabled", claim_token=None, processing_until=None))
+                db.commit()
                 continue
             if not sla_alerts.delivery_allowed(db, notification, fixed_now or utcnow()):
                 db.execute(update(Notification).where(Notification.id == notification_id, Notification.claim_token == claim)

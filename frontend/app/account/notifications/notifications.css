@@ -1,0 +1,16 @@
+.notification-settings { max-width:900px; min-width:0; margin:0 auto; display:grid; gap:24px; }
+.notification-settings h1 { font-size:clamp(28px,4vw,40px); margin:8px 0 12px; }
+.notification-settings h2 { font-size:21px; }
+.notification-settings p { color:var(--ink-2); line-height:1.7; }
+.notification-settings :is(h1,h2,p,legend,span) { overflow-wrap:anywhere; }
+.notification-settings a { color:var(--primary); text-decoration:underline; }
+.notification-settings-card { min-width:0; padding:24px; background:var(--surface); border:1px solid var(--line); border-radius:16px; }
+.notification-settings fieldset { display:grid; gap:16px; min-width:0; padding:20px 0; margin:0; border:0; }
+.notification-settings legend { font-weight:600; padding:12px 0; }
+.notification-choice { display:flex; align-items:center; gap:14px; min-height:44px; cursor:pointer; }
+.notification-choice input[type="checkbox"] { width:22px; height:22px; flex:none; accent-color:var(--primary); }
+.notification-settings .btn { width:fit-content; max-width:100%; white-space:normal; }
+.notification-settings-note { border-left:3px solid var(--primary); padding-left:14px; }
+.notification-settings-meta { font-size:13px; }
+.notification-settings [tabindex="-1"]:focus-visible { outline:2px solid var(--primary); outline-offset:4px; }
+@media(max-width:640px) { .notification-settings-card { padding:18px; } }

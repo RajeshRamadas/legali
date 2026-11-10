@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import case_files, case_management, config, document_requirements
+from .notification_preferences import queue_customer_notification
 from .models import (
     CLOSED_STATUSES, AuditLog, Conversation, ConversationMessage, Customer, Meeting, Notification, Property, ServiceRequest, ServiceType, TicketEvent, TicketMessage, User, utcnow,
 )
@@ -77,7 +78,7 @@ def queue_notifications(db: Session, ticket: ServiceRequest, template_key: str, 
     if customer.email:
         targets.append(("email", customer.email))
     for channel, recipient in targets:
-        db.add(Notification(service_request_id=ticket.id, customer_id=customer.id, channel=channel, template_key=template_key, recipient=recipient, body=body))
+        queue_customer_notification(db, service_request_id=ticket.id, customer_id=customer.id, channel=channel, template_key=template_key, recipient=recipient, body=body)
 
 def create_ticket(db: Session, *, customer_name: str, phone: str, email: str | None, property_type: str, service: ServiceType,
                   package: str | None, location: str, description: str, source: str, property_intake: dict | None = None) -> ServiceRequest:

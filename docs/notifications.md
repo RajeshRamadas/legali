@@ -2,6 +2,12 @@
 
 Ticket confirmations, status changes, document requests and case-team messages queue email/SMS alerts. Consultation bookings, changes, cancellations and future reminders also queue customer email/SMS alongside the existing WhatsApp messages. Payment processing queues a payment update once, including when a payment webhook is repeated. Private case text, legal findings, attachments and meeting links stay in the authenticated portal; email/SMS give a short alert and an account link.
 
+Verified customers can control automated email, SMS and WhatsApp from
+**Notifications** in their account. Disabled channels cancel queued alerts and
+remain blocked by the worker; sign-in codes and staff alerts are separate.
+See [customer notification preferences](notification-preferences.md), including
+rollout and rollback requirements for migration 0029.
+
 ## Configure delivery
 
 Set values securely in the deployment environment or ignored `infra/.env` for Docker Compose; never commit credentials. Provider activation requires network access to `api.resend.com` and `api.twilio.com`. Missing provider credentials keep that channel queued without consuming attempts. Staff see “channel not configured” in the ticket's notification history.

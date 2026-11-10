@@ -17,6 +17,7 @@ from . import admin, config, google_calendar, payments, tickets
 from .db import get_db
 from .models import CLOSED_STATUSES, Meeting, Notification, ServiceRequest, User, utcnow
 from .security import current_staff
+from .notification_preferences import queue_customer_notification
 
 router = APIRouter(prefix="/api/v1/admin")
 
@@ -86,18 +87,18 @@ def _queue(db: Session, meeting: Meeting, template_key: str, last_param: str | N
         if party["kind"] not in kinds:
             continue
         params = [party["name"], f"{ticket.service_type.name} ({ticket.ticket_number})", tickets.format_when(meeting.starts_at), party["other"], last_param or meeting.meet_link or LINK_TO_FOLLOW]
-        db.add(Notification(
+        queue_customer_notification(db,
             service_request_id=ticket.id, customer_id=party.get("customer_id"), user_id=party.get("user_id"), meeting_id=meeting.id,
             channel="whatsapp", template_key=template_key, recipient=party["phone"], params=params, body=render(template_key, params),
             send_after=send_after or utcnow(), dedupe_key=f"{dedupe}:{party['kind']}" if dedupe else None,
-        ))
+        )
     if "customer" in kinds:
         for channel, recipient in (("email", ticket.customer.email), ("sms", ticket.customer.phone)):
             if recipient:
-                db.add(Notification(service_request_id=ticket.id, customer_id=ticket.customer_id, meeting_id=meeting.id,
+                queue_customer_notification(db, service_request_id=ticket.id, customer_id=ticket.customer_id, meeting_id=meeting.id,
                     channel=channel, template_key=template_key, recipient=recipient,
                     body=f"Consultation update on {ticket.ticket_number}. Sign in to view the details.",
-                    send_after=send_after or utcnow(), dedupe_key=f"{dedupe}:customer:{channel}" if dedupe else None))
+                    send_after=send_after or utcnow(), dedupe_key=f"{dedupe}:customer:{channel}" if dedupe else None)
 
 
 def _queue_reminders(db: Session, meeting: Meeting) -> None:
