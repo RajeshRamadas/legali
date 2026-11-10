@@ -11,7 +11,7 @@ A Practo-style flow for lawyers, on the website (`/lawyers`, `/lawyers/{slug}`, 
    - adds a meeting on that ticket, so it gets a Google Meet link when Google Calendar is connected, WhatsApp invites and reminders for both sides, and appears on the lawyer's calendar (`docs/meetings.md`);
    - returns the booking number (the ticket number). The website remembers it in the browser and the app on the phone.
 4. **Pay.** When online payment is on, the slot is held and the customer pays the fee straight away (see Payment below). An unpaid booking is released after `PAYMENT_HOLD_MINUTES`.
-5. **My bookings.** Lists bookings made on that browser or phone, and finds others by booking number plus the phone or email used. Customers can pay a fee still due, join (the link is shown while the meeting is on), reschedule to another open slot or cancel until `CUSTOMER_CHANGE_HOURS` before the start, and rate the consultation once after it has ended. A cancelled online booking also cancels its ticket.
+5. **My bookings.** Requires verified customer sign-in, lists the account's bookings and remembers bookings on that browser or phone. Customers can pay a fee still due, join (the link is shown while the meeting is on), reschedule to another open slot or cancel until `CUSTOMER_CHANGE_HOURS` before the start, and rate the consultation once after it has ended. Feedback waits for administrator review before public display or inclusion in ratings; its owner can see publication status. A cancelled online booking also cancels its ticket.
 
 Without Google Calendar, a booking has no link at first. The WhatsApp invite says the link will follow, and staff add it from the ticket page (**Add meeting link**), which sends it to both sides and updates the queued reminders.
 
@@ -64,14 +64,13 @@ Slots are the weekly hours cut into consultation-length pieces, in `MEETING_TIME
 ## Safeguards
 
 - Bookings are checked against the lawyer's open slots at the moment of booking, and the lawyer's row is locked while checking (PostgreSQL), so two customers can't take the same slot.
-- Managing a booking needs both the booking number and the phone or email used, and the API gives the same answer for a wrong number or a wrong contact.
+- Managing a booking requires the verified account that owns it; a booking number/contact alone never grants access. Wrong ownership uses the same not-found response.
 - Reviews are tied to a meeting that has ended, one per meeting, and show the reviewer as first name and initial.
+  Only published reviews are public or included in ratings. Administrators review feedback without editing it, with private decision history and conflict protection ([moderation runbook](review-moderation.md)).
 
 ## Not built yet
 
 - Refunds from inside the staff workspace (staff refund in the Razorpay dashboard for now), GST invoices, and coupons.
-- Customer accounts with OTP. Until then, My bookings relies on the booking number plus phone or email.
-- Moderating or replying to reviews, verified-lawyer badges, lawyer photos, and clinic-style in-person appointments.
-- Rate limiting on booking and lookup beyond the per-phone cap.
+- Replies to reviews, verified-lawyer badges, lawyer photos, and clinic-style in-person appointments.
 
 Sample data for development: `cd backend && python -m app.demo_lawyers` adds six listed sample lawyers.

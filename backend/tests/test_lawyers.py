@@ -147,7 +147,7 @@ def test_changes_close_shortly_before_the_start(client, lawyer, monkeypatch):
     assert client.post("/api/v1/bookings/lookup", json=ref).json()["can_change"] is False
     assert client.post("/api/v1/bookings/cancel", json=ref).status_code == 422
 
-def test_review_after_the_consultation(client, lawyer):
+def test_review_after_the_consultation(client, lawyer, admin_headers):
     booking = _book(client, lawyer["slug"]).json()
     ref = {"ticket_number": booking["ticket_number"], "contact": CUSTOMER["email"]}
     assert client.post("/api/v1/bookings/review", json={**ref, "rating": 5}).status_code == 422  # hasn't happened yet
@@ -162,8 +162,16 @@ def test_review_after_the_consultation(client, lawyer):
     reviewed = client.post("/api/v1/bookings/review", json={**ref, "rating": 4, "comment": "Clear advice on the RERA complaint."})
     assert reviewed.status_code == 201, reviewed.text
     assert reviewed.json()["review"]["reviewer_name"] == "Priya S." and not reviewed.json()["can_review"]
+    assert reviewed.json()["review"]["moderation_status"] == "pending"
     assert client.post("/api/v1/bookings/review", json={**ref, "rating": 1}).status_code == 422
 
+    card = client.get(f"/api/v1/lawyers/{lawyer['slug']}").json()
+    assert card["rating"] is None and card["review_count"] == 0 and card["reviews"] == []
+    from app.models import LawyerReview
+    with SessionLocal() as db: identifier = str(db.scalar(select(LawyerReview.id)))
+    response = client.patch(f"/api/v1/admin/reviews/{identifier}", headers=admin_headers,
+        json={"revision": 1, "status": "published", "reason": "approved", "note": "Reviewed feedback for publication.", "reviewed": True})
+    assert response.status_code == 200, response.text
     card = client.get(f"/api/v1/lawyers/{lawyer['slug']}").json()
     assert (card["rating"], card["review_count"], card["consultations"]) == (4.0, 1, 1)
     assert card["reviews"][0]["comment"] == "Clear advice on the RERA complaint."

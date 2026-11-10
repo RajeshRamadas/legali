@@ -305,7 +305,8 @@ export type LawyerCard = {
   consultations: number;
   next_available: (LawyerSlot & { day: string }) | null;
 };
-export type LawyerReview = { rating: number; comment: string; reviewer_name: string; at: string };
+export const REVIEW_MODERATION_LABELS = { pending: "Waiting for review", published: "Published", hidden: "Not published" };
+export type LawyerReview = { rating: number; comment: string; reviewer_name: string; at: string; moderation_status?: keyof typeof REVIEW_MODERATION_LABELS };
 export type LawyerProfile = LawyerCard & {
   bio: string;
   // True when the fee is paid online right after booking (Razorpay, or test mode in development).

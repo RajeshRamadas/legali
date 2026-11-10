@@ -625,6 +625,8 @@ class LawyerReview(Base):
     __table_args__ = (
         CheckConstraint("rating BETWEEN 1 AND 5", name="ck_lawyer_reviews_rating"),
         Index("idx_lawyer_reviews_lawyer_created", "lawyer_user_id", "created_at"),
+        CheckConstraint("moderation_status IN ('pending','published','hidden') AND revision >= 1", name="ck_lawyer_review_moderation"),
+        Index("ix_lawyer_review_moderation_queue", "moderation_status", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -634,6 +636,25 @@ class LawyerReview(Base):
     comment: Mapped[str] = mapped_column(Text, default="", nullable=False)
     # Shown as written, e.g. "Priya S."
     reviewer_name: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    moderation_status: Mapped[str] = mapped_column(Text, default="pending", server_default="pending", nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, server_default=text("CURRENT_TIMESTAMP"), nullable=False)
+
+class LawyerReviewDecision(Base):
+    __tablename__ = "lawyer_review_decisions"
+    __table_args__ = (
+        UniqueConstraint("review_id", "revision", name="uq_lawyer_review_decision_revision"),
+        CheckConstraint("from_status IN ('pending','published','hidden') AND to_status IN ('published','hidden') AND from_status <> to_status AND revision >= 2", name="ck_lawyer_review_decision"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    review_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("lawyer_reviews.id", ondelete="CASCADE"), nullable=False)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    from_status: Mapped[str] = mapped_column(Text, nullable=False)
+    to_status: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class Payment(TimestampMixin, Base):

@@ -10,8 +10,8 @@ from datetime import date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field, field_validator
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -125,7 +125,7 @@ def _next_slot(profile: LawyerProfile, busy: list, now: datetime) -> dict | None
 # ---- Views ----
 
 def _stats(db: Session, lawyer_ids: list[uuid.UUID]) -> dict[uuid.UUID, dict]:
-    ratings = db.execute(select(LawyerReview.lawyer_user_id, func.avg(LawyerReview.rating), func.count()).where(LawyerReview.lawyer_user_id.in_(lawyer_ids)).group_by(LawyerReview.lawyer_user_id)).all()
+    ratings = db.execute(select(LawyerReview.lawyer_user_id, func.avg(LawyerReview.rating), func.count()).where(LawyerReview.lawyer_user_id.in_(lawyer_ids), LawyerReview.moderation_status == "published").group_by(LawyerReview.lawyer_user_id)).all()
     done = db.execute(select(Meeting.lawyer_user_id, func.count()).where(Meeting.lawyer_user_id.in_(lawyer_ids), Meeting.status == "completed").group_by(Meeting.lawyer_user_id)).all()
     stats = {i: {"rating": None, "review_count": 0, "consultations": 0} for i in lawyer_ids}
     for lawyer_id, avg, count in ratings:
@@ -185,6 +185,7 @@ def lawyer_filters(db: Session = Depends(get_db)):
 
 @router.get("/api/v1/lawyers")
 def search_lawyers(
+    response: Response,
     q: str | None = Query(None, max_length=100, description="Name, specialisation, headline or area."),
     specialisation: str | None = None,
     language: str | None = None,
@@ -195,6 +196,7 @@ def search_lawyers(
     sort: Literal["relevance", "experience", "fee_low", "fee_high", "rating", "soonest"] = "relevance",
     db: Session = Depends(get_db),
 ):
+    response.headers["Cache-Control"] = "no-store"
     profiles = list(db.scalars(_listed(db)).unique().all())
     def has(values: list[str], wanted: str) -> bool:
         return wanted.strip().lower() in {v.lower() for v in values}
@@ -237,12 +239,13 @@ def search_lawyers(
     return {"items": cards, "total": len(cards), "timezone": config.MEETING_TIMEZONE}
 
 @router.get("/api/v1/lawyers/{slug}")
-def lawyer_profile(slug: str, db: Session = Depends(get_db)):
+def lawyer_profile(slug: str, response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
     profile = _get_listed(db, slug)
     now = utcnow()
     _, start, end = _window(config.BOOKING_DAYS_AHEAD, now)
     busy = _busy(db, [profile.user_id], start, end).get(profile.user_id, [])
-    reviews = db.scalars(select(LawyerReview).where(LawyerReview.lawyer_user_id == profile.user_id).order_by(LawyerReview.created_at.desc()).limit(20)).all()
+    reviews = db.scalars(select(LawyerReview).where(LawyerReview.lawyer_user_id == profile.user_id, LawyerReview.moderation_status == "published").order_by(LawyerReview.created_at.desc(), LawyerReview.id).limit(20)).all()
     return {
         **_card(profile, _stats(db, [profile.user_id])[profile.user_id], _next_slot(profile, busy, now)),
         "bio": profile.bio,
@@ -283,8 +286,16 @@ class BookingMove(BookingRef):
     starts_at: datetime
 
 class BookingReview(BookingRef):
-    rating: int = Field(ge=1, le=5)
+    model_config = ConfigDict(extra="forbid")
+    rating: int = Field(ge=1, le=5, strict=True)
     comment: str = Field(default="", max_length=1000)
+
+    @field_validator("comment")
+    @classmethod
+    def clean_comment(cls, value):
+        if any(ord(char) < 32 and char not in "\n\r\t" for char in value):
+            raise ValueError("Unsupported control character.")
+        return value.strip()
 
 def _slot_open(db: Session, profile: LawyerProfile, starts_at: datetime, ignore: uuid.UUID | None = None) -> datetime:
     """The requested time as UTC if it is one of the lawyer's open slots right now, else a 409 to pick again."""
@@ -329,7 +340,7 @@ def booking_view(db: Session, ticket: ServiceRequest, meeting: Meeting) -> dict:
         "meeting": tickets.meeting_view(meeting),
         "can_change": scheduled and tickets.aware(meeting.starts_at) - now > timedelta(hours=config.CUSTOMER_CHANGE_HOURS) and profile is not None,
         "can_review": meeting.status != "cancelled" and tickets.aware(meeting.ends_at) <= now and review is None,
-        "review": _review_view(review) if review else None,
+        "review": {**_review_view(review), "moderation_status": review.moderation_status} if review else None,
         "payment": payments.payment_view(db, ticket, meeting),
     }
 
@@ -451,6 +462,7 @@ def refresh_booking_payment(payload: BookingRef, account: CustomerAccount = Depe
 def review_booking(payload: BookingReview, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     ticket = _find_for_customer(db, payload.ticket_number, payload.contact, account)
     meeting = _booking_meeting(ticket)
+    db.refresh(meeting, with_for_update={"of": Meeting})
     if not booking_view(db, ticket, meeting)["can_review"]:
         raise HTTPException(status_code=422, detail="You can rate a consultation once, after it has taken place.")
     db.add(LawyerReview(

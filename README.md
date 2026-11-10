@@ -15,6 +15,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Karnataka RERA project check (`/rera`): search registered projects, see warning signs, a developer's delivery record, locality markets and a market report. Loads from a CSV or JSON export (see `docs/rera.md`); shows sample data until then.
 - Staff workspace at `/admin` for admins and agents, with a calendar of each lawyer's video meetings.
 - Staff password recovery, authenticator two-factor sign-in with recovery codes, password changes and session revocation from **Security** (`docs/staff-security.md`).
+- Administrator review moderation keeps consultation feedback private until publication, excludes unpublished reviews from ratings, and records private decision history (`docs/review-moderation.md`).
 - Guided customer requests at `/request`: relevant questions, private save/resume, editable review and explicit consent before a ticket is created (`docs/guided-intake.md`).
 - Case management (`/admin/cases` and each ticket page): six milestones per case, allowed status moves with closure checks and reopen, case tasks with a playbook that adds and ticks off routine work, a case team, first-response and due-date deadlines, a case fee, and a step bar for customers (see `docs/case-management.md`).
 - Case targets pause while on hold; staff deadline alerts (`/admin/alerts`) track missed targets, acknowledgements and administrator escalation with optional email (`docs/deadline-alerts.md`).

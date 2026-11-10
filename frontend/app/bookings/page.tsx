@@ -4,7 +4,7 @@ import MainContent from "../ui/MainContent";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, formatFee, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
+import { ApiError, formatFee, REVIEW_MODERATION_LABELS, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
 import { readSession, signOut } from "../account/session";
 import { api } from "../api";
 import LawyerShell from "../lawyers/LawyerShell";
@@ -68,7 +68,7 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
           : <small>Link coming on WhatsApp</small>)}
       </div>
       <PayPanel bookingRef={ref} booking={booking} onChange={onChange} />
-      {booking.review && <p className="lw-fine">You rated this {"★".repeat(booking.review.rating)}{booking.review.comment ? `: “${booking.review.comment}”` : ""}</p>}
+      {booking.review && <div className="lw-fine"><p>You rated this {"★".repeat(booking.review.rating)}{booking.review.comment ? `: “${booking.review.comment}”` : ""}</p><p role="status">{REVIEW_MODERATION_LABELS[booking.review.moderation_status ?? "pending"]}{booking.review.moderation_status === "pending" ? ". Your feedback is private until it is published." : "."}</p></div>}
       {error && <p className="lw-error" role="alert">{error}</p>}
 
       {mode === "" && (
@@ -106,7 +106,8 @@ function BookingCard({ entry, onChange, onForget }: { entry: Entry; onChange: (b
           <div className="lw-stars" role="radiogroup" aria-label="Rating">
             {[1, 2, 3, 4, 5].map((n) => <button type="button" key={n} role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} className={n <= rating ? "on" : undefined} onClick={() => setRating(n)}>★</button>)}
           </div>
-          <label>Your review (optional, shown on the lawyer’s profile with your first name)<textarea rows={3} maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} /></label>
+          <p className="lw-fine">Feedback is checked before publication and shown with your first name and last initial. Leave out phone numbers, addresses and private case details.</p>
+          <label>Your review (optional)<textarea rows={3} maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} /></label>
           <div className="lw-actions" style={{ alignItems: "center" }}>
             <button className="btn small hx-tone-3714a207"  disabled={!rating || busy}>Submit rating</button>
             <button type="button" onClick={() => setMode("")}>Back</button>

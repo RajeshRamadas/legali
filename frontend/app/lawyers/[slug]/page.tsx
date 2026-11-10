@@ -106,7 +106,7 @@ export default function LawyerPage() {
 
           <section className="lw-panel">
             <h2>Reviews {lawyer.review_count > 0 && <span className="lw-rating" style={{ marginLeft: 8 }}><span className="lw-star">★ {lawyer.rating?.toFixed(1)}</span></span>}</h2>
-            {lawyer.reviews.length === 0 ? <p className="lw-fine">No reviews yet. Customers can rate a consultation after it takes place.</p> : (
+            {lawyer.reviews.length === 0 ? <p className="lw-fine">No published reviews yet. Customers can rate a consultation after it takes place; feedback is checked before publication.</p> : (
               <ul className="lw-reviews">
                 {lawyer.reviews.map((r, i) => (
                   <li key={i}>
