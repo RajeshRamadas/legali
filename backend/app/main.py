@@ -74,7 +74,7 @@ app.include_router(refunds.router)
 @app.middleware("http")
 async def private_customer_responses(request, call_next):
     response = await call_next(request)
-    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/auth", "/api/v1/account", "/api/v1/intake", "/api/v1/files/", "/api/v1/admin/time-off")) or request.url.path == "/api/v1/chat":
+    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/auth", "/api/v1/account", "/api/v1/intake", "/api/v1/files/", "/api/v1/admin/time-off", "/api/v1/admin/support-requests")) or request.url.path == "/api/v1/chat":
         response.headers["Cache-Control"] = "private, no-store"
         vary = response.headers.get("Vary", "")
         if "authorization" not in vary.lower():

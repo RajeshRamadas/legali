@@ -42,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Assign accountable support owners and surface unassigned work
+  Private administrator ownership, filtered queues, assignment history and conflict-safe draft preservation are implemented (`support-ownership.md`). Operators must monitor unassigned and unavailable-owner work; assignment does not send external alerts.
 - [x] Surface unread support replies without exposing private team notes
   Account/list/bell badges, explicit read acknowledgements, draft preservation and loaded-reply concurrency protection are implemented (`support-unread-replies.md`). External support delivery alerts remain outside this in-app feature.
 - [x] Respect lawyer time off across online bookings and staff scheduling

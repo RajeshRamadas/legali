@@ -34,6 +34,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - GitHub Actions dependency audits, Python source checks, SQLite/PostgreSQL API regressions and web/shared-client validation, with hash-verified Python installs (`docs/dependency-security.md`).
 - Staff time off blocks public consultation slots and scheduling changes, with private history and administrator delegation (`docs/lawyer-time-off.md`).
 - Customer unread support-reply badges and explicit read acknowledgements retain unsent drafts and protect newer replies (`docs/support-unread-replies.md`).
+- Private administrator support ownership, owner filters and assignment history preserve drafts and response targets (`docs/support-ownership.md`).
 - Offline staging/production configuration preflight, startup guards and environment templates with CI checks for rendered Compose settings (`docs/deployment-readiness.md`).
 - Shared keyboard navigation, skip links, accessible dialogs and automated Chromium/axe checks at desktop and phone widths (`docs/accessibility.md`).
 - Isolated PostgreSQL API load checks with synthetic fixtures, latency/error gates and sanitized CI reports (`docs/performance-checks.md`), plus an incident-response runbook (`docs/incident-response.md`).

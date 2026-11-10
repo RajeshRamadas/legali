@@ -230,6 +230,8 @@ test("administrator support review preserves a conflicting draft and separates i
     const path = new URL(route.request().url()).pathname;
     const headers = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type", "access-control-allow-methods": "GET,PATCH,OPTIONS" };
     if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (path.endsWith("/owners")) return route.fulfill({ headers, json: { items: [] } });
+    if (path.endsWith("/assignments")) return route.fulfill({ headers, json: { items: [], total: 0, page: 1, page_size: 20 } });
     if (route.request().method() === "PATCH") {
       const body = route.request().postDataJSON();
       if (conflict) { conflict = false; record = { ...record, revision: 2 }; return route.fulfill({ headers, status: 409, json: { detail: "This request changed. Reload it before saving; your draft has been kept." } }); }

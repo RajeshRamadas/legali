@@ -831,10 +831,12 @@ class SupportRequest(TimestampMixin, Base):
         UniqueConstraint("account_id", "submission_key", name="uq_support_submission"),
         Index("ix_support_account_created", "account_id", "created_at"),
         Index("ix_support_queue", "status", "reply_due_at"),
+        Index("ix_support_owner_queue", "assignee_user_id", "status", "reply_due_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="RESTRICT"), nullable=False)
     service_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="SET NULL"))
+    assignee_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL", name="fk_support_request_owner"))
     submission_key: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     subject: Mapped[str] = mapped_column(Text, nullable=False)

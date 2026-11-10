@@ -81,9 +81,10 @@ export type SupportSummary = {
   ticket_number: string | null; created_at: string; updated_at: string; reply_due_at: string | null; overdue: boolean; resolved_at: string | null;
   customer?: { name: string | null; phone_last4: string };
   unread_replies?: number; customer_update_revision?: number; customer_read_revision?: number;
+  assignee?: { id: string; name: string; active: boolean } | null;
 };
 export type SupportRecord = SupportSummary & { details: string };
-export type SupportPage = { items: SupportSummary[]; total: number; page: number; page_size: number; overdue?: number };
+export type SupportPage = { items: SupportSummary[]; total: number; page: number; page_size: number; overdue?: number; filtered_overdue?: number };
 export type SupportMessages = { items: { id: string; body: string; author_type: "customer" | "staff"; visibility: "customer" | "internal"; created_at: string }[]; total: number; page: number; page_size: number; customer_update_revision?: number };
 export type SupportCreate = { kind: SupportKind; subject: string; details: string; ticket_number?: string | null; submission_key: string };
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from . import config
 from .customer_auth import current_customer, owned_ticket
 from .db import get_db
-from .models import AuditLog, CustomerAccount, ServiceRequest, SupportMessage, SupportRequest, User, utcnow
+from .models import AuditLog, CustomerAccount, Role, ServiceRequest, SupportMessage, SupportRequest, User, utcnow
 from .security import require_admin
 from .tickets import aware
 
@@ -57,6 +57,19 @@ class ReadReplies(BaseModel):
     through_revision: int = Field(strict=True, ge=0, le=2147483647)
 
 
+class Assignment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revision: int = Field(strict=True, ge=1, le=2147483646)
+    assignee_user_id: uuid.UUID | None
+
+
+def owner_view(owner, owner_id):
+    if owner_id is None:
+        return None
+    return {"id": str(owner_id), "name": owner.display_name if owner else "Former administrator",
+        "active": bool(owner and owner.account_status == "active" and owner.is_admin)}
+
+
 def lock_account(db, account_id):
     db.scalar(select(CustomerAccount.id).where(CustomerAccount.id == account_id).with_for_update())
 
@@ -73,7 +86,7 @@ def find(db, request_id, account_id=None, *, lock=False):
     return item
 
 
-def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=None):
+def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=None, owners=None):
     ticket_number = (ticket_numbers.get(item.service_request_id) if ticket_numbers is not None else
         db.scalar(select(ServiceRequest.ticket_number).where(ServiceRequest.id == item.service_request_id)) if item.service_request_id else None)
     result = {"id": str(item.id), "reference": "SR-" + item.id.hex.upper(), "kind": item.kind,
@@ -89,6 +102,8 @@ def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=N
     if detail:
         result["details"] = item.details
     if staff:
+        owner = owners.get(item.assignee_user_id) if owners is not None else db.get(User, item.assignee_user_id) if item.assignee_user_id else None
+        result["assignee"] = owner_view(owner, item.assignee_user_id)
         if customers is not None:
             result["customer"] = customers[item.account_id]
         else:
@@ -142,7 +157,9 @@ def listing(db, query, page, page_size, *, staff=False):
     account_ids = {item.account_id for item in items}
     customers = {account_id: {"name": name, "phone_last4": phone[-4:]} for account_id, name, phone in db.execute(
         select(CustomerAccount.id, CustomerAccount.full_name, CustomerAccount.phone_normalized).where(CustomerAccount.id.in_(account_ids)))} if staff and account_ids else {}
-    return {"items": [view(db, item, staff=staff, detail=False, ticket_numbers=ticket_numbers, customers=customers) for item in items], "total": total, "page": page, "page_size": page_size}
+    owner_ids = {item.assignee_user_id for item in items if item.assignee_user_id} if staff else set()
+    owners = {owner.id: owner for owner in db.scalars(select(User).where(User.id.in_(owner_ids)))} if owner_ids else {}
+    return {"items": [view(db, item, staff=staff, detail=False, ticket_numbers=ticket_numbers, customers=customers, owners=owners) for item in items], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/account/support-requests")
@@ -223,11 +240,22 @@ def reply(request_id: uuid.UUID, payload: Reply, response: Response, account: Cu
 @router.get("/admin/support-requests")
 def queue(status: Literal["active", "all", "open", "in_progress", "waiting_for_customer", "resolved"] = "active", kind: Kind | None = None,
     q: str = Query("", max_length=120, pattern=r"^[^\x00]*$"), page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=50),
-    _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    assignee: str = Query("all", max_length=40), actor: User = Depends(require_admin), db: Session = Depends(get_db)):
     query = select(SupportRequest)
     if status == "active": query = query.where(SupportRequest.status != "resolved")
     elif status != "all": query = query.where(SupportRequest.status == status)
     if kind: query = query.where(SupportRequest.kind == kind)
+    if assignee == "unassigned":
+        query = query.where(SupportRequest.assignee_user_id.is_(None))
+    elif assignee == "inactive":
+        eligible = select(User.id).where(User.account_status == "active", User.roles.any(Role.name.in_(("admin", "super_admin"))))
+        query = query.where(SupportRequest.assignee_user_id.is_not(None), SupportRequest.assignee_user_id.not_in(eligible))
+    elif assignee != "all":
+        try:
+            owner_id = actor.id if assignee == "me" else uuid.UUID(assignee)
+        except ValueError:
+            raise HTTPException(422, "Choose all, me, unassigned, inactive or a staff UUID.")
+        query = query.where(SupportRequest.assignee_user_id == owner_id)
     if q.strip():
         term = q.strip().lower()
         try:
@@ -237,7 +265,51 @@ def queue(status: Literal["active", "all", "open", "in_progress", "waiting_for_c
         query = query.where(or_(func.lower(SupportRequest.subject).contains(term, autoescape=True), SupportRequest.id == request_id))
     result = listing(db, query, page, page_size, staff=True)
     result["overdue"] = db.scalar(select(func.count()).select_from(SupportRequest).where(SupportRequest.status != "resolved", SupportRequest.reply_due_at < utcnow()))
+    result["filtered_overdue"] = db.scalar(select(func.count()).select_from(query.where(SupportRequest.status != "resolved", SupportRequest.reply_due_at < utcnow()).subquery()))
     return result
+
+
+@router.get("/admin/support-requests/owners")
+def owners(_: User = Depends(require_admin), db: Session = Depends(get_db)):
+    rows = db.scalars(select(User).where(User.account_status == "active", User.roles.any(Role.name.in_(("admin", "super_admin")))).order_by(User.display_name, User.id)).all()
+    return {"items": [{"id": str(row.id), "name": row.display_name} for row in rows]}
+
+
+@router.patch("/admin/support-requests/{request_id}/assignment")
+def assign(request_id: uuid.UUID, payload: Assignment, actor: User = Depends(require_admin), db: Session = Depends(get_db)):
+    item = find(db, request_id)
+    lock_account(db, item.account_id)
+    item = find(db, request_id, lock=True)
+    if payload.revision != item.revision:
+        raise HTTPException(409, "This request or its ownership changed. Your draft is kept. Reload the latest request before saving again.")
+    if payload.assignee_user_id is not None:
+        target = db.get(User, payload.assignee_user_id, populate_existing=True)
+        if target is None or target.account_status != "active" or not target.is_admin:
+            raise HTTPException(422, "Choose an active administrator as support owner.")
+    if item.assignee_user_id == payload.assignee_user_id:
+        return view(db, item, staff=True)
+    old = item.assignee_user_id
+    item.assignee_user_id, item.revision = payload.assignee_user_id, item.revision+1
+    db.add(AuditLog(actor_user_id=actor.id, action="support.assigned", entity_type="support_request", entity_id=item.id,
+        metadata_={"previous_owner_id": str(old) if old else None, "owner_id": str(item.assignee_user_id) if item.assignee_user_id else None, "revision": item.revision}))
+    db.commit()
+    return view(db, item, staff=True)
+
+
+@router.get("/admin/support-requests/{request_id}/assignments")
+def assignment_history(request_id: uuid.UUID, page: int = Query(1, ge=1), _: User = Depends(require_admin), db: Session = Depends(get_db)):
+    find(db, request_id)
+    query = select(AuditLog, User.display_name).outerjoin(User, User.id == AuditLog.actor_user_id).where(
+        AuditLog.entity_type == "support_request", AuditLog.entity_id == request_id, AuditLog.action == "support.assigned")
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = db.execute(query.order_by(AuditLog.created_at.desc(), AuditLog.id).offset((page-1)*20).limit(20)).all()
+    ids = {uuid.UUID(value) for event, _ in rows for key in ("previous_owner_id", "owner_id") if (value := event.metadata_.get(key))}
+    names = dict(db.execute(select(User.id, User.display_name).where(User.id.in_(ids))).all()) if ids else {}
+    def person(value):
+        return {"id": value, "name": names.get(uuid.UUID(value), "Former administrator")} if value else None
+    return {"items": [{"id": str(event.id), "at": aware(event.created_at).isoformat(), "actor": actor or "Former administrator",
+        "previous_owner": person(event.metadata_.get("previous_owner_id")), "owner": person(event.metadata_.get("owner_id")), "revision": event.metadata_["revision"]} for event, actor in rows],
+        "total": total, "page": page, "page_size": 20}
 
 
 @router.get("/admin/support-requests/{request_id}")

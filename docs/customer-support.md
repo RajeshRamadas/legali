@@ -20,6 +20,10 @@ The queue supports status/category filters, subject/reference search, pagination
 and a count of overdue team-response targets. Open a request to view the
 customer's initial description, optional case link and conversation.
 
+Private support ownership adds administrator assignment, owner filters and a
+handoff history while preserving reply drafts and response targets. Review
+unassigned and unavailable-owner work regularly; see [support ownership](support-ownership.md).
+
 - **Open:** received or reopened for the team.
 - **Being reviewed:** an administrator is handling it.
 - **Waiting for customer:** the team has asked for more information.
