@@ -778,6 +778,36 @@ class SupportMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
+class SitePolicy(Base):
+    __tablename__ = "site_policies"
+    __table_args__ = (
+        CheckConstraint("kind IN ('privacy','terms','grievance')", name="ck_site_policy_kind"),
+        CheckConstraint("revision >= 0 AND version_counter >= 0", name="ck_site_policy_counters"),
+        UniqueConstraint("kind", name="uq_site_policy_kind"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    version_counter: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    draft: Mapped[dict | None] = mapped_column(JSONType)
+    published_version: Mapped[int | None] = mapped_column(Integer)
+    withdraw_reason: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class SitePolicyVersion(Base):
+    __tablename__ = "site_policy_versions"
+    __table_args__ = (UniqueConstraint("policy_id", "number", name="uq_site_policy_version"),
+        CheckConstraint("number >= 1", name="ck_site_policy_version_number"))
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    policy_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("site_policies.id", ondelete="RESTRICT"), nullable=False)
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[dict] = mapped_column(JSONType, nullable=False)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    published_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class Consent(Base):
     __tablename__ = "consents"
 

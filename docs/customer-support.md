@@ -81,6 +81,10 @@ include these records and follow a reviewed retention policy. Audit entries
 record actions, state and revision without copying subject/message/note text into
 audit metadata. HTTP logs retain route templates rather than request content.
 
+Use the [public policy centre](public-policies.md) to publish reviewed grievance
+information and accountable contact details. It starts unpublished and does not
+automatically turn the support queue into a statutory grievance mechanism.
+
 This is an operational support workflow. Publish a legally reviewed grievance
 policy, accountable contact details, applicable deadlines and escalation process
 before presenting it as a statutory grievance mechanism. Customers who cannot

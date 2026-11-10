@@ -2250,8 +2250,11 @@ h4 {
 button {
   min-height: 40px;
 }
-.hx-public .footer a {
+.hx-public .footer .footer-grid a:not(.brand) {
   min-height: 40px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 4px 0;
 }

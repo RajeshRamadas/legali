@@ -44,6 +44,7 @@
 - [ ] Security review and dependency scanning
   Automated dependency audits, Python source scans, hashed dependency locks and API/web regressions are implemented (`dependency-security.md`). Configure required GitHub checks, resolve remaining moderate npm findings and complete broader manual security review.
 - [ ] Privacy notice, terms and grievance/contact details
+  A public policy centre with private administrator drafts, reviewed publication, immutable version snapshots and withdrawal is implemented (`public-policies.md`). Supply legally reviewed wording and accountable organization contacts, publish them and assign maintenance ownership before launch.
 - [ ] Backup/restore test and monitoring
   Encrypted database/document backup, verification, empty-target recovery and freshness/retention commands are implemented (`backups.md`). Deployment scheduling, off-host copies, recovery drills and broader monitoring still need configuration.
   Administrator system health, database readiness and request/worker logs are implemented (`operations-monitoring.md`); connect an external collector and configure/test alert routing.
