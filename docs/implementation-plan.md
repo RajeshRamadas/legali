@@ -10,6 +10,8 @@
 - [ ] Add Alembic migrations and DB-backed repositories
 
 ## Phase 1 — Service catalogue and intake
+- [x] Restore reviewed intake-form versions without rewriting saved requests
+  Retained publication/preceding snapshots can be reviewed and republished as a new version with administrator reasons and source provenance (`intake-form-restoration.md`). Stale edits and mismatched previews are rejected; existing customer snapshots and unpublished administrator drafts are preserved.
 - [ ] Store services and dynamic intake forms in PostgreSQL
   Public choices, admission controls, description overrides and supplemental guided-question definitions now persist in PostgreSQL (`service-availability.md`, `service-descriptions.md`, `service-intake-forms.md`). Core conditional questions, catalogue identities and default copy remain code-managed.
 - [x] Configure reviewed service-specific guided questions with pinned draft versions

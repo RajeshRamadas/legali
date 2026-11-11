@@ -6,6 +6,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
+- Administrator intake-form restoration reviews retained questions and republishes them as a new version, with private reasons, source history and preservation of saved customer requests and unpublished editor drafts (`docs/intake-form-restoration.md`).
+
 - Staff submitted-request review shows original intake questions, choice labels and recorded notices with case-scoped access, local search and draft preservation (`docs/submitted-intake-review.md`).
 
 - Administrator intake forms add reviewed service-specific questions, with version-pinned customer drafts, private publication history and retained original submission labels (`docs/service-intake-forms.md`).

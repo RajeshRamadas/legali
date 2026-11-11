@@ -8,7 +8,7 @@ import "./forms.css";
 
 type Question = { id: string; prompt: string; help: string; kind: "text" | "textarea" | "select"; required: boolean; max_length: number; options: string[] };
 type ServiceForm = { slug: string; name: string; active: boolean; revision: number; questions: Question[] };
-type History = { items: { id: string; actor: string; at: string; revision: number; reason: string; questions: Question[]; previous_questions: Question[] }[]; total: number; page: number; page_size: number };
+type History = { items: { id: string; actor: string; at: string; revision: number; reason: string; questions: Question[]; previous_questions: Question[]; restored_from_revision?: number | null }[]; total: number; page: number; page_size: number };
 const date = (value: string) => new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
 export default function IntakeFormsPage() {
@@ -19,7 +19,7 @@ export default function IntakeFormsPage() {
     if (user.role !== "admin") return;
     let active = true; setLoading(true); setError("");
     adminFetch<{ items: ServiceForm[] }>("/admin/intake-forms").then(result => {
-      if (active) { setForms(result.items); setSelected(current => current || result.items.find(item => item.active)?.slug || ""); }
+      if (active) { setForms(result.items); setSelected(current => current || result.items.find(item => item.active)?.slug || result.items[0]?.slug || ""); }
     }).catch(error => { if (active) setError(onError(error)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user.role, onError, refresh]);
@@ -38,9 +38,14 @@ function FormEditor({ current, onBusy, onError, onSaved }: { current: ServiceFor
   const [questions, setQuestions] = useState<Question[]>(() => current.questions.map(question => ({ ...question, options: [...question.options] })));
   const [reason, setReason] = useState(""), [reviewing, setReviewing] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false), [history, setHistory] = useState<History | null>(null), [historyError, setHistoryError] = useState(""), [page, setPage] = useState(1), [historyRefresh, setHistoryRefresh] = useState(0);
+  const [restoration, setRestoration] = useState<{ revision: number; questions: Question[] } | null>(null), [restoreReason, setRestoreReason] = useState(""), [restoreError, setRestoreError] = useState("");
   const guard = useRef(false), feedback = useRef<HTMLParagraphElement>(null), preview = useRef<HTMLDivElement>(null);
+  const restorePreview = useRef<HTMLDivElement>(null), restoreFeedback = useRef<HTMLParagraphElement>(null);
+  const restoreTrigger = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (notice) feedback.current?.focus(); }, [notice]);
   useEffect(() => { if (reviewing) preview.current?.focus(); }, [reviewing]);
+  useEffect(() => { if (restoration) restorePreview.current?.focus(); }, [restoration]);
+  useEffect(() => { if (restoreError) restoreFeedback.current?.focus(); }, [restoreError]);
   useEffect(() => {
     if (!historyOpen) return;
     let active = true; setHistory(null); setHistoryError("");
@@ -52,7 +57,7 @@ function FormEditor({ current, onBusy, onError, onSaved }: { current: ServiceFor
   const changed = JSON.stringify(questions) !== JSON.stringify(current.questions);
   const normalized = questions.map(question => ({ ...question, prompt: question.prompt.trim(), help: question.help.trim(), options: question.options.map(value => value.trim()) }));
   async function submit(event: React.FormEvent) {
-    event.preventDefault(); if (guard.current || !changed) return;
+    event.preventDefault(); if (guard.current || !changed || restoration) return;
     if (!reviewing) { setReviewing(true); setError(""); setNotice(""); return; }
     guard.current = true; setBusy(true); onBusy(true); setError(""); setNotice("");
     try {
@@ -61,8 +66,34 @@ function FormEditor({ current, onBusy, onError, onSaved }: { current: ServiceFor
     } catch (error) { setError(`${onError(error)} Your form draft and private reason are kept.`); }
     finally { guard.current = false; setBusy(false); onBusy(false); }
   }
+  function reviewRestore(revision: number, questions: Question[]) {
+    setRestoration({ revision, questions: questions.map(row => ({ ...row, options: [...row.options] })) });
+    setRestoreReason(""); setRestoreError(""); setNotice("");
+  }
+  async function restore(event: React.FormEvent) {
+    event.preventDefault(); if (guard.current || !restoration) return;
+    guard.current = true; setBusy(true); onBusy(true); setRestoreError(""); setNotice("");
+    const keepDraft = changed || !!reason.trim();
+    try {
+      const result = await adminFetch<ServiceForm>(`/admin/intake-forms/${encodeURIComponent(current.slug)}/restore`, { method: "POST", body: JSON.stringify({
+        revision: current.revision, source_revision: restoration.revision, preview_questions: restoration.questions, reason: restoreReason.trim(), confirmed: true,
+      }) });
+      onSaved(result); setError(""); if (!keepDraft) setQuestions(result.questions);
+      setReviewing(false); setRestoration(null); setRestoreReason(""); setPage(1); setHistoryRefresh(value => value+1);
+      setNotice(`Version ${restoration.revision} restored as version ${result.revision}. ${keepDraft ? "Your unpublished question draft and reason are kept below. Reload the published form to replace them." : "Saved customer requests keep their selected questions."}`);
+    } catch (error) { setRestoreError(`${onError(error)} Your unpublished form and restoration reason are kept.`); }
+    finally { guard.current = false; setBusy(false); onBusy(false); }
+  }
+  const restoreButton = (revision: number, questions: Question[]) => <button type="button" className="btn light" disabled={busy || !current.active || !!restoration || revision < 1 || revision >= current.revision || JSON.stringify(questions) === JSON.stringify(current.questions)} onClick={event => { restoreTrigger.current = event.currentTarget; reviewRestore(revision, questions); }}>Review restoration of version {revision}</button>;
   return <section className="service-availability-card" aria-label="Service intake form editor"><h2>{current.name}</h2><p>Published version {current.revision} · {current.questions.length} additional questions. These apply to guided requests only. Other intake channels continue through their existing workflows.</p><p>Ask only for details needed to scope this service. Do not request passwords, sign-in codes, payment information, identity numbers or document contents. Files belong in the secure case document area.</p>
-    {!current.active ? <p>Retired service forms are read-only.</p> : <form onSubmit={submit}><fieldset disabled={busy}>
+    {restoration && <form className="intake-form-restoration" onSubmit={restore} aria-label="Restore published form">
+      <div ref={restorePreview} tabIndex={-1} role="region" aria-label="Restoration question preview"><h3>Restore version {restoration.revision}</h3><QuestionList questions={restoration.questions} /></div>
+      <p>Publishing creates a new version from these retained questions. Saved drafts and submitted cases keep their questions. Your unpublished editor changes stay available.</p>
+      <fieldset disabled={busy}><label>Private restoration reason<textarea required minLength={10} maxLength={1000} rows={3} value={restoreReason} onChange={event => setRestoreReason(event.target.value)} /></label>
+        <div className="intake-form-actions"><button type="button" className="btn light" onClick={() => { setRestoration(null); setRestoreError(""); setRestoreReason(""); requestAnimationFrame(() => restoreTrigger.current?.focus()); }}>Cancel restoration</button><button className="btn" disabled={restoreReason.trim().length < 10}>{busy ? "Restoring…" : "Publish restored version"}</button></div>
+      </fieldset>{restoreError && <p role="alert" tabIndex={-1} ref={restoreFeedback}>{restoreError}</p>}
+    </form>}
+    {!current.active ? <p>Retired service forms are read-only.</p> : <form onSubmit={submit}><fieldset disabled={busy || !!restoration}>
       {reviewing ? <>
         <div ref={preview} tabIndex={-1} role="region" aria-label="Question preview" className="intake-form-preview"><h3>Questions customers will see</h3><QuestionList questions={normalized} /></div>
         <p>Publishing applies this version when a service is newly selected. Removing questions does not erase saved answers or change submitted cases.</p>
@@ -88,7 +119,7 @@ function FormEditor({ current, onBusy, onError, onSaved }: { current: ServiceFor
     {error && <p role="alert">{error}</p>}{notice && <p role="status" ref={feedback} tabIndex={-1}>{notice}</p>}
     <details className="service-description-history" onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>Private form publication history</summary>
       {historyError ? <p role="alert">{historyError} <button type="button" className="text-link" onClick={() => setHistoryRefresh(value => value+1)}>Retry form history</button></p> : !history ? <p role="status">Loading form history…</p> : <>
-        {!history.items.length ? <p>No form publications recorded.</p> : <ol className="service-availability-history">{history.items.map(item => <li key={item.id}><h3>Version {item.revision}</h3><p>{item.actor} · {date(item.at)}</p><p>Private reason: {item.reason}</p><h4>Published questions</h4><QuestionList questions={item.questions} /><details><summary>Previous questions</summary><QuestionList questions={item.previous_questions} /></details></li>)}</ol>}
+        {!history.items.length ? <p>No form publications recorded.</p> : <ol className="service-availability-history">{history.items.map(item => <li key={item.id} className="intake-form-publication"><h3>Version {item.revision}</h3><p>{item.actor} · {date(item.at)}</p>{item.restored_from_revision && <p>Restored from version {item.restored_from_revision}</p>}<p>Private reason: {item.reason}</p><h4>Published questions</h4><QuestionList questions={item.questions} />{restoreButton(item.revision, item.questions)}<details><summary>Previous questions · version {item.revision-1}</summary><QuestionList questions={item.previous_questions} />{restoreButton(item.revision-1, item.previous_questions)}</details></li>)}</ol>}
         {(history.total > history.page_size || page > 1) && <nav aria-label="Form history pages"><button type="button" className="btn light" disabled={page <= 1} onClick={() => setPage(value => value-1)}>Previous publications</button><span>Page {page}</span><button type="button" className="btn light" disabled={page*history.page_size >= history.total} onClick={() => setPage(value => value+1)}>Next publications</button></nav>}
       </>}
     </details>

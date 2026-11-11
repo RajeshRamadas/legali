@@ -77,6 +77,11 @@ and pagination. Each entry retains author, time, version, private reason and
 previous/published question definitions. Reviewing history preserves unsaved
 edits. Clearing a form or retiring a service does not remove retained history.
 
+[Reviewed version restoration](intake-form-restoration.md) adds a preview and
+explicit publication action to retained versions. It creates a new version from
+the selected questions, records the source and a new private reason, and keeps
+saved customer snapshots and unpublished administrator edits.
+
 ## API and deployment
 
 - `GET /api/v1/admin/intake-forms`: current forms, service names and active state.
@@ -84,6 +89,9 @@ edits. Clearing a form or retiring a service does not remove retained history.
   10–1000 character private `reason` and `questions` (0–5 definitions).
 - `GET /api/v1/admin/intake-forms/{slug}/history?page=1`: 20 publications per
   page; pages are bounded to 1–10000.
+- `POST /api/v1/admin/intake-forms/{slug}/restore`: reviewed restoration with
+  the current revision, source revision and exact question preview; see the
+  [restoration contract](intake-form-restoration.md).
 
 Definitions use a UUID `id`, 5–160 character `prompt`, optional 0–400 character
 `help`, `kind` (`text`, `textarea`, `select`), strict boolean `required`, strict
