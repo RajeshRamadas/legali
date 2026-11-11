@@ -25,6 +25,8 @@
 - [x] Add verified customer contact flow
 
 ## Phase 2 — Admin and agent workspaces
+- [x] Review retained platform activity with administrator-only filters
+  A private read-only activity index supports group, current staff-name, India-day and record-reference filters with cursor paging and draft-safe refresh (`activity-history.md`). It excludes audit payloads and unknown action text. Database-level append-only enforcement and broader action coverage remain separate work.
 - [x] Review submitted customer intake with original wording and case-scoped access
   Searchable read-only question/answer snapshots, retained service labels, notice metadata and explicit legacy/missing-data handling are implemented (`submitted-intake-review.md`). Existing case permissions apply; current intake changes do not rewrite original submissions.
 - [ ] Authentication and role-based access control

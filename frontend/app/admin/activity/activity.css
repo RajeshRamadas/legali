@@ -1,0 +1,15 @@
+.activity-page input { box-sizing:border-box; width:100%; min-width:0; padding:12px; border:1px solid var(--line); border-radius:8px; color:var(--ink); background:var(--surface-2); font:inherit; }
+.activity-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 20px; }
+.activity-actions, .activity-entry-head { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.activity-page summary { cursor:pointer; padding-block:12px; font-weight:600; }
+.activity-page .activity-hint { font-size:14px; }
+.activity-entries { padding-left:24px; }
+.activity-entries li { border-top:1px solid var(--line); padding-block:18px; }
+.activity-entry-head { justify-content:space-between; }
+.activity-entry-head h3 { margin:0; }
+.activity-entry-head span { color:var(--primary); font-size:13px; }
+.activity-page dl { display:grid; gap:12px; }
+.activity-page dt { color:var(--ink-2); font-size:13px; }
+.activity-page dd { margin:4px 0 0; overflow-wrap:anywhere; }
+.activity-page [tabindex="-1"]:focus { outline:2px solid var(--primary); outline-offset:4px; }
+@media(max-width:640px) { .activity-filters { grid-template-columns:minmax(0,1fr); } }

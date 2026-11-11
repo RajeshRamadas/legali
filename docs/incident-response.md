@@ -47,7 +47,7 @@ isolated workload. Preserve relevant logs with approved access/retention control
 | Symptom | Actions |
 | --- | --- |
 | Readiness/schema failure | Check database reachability and migration state; remove unready instances from routing. Apply the reviewed release procedure or restore to an empty target; never stamp a migration as applied to suppress a mismatch. |
-| Suspected access/data leakage | Restrict affected routes/accounts/integrations, preserve evidence and involve the security owner. Rotate exposed credentials and revoke affected sessions through approved controls. Do not delete business/audit records to hide an incident. |
+| Suspected access/data leakage | Restrict affected routes/accounts/integrations, preserve evidence and involve the security owner. Administrators can review retained changes in [Activity history](activity-history.md), then use the relevant workspace for full context. Rotate exposed credentials and revoke affected sessions through approved controls. Do not delete business/audit records to hide an incident. |
 | Delayed or failed notifications | Review worker observations, provider status and claim/delivery history. Pause affected delivery if needed. Confirm provider outcomes before replaying ambiguous sends. |
 | Payment/refund discrepancy | Preserve provider references and reconcile with the payment owner/provider dashboard. Do not blindly repeat charges/refunds or mark an outcome without verification. |
 | Document threat or scanner outage | Keep files quarantined and downloads blocked; restore signatures/scanner availability and use the reviewed retry flow. Do not disable scanning to clear a queue. |

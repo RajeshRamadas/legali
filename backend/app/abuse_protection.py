@@ -50,6 +50,8 @@ def policy_for(method, path):
         if path.startswith("/api/v1/auth/") or path in ("/api/v1/account/login/start", "/api/v1/account/login/verify"):
             return Policy("authentication", config.API_AUTH_PER_MINUTE)
     if method == "GET":
+        if path == "/api/v1/admin/activity":
+            return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path.startswith("/api/v1/files/"):
             return Policy("downloads", config.API_DOWNLOADS_PER_MINUTE)
         if path == "/api/v1/account" or path.startswith(("/api/v1/account/requests/", "/api/v1/account/privacy-requests", "/api/v1/intake/drafts", "/api/v1/account/support-requests", "/api/v1/account/reviews", "/api/v1/account/notification-preferences", "/api/v1/admin/support-requests", "/api/v1/admin/site-policies", "/api/v1/admin/refunds", "/api/v1/admin/reviews", "/api/v1/admin/services", "/api/v1/admin/intake-forms", "/api/v1/admin/time-off")):
