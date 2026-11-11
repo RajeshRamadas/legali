@@ -2,8 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useStaff } from "./AdminShell";
 import { adminFetch, formatDate } from "./api";
+import VerificationUsageSummary, { type UsageSummary } from "./VerificationUsageSummary";
 
-type Job = { id:string; status:string; phase:string; created_at:string; state:string; use_llm:boolean; run_id:string|null; message:string|null; can_cancel:boolean };
+type Job = { id:string; status:string; phase:string; created_at:string; state:string; use_llm:boolean; run_id:string|null; message:string|null; can_cancel:boolean; usage?:UsageSummary };
 type Request = { state:string; use_llm:boolean; consent_to_external_processing:boolean };
 const active = (job:Job) => job.status === "queued" || job.status === "running";
 const labels:Record<string,string> = { queued:"Queued · waiting for a worker", running:"Analysis in progress", completed:"Analysis saved", failed:"Analysis failed", cancelled:"Cancelled", stale:"Evidence changed", interrupted:"Worker interrupted" };
@@ -67,6 +68,7 @@ export default function BackgroundVerification({ ticketNumber, request, configur
     {!loading&&!jobs.length&&!error&&<p>No saved background analysis requests.</p>}
     {!!jobs.length&&<details open><summary>Recent analysis jobs (latest 20)</summary><ol>{jobs.map(job=><li key={job.id}>
       <h3>{labels[job.status]??"Analysis status unavailable"}</h3><p>{job.state} · {job.use_llm?"LLM analysis":"Local extraction"} · {formatDate(job.created_at)}</p><p>{phases[job.phase]??"Status unavailable"}</p>
+      {job.usage&&<VerificationUsageSummary usage={job.usage}/>}
       {job.message&&<p>{job.message}</p>}{job.can_cancel&&<button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>cancel(job)}>Cancel analysis</button>}
       {["failed","interrupted","stale","cancelled"].includes(job.status)&&<button type="button" className="btn btn-secondary" disabled={busy||jobs.some(active)} onClick={()=>{onReview();setNotice("Review the current settings and confirm provider consent again before queuing a fresh analysis.");}}>Review a new analysis</button>}
     </li>)}</ol></details>}

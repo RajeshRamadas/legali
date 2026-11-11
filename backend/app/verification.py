@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, document_reader, property_law, storage, tickets, document_requirements
+from . import case_files, config, document_reader, property_law, storage, tickets, document_requirements, verification_usage
 from .admin import _get_ticket
 from .db import get_db
 from .models import User, VerificationRun, utcnow
@@ -115,6 +115,15 @@ def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "c
     if not provider_status()["configured"]:
         raise ValueError("LLM configuration is unavailable")
     model = model_for(step)
+    if provider == "openai":
+        base = config.VERIFICATION_LLM_BASE_URL.rstrip("/")
+        if urlparse(base).scheme != "https" or not urlparse(base).hostname or urlparse(base).username or urlparse(base).password:
+            raise ValueError("A trusted HTTPS LLM base URL is required")
+    with verification_usage.Attempt(provider, model, step) as attempt:
+        return _model_call(task, payload, schema, step, images, system, timeout, provider, key, model, attempt)
+
+
+def _model_call(task, payload, schema, step, images, system, timeout, provider, key, model, attempt):
     prompt = json.dumps({"task": task, "input": payload}, ensure_ascii=False)
     images = images or []
     with httpx.Client(timeout=httpx.Timeout(timeout, connect=10), follow_redirects=False, trust_env=True) as client:
@@ -132,6 +141,7 @@ def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "c
                       "messages": [{"role": "user", "content": content}]})
             response.raise_for_status()
             body = response.json()
+            attempt.capture(body)
             if body.get("stop_reason") not in ("tool_use", "end_turn"):
                 raise ValueError("Incomplete model response")
             calls = [p for p in body["content"] if p.get("type") == "tool_use" and p.get("name") == "submit"]
@@ -150,7 +160,9 @@ def model_call(task: str, payload: dict, schema: type[BaseModel], step: str = "c
             json={"model": model, "max_tokens": MAX_OUTPUT_TOKENS, "response_format": {"type": "json_object"},
                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": content if images else text}]})
         response.raise_for_status()
-        choice = response.json()["choices"][0]
+        body = response.json()
+        attempt.capture(body)
+        choice = body["choices"][0]
         if choice.get("finish_reason") != "stop":
             raise ValueError("Incomplete model response")
         return schema.model_validate_json(choice["message"]["content"])

@@ -24,6 +24,7 @@ VERIFICATION_SEND_PAGE_IMAGES = os.getenv("VERIFICATION_SEND_PAGE_IMAGES", "true
 VERIFICATION_LLM_API_KEY = os.getenv("VERIFICATION_LLM_API_KEY", "")
 VERIFICATION_LLM_BASE_URL = os.getenv("VERIFICATION_LLM_BASE_URL", "https://api.openai.com/v1")
 VERIFICATION_OCR_LANGUAGES = os.getenv("VERIFICATION_OCR_LANGUAGES", "eng")
+VERIFICATION_TOKEN_RATES = os.getenv("VERIFICATION_TOKEN_RATES", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://homexo_app:change-this-local-password@localhost:5432/homexo")
 CORS_ORIGINS = [item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if item.strip()]
 if APP_ENV in DEPLOYED_ENVIRONMENTS:

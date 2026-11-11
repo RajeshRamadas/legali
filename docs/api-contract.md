@@ -160,3 +160,12 @@ Status changes, assignments, sign-ins and staff changes are written to `audit_lo
 ## Case deadline monitoring
 
 Staff case deadline monitoring and pause behavior are documented in [deadline alerts](deadline-alerts.md), including `GET /api/v1/admin/case-alerts` and its acknowledgement endpoint.
+
+## Background verification provider usage
+
+`GET /api/v1/admin/verification-usage` is administrator-only and private/no-store.
+It returns filtered provider attempt metadata, matching totals, paging and safe
+pricing configuration status. Case-scoped background job responses also include
+a grouped `usage` summary under their existing access rules. See
+[verification usage](verification-usage.md) for filters, unknown billing outcomes,
+optional USD rates and the explicit background-only tracking scope.

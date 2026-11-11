@@ -47,12 +47,15 @@
 
 ## Phase 4 — AI assistance
 - [x] Process full-case verification through durable background jobs
-  Case-scoped submission/status/cancellation, detached processing, leased PostgreSQL claims, stale/access/configuration checks, explicit retries and worker health are implemented (`background-verification.md`). Start the optional worker with shared configuration after reviewing queued work. Upload classification/rechecks retain their existing flow; evaluation, cost and retention controls remain further work.
+  Case-scoped submission/status/cancellation, detached processing, leased PostgreSQL claims, stale/access/configuration checks, explicit retries and worker health are implemented (`background-verification.md`). Start the optional worker with shared configuration after reviewing queued work. Upload classification/rechecks retain their existing flow; broader evaluation and retention controls remain further work.
+- [x] Monitor background verification provider usage, latency and estimated cost
+  Private administrator filters, grouped case-job summaries, durable attempt outcomes and configurable USD rate snapshots are implemented (`verification-usage.md`). Estimates distinguish missing/cached usage and unfinished outcomes; they are not invoices. Review actual prices before configuring rates. Other AI workflows, spending caps, billing reconciliation and quality evaluation remain separate work.
 - [ ] Add provider abstraction and secrets management
 - [ ] Define service-specific prompts and structured output schemas
 - [ ] Keep server-side validation as the authority
 - [ ] Add safety filters, prompt-injection protections and human handoff
 - [ ] Measure answer quality and monitor cost/latency
+  Background verification usage/latency and optional estimates are implemented as above. Cross-workflow coverage and measured answer quality are still pending.
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness

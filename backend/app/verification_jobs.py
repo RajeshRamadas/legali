@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import Field, field_validator
 from sqlalchemy import select, update
 
-from . import config, property_law, tickets, verification
+from . import config, property_law, tickets, verification, verification_usage
 from .admin import _get_ticket
 from .db import SessionLocal, engine, get_db
 from .models import AuditLog, CLOSED_STATUSES, ServiceRequest, User, VerificationJob, VerificationRun, utcnow
@@ -80,13 +80,14 @@ def recover(db,case_id=None):
     db.flush()
 
 
-def view(job,user):
+def view(job,user,usage=None):
     interrupted=expired(job)
     return {"id":str(job.id),"status":"interrupted" if interrupted else job.status,"phase":job.phase,
         "created_at":aware(job.created_at).isoformat(),"started_at":aware(job.started_at).isoformat() if job.started_at else None,
         "finished_at":aware(job.finished_at).isoformat() if job.finished_at else None,
         "state":job.request["state"],"use_llm":job.request["use_llm"],"run_id":str(job.run_id) if job.run_id else None,
         "message":REASONS.get("interrupted" if interrupted else job.reason_code),
+        "usage":usage if usage is not None else verification_usage.summary(),
         "can_cancel":job.status in ("queued","running") and (user.is_admin or user.id==job.requested_by_user_id)}
 
 
@@ -98,7 +99,7 @@ def submit(ticket_number:str,payload:Submission,user:User=Depends(current_staff)
     if previous:
         if previous.request!=request or previous.requested_by_user_id!=user.id:
             raise HTTPException(409,"This submission reference was already used with different settings.")
-        return view(previous,user)
+        return view(previous,user,verification_usage.summaries(db,[previous.id]).get(previous.id))
     if ticket.status in CLOSED_STATUSES:raise HTTPException(409,"Reopen this case before requesting analysis.")
     prepared=verification.prepare(ticket,verification.RunRequest.model_validate(request))
     revision=configuration(payload.use_llm)
@@ -122,7 +123,8 @@ def history(ticket_number:str,page:int=Query(1,ge=1,le=10000),user:User=Depends(
     ticket=_get_ticket(db,user,ticket_number)
     rows=db.scalars(select(VerificationJob).where(VerificationJob.service_request_id==ticket.id)
         .order_by(VerificationJob.created_at.desc(),VerificationJob.id.desc()).offset((page-1)*20).limit(20)).all()
-    return {"items":[view(job,user) for job in rows],"page":page,"page_size":20}
+    usage=verification_usage.summaries(db,[job.id for job in rows])
+    return {"items":[view(job,user,usage.get(job.id)) for job in rows],"page":page,"page_size":20}
 
 
 def find(db,ticket,job_id):
@@ -137,7 +139,7 @@ def cancel(ticket_number:str,job_id:uuid.UUID,user:User=Depends(current_staff),d
     if job.requested_by_user_id!=user.id and not user.is_admin:raise HTTPException(403,"Only the requester or an administrator can cancel this analysis.")
     if job.status in ("queued","running"):
         finish(job,"cancelled","cancelled");audit(db,job,"verification.job_cancelled",user);db.commit()
-    return view(job,user)
+    return view(job,user,verification_usage.summaries(db,[job.id]).get(job.id))
 
 
 def owned(job,token):
@@ -188,8 +190,9 @@ def process_one():
     key,token=selected;result=None;failure=None
     try:
         with SessionLocal() as db:
-            job=db.get(VerificationJob,key);owned(job,token);prepared,request=inputs(db,job)
-        result=verification.run_prepared(prepared,request,lambda phase:checkpoint(key,token,phase))
+            job=db.get(VerificationJob,key);owned(job,token);prepared,request=inputs(db,job);usage_case_id=job.service_request_id
+        with verification_usage.scope(usage_case_id,key):
+            result=verification.run_prepared(prepared,request,lambda phase:checkpoint(key,token,phase))
         if request.use_llm and result["llm_status"]!="completed":raise StopWork("analysis_failed")
     except StopWork as error:failure=error
     except Exception:failure=StopWork("analysis_failed")

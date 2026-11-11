@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type BrowserContext } from "@playwright/test";
 
 const number="HX-JOB-FIXTURE", person={id:"fixture-staff",name:"Fixture Administrator",role:"admin",mfa_enabled:true,available_for_calls:false};
-const job=()=>({id:"job-fixture",status:"queued",phase:"queued",created_at:"2026-11-11T07:00:00Z",state:"Karnataka",use_llm:false,run_id:null as string|null,message:null as string|null,can_cancel:true});
+const job=()=>({id:"job-fixture",status:"queued",phase:"queued",created_at:"2026-11-11T07:00:00Z",state:"Karnataka",use_llm:false,run_id:null as string|null,message:null as string|null,can_cancel:true,usage:{attempts:0,succeeded:0,failed:0,unfinished:0,usage_reported:0,input_tokens:null as number|null,output_tokens:null as number|null,known_estimated_usd:null as string|null,unpriced_attempts:0,average_duration_ms:null as number|null}});
 async function fixtures(context:BrowserContext,mode="normal"){
   await context.addInitScript(()=>sessionStorage.setItem("homexo.staff.token","verification-job-browser-fixture-only"));
   const state={job:mode==="resume"?job():null as ReturnType<typeof job>|null,posts:[] as Record<string,unknown>[],failNext:false,failPost:false,denied:mode==="denied"};
@@ -53,8 +53,10 @@ test("queued analysis survives navigation without resubmission",async({page,cont
 test("completion refreshes saved evidence without overwriting review notes",async({page,context})=>{
   const state=await fixtures(context,"resume");await page.goto(`/admin/tickets/${number}`);await expect(page.getByRole("button",{name:"Cancel analysis",exact:true})).toBeVisible();
   const reply=page.getByRole("textbox",{name:"Message to the customer",exact:true});await reply.fill("Keep this unsent case reply.");
-  state.job={...job(),status:"completed",phase:"finished",run_id:"saved-run",can_cancel:false};await page.getByRole("button",{name:"Refresh analysis jobs",exact:true}).click();
+  state.job={...job(),status:"completed",phase:"finished",run_id:"saved-run",can_cancel:false,usage:{attempts:2,succeeded:1,failed:1,unfinished:0,usage_reported:1,input_tokens:100,output_tokens:20,known_estimated_usd:"0.000320000000",unpriced_attempts:1,average_duration_ms:1200}};await page.getByRole("button",{name:"Refresh analysis jobs",exact:true}).click();
   await expect(page.getByText("Synthetic completed analysis still requires advocate review.",{exact:true})).toBeVisible();await expect(reply).toHaveValue("Keep this unsent case reply.");
+  await expect(page.getByRole("region",{name:"Background analysis",exact:true})).toContainText("100 input · 20 output");
+  await expect(page.getByRole("region",{name:"Background analysis",exact:true})).toContainText("$0.00032 USD");
 });
 
 test("cancellation stops active job status and retry only reviews settings",async({page,context})=>{

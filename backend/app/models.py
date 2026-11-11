@@ -102,6 +102,45 @@ class VerificationJob(Base):
     run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("verification_runs.id", ondelete="SET NULL"))
     reason_code: Mapped[str | None] = mapped_column(Text)
 
+class VerificationUsage(Base):
+    """Provider attempts from background jobs. Loose references avoid case locks."""
+    __tablename__ = "verification_usage"
+    __table_args__ = (
+        CheckConstraint("provider IN ('anthropic','openai')", name="ck_usage_provider"),
+        CheckConstraint("step IN ('extract','compare')", name="ck_usage_step"),
+        CheckConstraint("status IN ('started','succeeded','failed')", name="ck_usage_status"),
+        CheckConstraint("duration_ms IS NULL OR duration_ms BETWEEN 0 AND 2147483647", name="ck_usage_duration"),
+        CheckConstraint("input_tokens IS NULL OR input_tokens BETWEEN 0 AND 1000000000", name="ck_usage_input"),
+        CheckConstraint("output_tokens IS NULL OR output_tokens BETWEEN 0 AND 1000000000", name="ck_usage_output"),
+        CheckConstraint("cache_tokens IS NULL OR cache_tokens BETWEEN 0 AND input_tokens", name="ck_usage_cache"),
+        CheckConstraint("estimated_usd IS NULL OR estimated_usd >= 0", name="ck_usage_cost"),
+        CheckConstraint("input_rate IS NULL OR input_rate BETWEEN 0 AND 1000000", name="ck_usage_input_rate"),
+        CheckConstraint("output_rate IS NULL OR output_rate BETWEEN 0 AND 1000000", name="ck_usage_output_rate"),
+        Index("ix_usage_started", "started_at", "id"),
+        Index("ix_usage_job", "job_id"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    job_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    provider: Mapped[str] = mapped_column(String(20))
+    model: Mapped[str] = mapped_column(String(120))
+    step: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="started")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    input_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    output_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    cache_tokens: Mapped[int | None] = mapped_column(BigInteger)
+    usage_complete: Mapped[bool] = mapped_column(Boolean, default=False)
+    estimated_usd: Mapped[Decimal | None] = mapped_column(Numeric(24,12))
+    input_rate: Mapped[Decimal | None] = mapped_column(Numeric(18,6))
+    output_rate: Mapped[Decimal | None] = mapped_column(Numeric(18,6))
+    rate_version: Mapped[str | None] = mapped_column(String(40))
+    estimate_reason: Mapped[str] = mapped_column(String(40), default="attempt_unfinished")
+    error_category: Mapped[str | None] = mapped_column(String(40))
+
+
 user_roles = Table(
     "user_roles",
     Base.metadata,

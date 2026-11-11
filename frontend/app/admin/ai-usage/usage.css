@@ -1,0 +1,4 @@
+.usage-page .usage-details { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.usage-page article p { overflow-wrap:anywhere; }
+.usage-page nav { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+@media(max-width:640px) { .usage-page .usage-details { grid-template-columns:minmax(0,1fr); } }

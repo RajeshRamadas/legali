@@ -45,7 +45,7 @@ def test_queue_is_fast_idempotent_private_and_does_no_analysis(client,admin_head
         assert db.scalar(select(func.count()).select_from(VerificationJob))==1
         assert db.scalar(select(func.count()).select_from(VerificationRun))==0
         assert db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.action=="verification.job_queued"))==1
-    assert set(first.json())=={"id","status","phase","created_at","started_at","finished_at","state","use_llm","run_id","message","can_cancel"}
+    assert set(first.json())=={"id","status","phase","created_at","started_at","finished_at","state","use_llm","run_id","message","can_cancel","usage"}
 
 
 def test_access_scope_and_cancellation_permissions(client,admin_headers,agent,case,raise_ticket):
