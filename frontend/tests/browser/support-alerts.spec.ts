@@ -4,7 +4,7 @@ import { test, expect, type BrowserContext } from "@playwright/test";
 const requestId = "316fb188-309e-4c19-94a4-e67d559219ce", alertId = "02508b7c-d6fe-453b-9fb3-233624c5c56c";
 const admin = { id: "8e45ea9a-e6f5-43dc-8dbf-11018d46dc21", name: "Fixture Administrator", active: true };
 
-async function fixtures(context: BrowserContext, mode: "normal" | "conflict" | "agent" | "pages" = "normal") {
+async function fixtures(context: BrowserContext, mode: "normal" | "conflict" | "agent" | "pages" = "normal", email: "enabled" | "unconfigured" | "disabled" = "enabled") {
   await context.addInitScript(() => sessionStorage.setItem("homexo.staff.token", "support-alert-ui-fixture-only"));
   let acknowledged = false, revision = 1, conflicted = false;
   const state = { writes: [] as number[], alertReads: 0, details: 0, pages: [] as number[] };
@@ -38,7 +38,7 @@ async function fixtures(context: BrowserContext, mode: "normal" | "conflict" | "
       const rows = mode === "pages" ? Array.from({ length: 26 }, (_, i) => ({ ...alert(), id: alertId.slice(0,-2)+(10+i), reference: `SR-PAGE-${i+1}` })) : [alert()];
       const visible = acknowledged && !include ? [] : rows;
       const size = Number(url.searchParams.get("page_size") || 25);
-      return route.fulfill({ headers, json: { items: visible.slice((page-1)*size,page*size), total: visible.length, page, page_size: size, unacknowledged: acknowledged ? 0 : rows.length, escalated: revision > 1 && !acknowledged ? rows.length : 0, check_interval_seconds: 30 } });
+      return route.fulfill({ headers, json: { items: visible.slice((page-1)*size,page*size), total: visible.length, page, page_size: size, unacknowledged: acknowledged ? 0 : rows.length, escalated: revision > 1 && !acknowledged ? rows.length : 0, check_interval_seconds: 30, email_delivery: email } });
     }
     if (path.endsWith("/support-requests/owners")) return route.fulfill({ headers, json: { items: [admin] } });
     if (path.endsWith("/assignments")) return route.fulfill({ headers, json: { items: [], total: 0, page: 1, page_size: 20 } });
@@ -54,6 +54,7 @@ test("support acknowledgement updates the bell and preserves the response target
   const state = await fixtures(context); await page.goto("/admin/support/alerts");
   await expect(page.getByRole("button", { name: "Notifications (1)", exact: true })).toBeVisible();
   await expect(page.getByText("Response target missed", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Email notices are enabled for eligible administrators/)).toBeVisible();
   await expect(page.locator('.hx-sidebar a[aria-current="page"]')).toHaveCount(1);
   const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
   expect(axe.violations).toEqual([]);
@@ -112,3 +113,14 @@ test("agents do not fetch private support alert data or see its bell badge", asy
   await expect(page.getByRole("button", { name: "Acknowledge support alert", exact: true })).toHaveCount(0);
   expect(state.alertReads).toBe(0);
 });
+
+for (const state of ["disabled", "unconfigured"] as const) {
+  test(`support email ${state}: administrators still see and acknowledge the in-app incident`, async ({ page, context }) => {
+    const result = await fixtures(context, "normal", state);
+    await page.goto("/admin/support/alerts");
+    await expect(page.getByText(state === "disabled" ? /Email notices are off/ : /Email delivery is not configured/)).toBeVisible();
+    await page.getByRole("button", { name: "Acknowledge support alert", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Support alert acknowledged" })).toBeFocused();
+    expect(result.writes).toEqual([1]);
+  });
+}

@@ -763,6 +763,8 @@ class Notification(Base):
         Index("idx_notifications_account", "account_id", "delivery_status"),
         Index("idx_notifications_support", "support_request_id", "delivery_status"),
         CheckConstraint("(template_key = 'support_reply' AND support_update_revision IS NOT NULL AND support_update_revision >= 1 AND customer_id IS NULL AND user_id IS NULL AND service_request_id IS NULL AND meeting_id IS NULL AND case_alert_id IS NULL) OR (template_key <> 'support_reply' AND account_id IS NULL AND support_request_id IS NULL AND support_update_revision IS NULL)", name="ck_notifications_support_scope"),
+        CheckConstraint("(template_key = 'support_deadline_email' AND channel = 'email' AND support_alert_revision IS NOT NULL AND support_alert_revision >= 1 AND customer_id IS NULL AND account_id IS NULL AND support_request_id IS NULL AND support_update_revision IS NULL AND service_request_id IS NULL AND meeting_id IS NULL AND case_alert_id IS NULL) OR (template_key <> 'support_deadline_email' AND support_alert_id IS NULL AND support_alert_revision IS NULL)", name="ck_notifications_support_alert_scope"),
+        Index("idx_notifications_support_alert", "support_alert_id", "delivery_status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -771,6 +773,8 @@ class Notification(Base):
     account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="SET NULL", name="fk_notifications_account"))
     support_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("support_requests.id", ondelete="SET NULL", name="fk_notifications_support"))
     support_update_revision: Mapped[int | None] = mapped_column(Integer)
+    support_alert_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("support_deadline_alerts.id", ondelete="SET NULL", name="fk_notifications_support_alert"))
+    support_alert_revision: Mapped[int | None] = mapped_column(Integer)
     # Staff recipient (a lawyer's meeting invite, reminder or daily agenda).
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
     meeting_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("meetings.id", ondelete="SET NULL"))

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from . import config, support_notifications
+from . import config, support_notifications, support_deadline_email
 from .customer_auth import current_customer, owned_ticket
 from .db import get_db
 from .models import AuditLog, CustomerAccount, Role, ServiceRequest, SupportMessage, SupportRequest, User, utcnow
@@ -291,6 +291,7 @@ def assign(request_id: uuid.UUID, payload: Assignment, actor: User = Depends(req
         return view(db, item, staff=True)
     old = item.assignee_user_id
     item.assignee_user_id, item.revision = payload.assignee_user_id, item.revision+1
+    support_deadline_email.invalidate_request(db, item, utcnow())
     db.add(AuditLog(actor_user_id=actor.id, action="support.assigned", entity_type="support_request", entity_id=item.id,
         metadata_={"previous_owner_id": str(old) if old else None, "owner_id": str(item.assignee_user_id) if item.assignee_user_id else None, "revision": item.revision}))
     db.commit()
@@ -349,5 +350,6 @@ def review(request_id: uuid.UUID, payload: Review, actor: User = Depends(require
         if body: db.add(SupportMessage(support_request_id=item.id, submission_key=uuid.uuid4(), author_type="staff", author_user_id=actor.id, visibility=visibility, body=body))
     if payload.customer_response:
         support_notifications.queue_reply(db, item)
+    support_deadline_email.invalidate_request(db, item, utcnow())
     audit(db, item, "support.reviewed", actor=actor, previous=previous); db.commit()
     return view(db, item, staff=True)

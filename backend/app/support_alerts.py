@@ -1,4 +1,4 @@
-"""Private in-app response alerts; no customer messages or provider deliveries."""
+"""Private response incidents with optional administrator email queued for the worker."""
 import uuid
 from datetime import timedelta
 
@@ -7,7 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import config
+from . import config, support_deadline_email
+from .support_deadline_email import active
 from .db import get_db
 from .models import AuditLog, CustomerAccount, SupportDeadlineAlert, SupportRequest, User, utcnow
 from .security import require_admin
@@ -20,11 +21,6 @@ router = APIRouter(prefix="/api/v1/admin/support-requests/deadline-alerts")
 class Acknowledge(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: int = Field(strict=True, ge=1, le=2147483647)
-
-
-def active(alert, item, now):
-    return bool(item and item.status != "resolved" and item.reply_due_at and not alert.resolved_at
-        and aware(item.reply_due_at) == aware(alert.target_at) and aware(alert.target_at) < now)
 
 
 def audit(db, item, alert, action, actor=None):
@@ -60,6 +56,7 @@ def reconcile(db: Session, now=None):
                 if not active(alert, item, now):
                     alert.resolved_at, alert.revision = now, alert.revision+1
                     audit(db, item, alert, "support.deadline_resolved")
+                    support_deadline_email.sync_alert(db, alert, item, now)
             if item.status != "resolved" and item.reply_due_at and aware(item.reply_due_at) < now:
                 due = aware(item.reply_due_at)
                 alert = db.scalar(select(SupportDeadlineAlert).where(SupportDeadlineAlert.support_request_id == item.id, SupportDeadlineAlert.target_at == due))
@@ -76,6 +73,7 @@ def reconcile(db: Session, now=None):
                     alert.acknowledged_at = alert.acknowledged_by_id = None
                     alert.revision += 1
                     audit(db, item, alert, "support.deadline_escalated")
+                support_deadline_email.sync_alert(db, alert, item, now)
             db.commit()
         cursor = rows[-1][0]
     return created
@@ -120,7 +118,7 @@ def list_alerts(include_acknowledged: bool = False, page: int = Query(1, ge=1), 
     rows = list(db.scalars(query.order_by(SupportDeadlineAlert.escalated_at.is_(None), SupportDeadlineAlert.target_at, SupportDeadlineAlert.id)
         .offset((page-1)*page_size).limit(page_size)))
     return {"items": views(db, rows), "total": total, **counts(db, now), "page": page, "page_size": page_size,
-        "check_interval_seconds": config.NOTIFY_INTERVAL_SECONDS}
+        "check_interval_seconds": config.NOTIFY_INTERVAL_SECONDS, "email_delivery": support_deadline_email.delivery_status()}
 
 
 @router.post("/{alert_id}/acknowledge")
@@ -137,6 +135,7 @@ def acknowledge(alert_id: uuid.UUID, payload: Acknowledge, actor: User = Depends
     if alert.acknowledged_at is None:
         alert.acknowledged_at, alert.acknowledged_by_id = utcnow(), actor.id
         audit(db, item, alert, "support.deadline_acknowledged", actor)
+        support_deadline_email.cancel_pending(db, alert.id)
         db.commit()
     return views(db, [alert])[0]
 

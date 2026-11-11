@@ -31,7 +31,7 @@ export type SupportDeadlineAlert = {
   acknowledged_by: { id: string; name: string } | null;
   owner: { id: string; name: string; active: boolean } | null;
 };
-export type SupportDeadlineAlerts = { items: SupportDeadlineAlert[]; total: number; unacknowledged: number; escalated: number; page: number; page_size: number; check_interval_seconds: number };
+export type SupportDeadlineAlerts = { items: SupportDeadlineAlert[]; total: number; unacknowledged: number; escalated: number; page: number; page_size: number; check_interval_seconds: number; email_delivery?: "disabled" | "unconfigured" | "enabled" };
 export type StaffLogin = StaffSession | { mfa_required: true; challenge_token: string } | { mfa_setup_required: true; setup_token: string };
 export type TeamMember = StaffUser & { lawyer: boolean };
 export type StaffRef = { id: string; name: string } | null;

@@ -37,6 +37,9 @@ SUBJECTS = {
 
 def customer_message(notification, ticket_number: str | None = None) -> tuple[str, str]:
     """Keep legal details, documents and staff-message excerpts inside the verified portal."""
+    if notification.template_key == "support_deadline_email":
+        subject = "Escalated support response target" if notification.params == ["escalated"] else "Support response target missed"
+        return f"Homexo staff: {subject}", f"Homexo Legal staff: {subject}. Sign in to review current support alerts at {config.PUBLIC_SITE_URL.rstrip('/')}/admin/support/alerts. Acknowledging does not change the response target."
     if notification.template_key == "support_reply":
         return "Homexo Legal: New support reply", f"Homexo Legal: You have a new support reply. Sign in to read it securely: {config.PUBLIC_SITE_URL.rstrip('/')}/account/support"
     if notification.template_key == "case_deadline_alert":

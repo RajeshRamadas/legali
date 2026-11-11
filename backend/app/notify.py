@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from . import config, payments, whatsapp, notification_providers as providers, sla_alerts, support_alerts, support_notifications
+from . import config, payments, whatsapp, notification_providers as providers, sla_alerts, support_alerts, support_notifications, support_deadline_email
 from .db import SessionLocal
 from .meetings import render
 from .models import Meeting, Notification, ServiceRequest, User, utcnow
@@ -49,6 +49,10 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
     """
     fixed_now = now
     now = now or utcnow()
+    if not config.SUPPORT_DEADLINE_EMAIL_ENABLED:
+        db.execute(update(Notification).where(Notification.template_key == "support_deadline_email", Notification.delivery_status == "queued", Notification.claim_token.is_(None))
+            .values(delivery_status="cancelled", error_code="support_deadline_email_disabled"))
+        db.commit()
     if not config.SUPPORT_REPLY_NOTIFICATIONS_ENABLED:
         db.execute(update(Notification).where(Notification.template_key == "support_reply", Notification.delivery_status == "queued")
             .values(delivery_status="cancelled", error_code="support_notifications_disabled", claim_token=None, processing_until=None))
@@ -66,7 +70,7 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             .with_for_update(skip_locked=True).limit(1)).first()
         if notification is None:
             break
-        reason = support_notifications.cancellation_reason(db, notification)
+        reason = support_notifications.cancellation_reason(db, notification) or support_deadline_email.cancellation_reason(db, notification, now)
         if reason:
             notification.delivery_status, notification.error_code = "cancelled", reason
             notification.processing_until = notification.claim_token = None
@@ -115,7 +119,7 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             db.refresh(notification)
             if notification.delivery_status != "queued" or notification.claim_token != claim:
                 continue
-            reason = support_notifications.cancellation_reason(db, notification)
+            reason = support_notifications.cancellation_reason(db, notification) or support_deadline_email.cancellation_reason(db, notification, fixed_now or utcnow())
             if reason:
                 db.execute(update(Notification).where(Notification.id == notification_id, Notification.claim_token == claim)
                     .values(delivery_status="cancelled", error_code=reason, claim_token=None, processing_until=None))

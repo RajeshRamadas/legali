@@ -56,10 +56,11 @@ For a support-only reconciliation with no provider delivery, run from `backend`:
 python -m app.support_alerts
 ```
 
-This feature records **in-app** alerts. It does not create email, SMS or WhatsApp
-notifications. The ordinary notification worker continues its existing delivery
-work. Administrators must monitor the application; external alert routing remains
-an operational launch task.
+This feature always records **in-app** alerts. Optional [administrator deadline
+email](support-deadline-email.md) adds current owner/fallback and escalation
+notices; it is off by default. It does not send staff SMS or WhatsApp notices.
+The ordinary notification worker continues its existing delivery work.
+Administrators must still monitor the application and verify deployment routing.
 
 **System health** includes current overdue support requests, unacknowledged
 alerts and escalations, with a link to the alert page. Overdue requests keep

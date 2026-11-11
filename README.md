@@ -6,6 +6,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
+- Optional administrator email for missed support response targets follows owner/fallback routing, escalation and current acknowledgement/recipient checks (`docs/support-deadline-email.md`).
+
 - Optional generic support-reply email/SMS/WhatsApp notices honor account notification preferences and cancel pending alerts after reading or a newer reply (`docs/support-reply-notifications.md`).
 
 - Responsive Next.js homepage for Homexo Legal (buyer packages, developer services, document desk) with a callback form that raises tickets, ticket tracking and a chat assistant.

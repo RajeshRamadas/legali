@@ -28,16 +28,25 @@ def main():
             descriptor = os.open(override, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(descriptor, "w") as output:
                 output.write("\n".join(f"{name}={value}" for name, value in settings.items()) + "\n")
-            result = subprocess.run(["docker", "--host=unix:///var/run/docker.sock", "compose", "-f", "infra/docker-compose.yml",
-                "--env-file", f"infra/environments/{target}.env.example", "--env-file", str(override), "config", "--format", "json"],
-                cwd=ROOT, env=env, capture_output=True, text=True, check=True, timeout=30)
+            command = ["docker", "--host=unix:///var/run/docker.sock", "compose", "-f", "infra/docker-compose.yml",
+                "--env-file", f"infra/environments/{target}.env.example", "--env-file", str(override), "config", "--format", "json"]
+            result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, check=True, timeout=30)
             api = json.loads(result.stdout)["services"]["api"]["environment"]
             report = inspect_environment(api, target)
             if (not report["configuration_passed"] or api["APP_ENV"] != target
                 or api["BOOTSTRAP_ADMIN_EMAIL"] or api["BOOTSTRAP_ADMIN_PASSWORD"]
-                or api["NOTIFY_WORKER_ENABLED"] != "false"):
+                or api["NOTIFY_WORKER_ENABLED"] != "false"
+                or api.get("SUPPORT_DEADLINE_EMAIL_ENABLED") != "false"
+                or api.get("SUPPORT_REPLY_NOTIFICATIONS_ENABLED") != "false"):
                 raise ValueError("Deployment profile did not preserve its explicit settings.")
-            print(f"{target}: rendered API configuration passed; bootstrap disabled; development shortcuts disabled.")
+            settings.update(SUPPORT_DEADLINE_EMAIL_ENABLED="true", SUPPORT_REPLY_NOTIFICATIONS_ENABLED="true", SUPPORT_ESCALATION_HOURS="36")
+            override.write_text("\n".join(f"{name}={value}" for name, value in settings.items()) + "\n")
+            configured = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, check=True, timeout=30)
+            wired = json.loads(configured.stdout)["services"]["api"]["environment"]
+            if (wired.get("SUPPORT_DEADLINE_EMAIL_ENABLED") != "true" or wired.get("SUPPORT_REPLY_NOTIFICATIONS_ENABLED") != "true"
+                or wired.get("SUPPORT_ESCALATION_HOURS") != "36" or wired["NOTIFY_WORKER_ENABLED"] != "false"):
+                raise ValueError("Support delivery settings were not forwarded to the API environment.")
+            print(f"{target}: rendered configuration passed; bootstrap/shortcuts disabled; support delivery opt-ins verified.")
     return 0
 
 

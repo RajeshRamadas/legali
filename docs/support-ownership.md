@@ -28,8 +28,11 @@ assignment history remains in the private audit log.
 Ownership is retained through customer follow-up, resolution and reopening.
 Resolved requests may also be assigned for accountability without reopening them.
 Saving an owner does not change support status, response target, unread/read
-counters, customer-visible messages, payments, case assignments or notifications.
-The owner must monitor the queue; this feature sends no provider messages.
+counters, customer-visible messages, payments or case assignments.
+The owner must monitor the queue; assignment itself sends no provider messages.
+When optional [staff deadline email](support-deadline-email.md) is enabled,
+ownership changes cancel obsolete pending recipient routes; monitoring can queue
+the newly eligible owner without changing the incident or customer conversation.
 
 ## Drafts and conflicts
 

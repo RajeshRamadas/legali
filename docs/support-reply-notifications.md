@@ -74,6 +74,8 @@ Do not place a support subject, private response, phone, case reference or token
 in this template. Keep `PUBLIC_SITE_URL` set to the deployed HTTPS website.
 The support owner must still monitor the administrator queue: this feature sends
 customer reply notices, not external staff escalation notifications.
+Optional [administrator deadline email](support-deadline-email.md) provides
+separate staff routing and is independently disabled by default.
 
 Back up the database, stop old API/worker processes and apply
 `0035_support_reply_notifications` with `python -m alembic upgrade head` from
