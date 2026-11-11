@@ -12,7 +12,7 @@ from sqlalchemy import select, text
 from app import config, verification, verification_jobs as jobs, verification_usage as usage
 from app.db import SessionLocal, engine
 from app.models import ApiRateBucket, ServiceRequest, VerificationUsage
-from test_verification import local, upload
+from test_verification import local, upload, approve
 from test_verification_jobs import base, queued
 
 HTTP_CLIENT = httpx.Client
@@ -163,7 +163,7 @@ def test_openai_adapter_records_actual_usage_and_rejects_invalid_endpoint_before
 
 @pytest.mark.parametrize("cancel",[False,True])
 def test_background_context_and_job_history_summaries(client,admin_headers,raise_ticket,monkeypatch,configured,cancel):
-    number=raise_ticket();upload(client,number)
+    number=raise_ticket();upload(client,number);approve(client,number)
     job=queued(client,admin_headers,number,use_llm=True,consent_to_external_processing=True,configuration_revision=jobs.configuration(True))
     real=verification.run_prepared
     def run(prepared,request,progress):

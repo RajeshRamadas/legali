@@ -15,6 +15,7 @@ import {TicketStatusCard} from "../TrackRequest";
 import { signOut, useSession, type Session } from "../account/session";
 import { openDocuments, readRef, type Ref } from "./ref";
 import { CheckList, DocumentMap, MapLegend, Stepper, revealCheck } from "./Journey";
+import AIProcessingChoice from "./AIProcessingChoice";
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx";
 const dateFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
@@ -76,7 +77,7 @@ function DocumentsPageContent() {
       </MainContent>
       <aside className="hx-context-note">
         <div className="wrap hx-tone-78cc9b2f" style={{ fontSize: 11, lineHeight: 1.7 }}>
-          Files are kept in Homexo&apos;s private cloud storage and seen only by your case team. Download links expire after a few minutes. When you upload, the first pages are checked automatically by an AI service for document type, readability and dates, so we can tell you quickly if something needs fixing. An advocate still reviews every document.
+          Files are kept in Homexo&apos;s private cloud storage and seen by your case team. Download links expire after a few minutes. External AI document checks require your permission for the case. An advocate still reviews every document.
         </div>
       </aside>
     </>
@@ -179,6 +180,7 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
         <div><span className="tiny-label">Ticket</span><b>{ticket.ticket_number}</b><small>{ticket.service_name}{ticket.package ? ` · ${ticket.package}` : ""}</small></div>
         <span className={`status-pill status-${ticket.status}`}>{ticket.status_label}</span>
       </div>
+      <AIProcessingChoice ticketNumber={ticket.ticket_number}/>
       {(error || notice) && <p className={error ? "dc-error" : "dc-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
       <details className="hx-card hx-case-messages" id="messages" ref={messagesRef}><summary>Messages and case updates</summary><TicketStatusCard ticket={ticket} contact={reference.contact} onUpdate={onChange}/></details>
       {journey && <Stepper journey={journey} />}
@@ -379,7 +381,7 @@ function OtherUpload({ items, busy, onUpload }: { items: ReportItem[]; busy: boo
   const [note, setNote] = useState("");
   return (
     <div className="dc-upload">
-      <p className="dc-muted" style={{ margin: 0 }}>Have another document, or not sure which one a file is? Add it here. The automatic check suggests where it belongs and your case team sorts it.</p>
+      <p className="dc-muted" style={{ margin: 0 }}>Have another document, or not sure which one a file is? Add it here. Your case team can sort it; AI suggestions are available only with your permission.</p>
       <div className="dc-upload-row">
         <select className="dc-select" value={tag} onChange={(e) => setTag(e.target.value)} aria-label="What is this file?">
           <option value="">I&apos;m not sure what it is</option>

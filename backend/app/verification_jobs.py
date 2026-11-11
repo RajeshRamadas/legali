@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import Field, field_validator
 from sqlalchemy import select, update
 
-from . import config, property_law, tickets, verification, verification_usage
+from . import config, property_law, tickets, verification, verification_usage, ai_processing
 from .admin import _get_ticket
 from .db import SessionLocal, engine, get_db
 from .models import AuditLog, CLOSED_STATUSES, ServiceRequest, User, VerificationJob, VerificationRun, utcnow
@@ -23,6 +23,7 @@ REASONS={"interrupted":"Worker interrupted. Review before starting a fresh analy
     "evidence_changed":"Case evidence or intake changed. Review and submit a fresh analysis.",
     "configuration_changed":"Processing settings changed. Review the current settings and submit again.",
     "analysis_failed":"Analysis did not complete. No new result was accepted; review before retrying.",
+    "consent_changed":"Customer AI permission changed or needs review. No new result was accepted; review the current choice before retrying.",
     "cancelled":"Cancelled. Any provider request already in progress cannot be recalled."}
 
 
@@ -113,7 +114,8 @@ def submit(ticket_number:str,payload:Submission,user:User=Depends(current_staff)
         select(VerificationJob.id).where(VerificationJob.service_request_id==ticket.id,VerificationJob.created_at>since).limit(1)):
         raise HTTPException(429,"Wait one minute between new analysis requests for this case.")
     job=VerificationJob(service_request_id=ticket.id,requested_by_user_id=user.id,submission_key=payload.submission_key,
-        request=request,input_fingerprint=input_revision(ticket,prepared),configuration_revision=revision)
+        request=request,input_fingerprint=input_revision(ticket,prepared),configuration_revision=revision,
+        consent_revision=prepared["ai_approval"]["revision"] if prepared.get("ai_approval") else None)
     db.add(job);db.flush();audit(db,job,"verification.job_queued",user);db.commit()
     return view(job,user)
 
@@ -158,7 +160,9 @@ def inputs(db,job):
     if job.configuration_revision!=configuration(request.use_llm):raise StopWork("configuration_changed")
     if request.use_llm and not verification.provider_status()["configured"]:raise StopWork("configuration_changed")
     try:prepared=verification.prepare(ticket,request)
+    except ai_processing.ApprovalRequired:raise StopWork("consent_changed","cancelled")
     except HTTPException:raise StopWork("evidence_changed","stale")
+    if request.use_llm and prepared["ai_approval"]["revision"]!=job.consent_revision:raise StopWork("consent_changed","cancelled")
     if ticket.status in CLOSED_STATUSES or input_revision(ticket,prepared)!=job.input_fingerprint:
         raise StopWork("evidence_changed","stale")
     return prepared,request
@@ -194,6 +198,7 @@ def process_one():
         with verification_usage.scope(usage_case_id,key):
             result=verification.run_prepared(prepared,request,lambda phase:checkpoint(key,token,phase))
         if request.use_llm and result["llm_status"]!="completed":raise StopWork("analysis_failed")
+    except ai_processing.ApprovalRequired:failure=StopWork("consent_changed","cancelled")
     except StopWork as error:failure=error
     except Exception:failure=StopWork("analysis_failed")
     with SessionLocal() as db:
@@ -205,7 +210,10 @@ def process_one():
         try:owned(job,token)
         except StopWork:return True
         if not failure:
-            try:inputs(db,job)
+            try:
+                if job.request["use_llm"]:ai_processing.approved(db,case_id,job.consent_revision,lock=True)
+                inputs(db,job)
+            except ai_processing.ApprovalRequired:failure=StopWork("consent_changed","cancelled")
             except StopWork as error:failure=error
         if failure:finish(job,failure.status,failure.reason)
         else:

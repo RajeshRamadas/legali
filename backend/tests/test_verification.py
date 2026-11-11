@@ -15,6 +15,8 @@ def local(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "VERIFICATION_LLM_MODEL", "")
     monkeypatch.setattr(config, "VERIFICATION_EXTRACT_MODEL", "")
     monkeypatch.setattr(config, "VERIFICATION_COMPARE_MODEL", "")
+    monkeypatch.setattr(config, "VERIFICATION_PROCESSOR_NAME", "Synthetic AI processor")
+    monkeypatch.setattr(config, "VERIFICATION_PROCESSOR_PRIVACY_URL", "https://privacy.example.test/policy")
 
 def pdf():
     out = io.BytesIO()
@@ -28,6 +30,16 @@ def upload(client, ticket):
     r = client.post("/api/v1/tickets/documents", data={"ticket_number": ticket, "contact": "+91 98765 43210", "tag": "sale-deed"}, files={"file": ("sale.pdf", pdf(), "application/pdf")})
     assert r.status_code == 201
     return r.json()["documents"][0]["id"]
+
+def approve(client, ticket):
+    base=f"/api/v1/account/requests/{ticket}/ai-processing"
+    current=client.get(base).json()
+    if current["allowed"]:return current
+    disclosure=current["disclosure"]
+    result=client.put(base,json={"allowed":True,"revision":current["revision"],"notice_version":disclosure["notice_version"],"processing_revision":disclosure["processing_revision"]})
+    assert result.status_code==200,result.text
+    return result.json()
+
 
 def endpoint(ticket):
     return f"/api/v1/admin/tickets/{ticket}/verification"
@@ -72,6 +84,7 @@ def test_grounding_and_no_automatic_approval(client, raise_ticket, admin_headers
     monkeypatch.setattr(config, "VERIFICATION_LLM_API_KEY", "test-key")
     ticket = raise_ticket()
     doc_id = upload(client, ticket)
+    approve(client,ticket)
     evidence = {"document_id": doc_id, "page": 1, "quote": quote}
     facts = verification.Facts(facts=[verification.Fact(field="encumbrance", value="Mortgage stated in deed", evidence=evidence)])
     findings = verification.Findings(findings=[verification.Finding(title="Mortgage requires investigation", severity="high", reason="The deed describes an outstanding mortgage; obtain confirmation and a release.", action="Check lender records and discharge documentation.", law_ids=[law], evidence=[evidence])])
@@ -180,6 +193,7 @@ def test_partial_acceptance_keeps_good_facts(client, raise_ticket, admin_headers
     monkeypatch.setattr(config, "VERIFICATION_LLM_API_KEY", "test-key")
     ticket = raise_ticket()
     doc_id = upload(client, ticket)
+    approve(client,ticket)
     good = verification.Fact(field="seller", value="Ravi", evidence={"document_id": doc_id, "page": 1, "quote": "Seller:  Ravi"})
     bad = verification.Fact(field="buyer", value="Someone", evidence={"document_id": doc_id, "page": 1, "quote": "Buyer: Someone Else"})
     with patch.object(verification, "model_call", side_effect=[verification.Facts(facts=[good, bad]), verification.Findings(findings=[])]) as call:

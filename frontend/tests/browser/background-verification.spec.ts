@@ -5,7 +5,7 @@ const number="HX-JOB-FIXTURE", person={id:"fixture-staff",name:"Fixture Administ
 const job=()=>({id:"job-fixture",status:"queued",phase:"queued",created_at:"2026-11-11T07:00:00Z",state:"Karnataka",use_llm:false,run_id:null as string|null,message:null as string|null,can_cancel:true,usage:{attempts:0,succeeded:0,failed:0,unfinished:0,usage_reported:0,input_tokens:null as number|null,output_tokens:null as number|null,known_estimated_usd:null as string|null,unpriced_attempts:0,average_duration_ms:null as number|null}});
 async function fixtures(context:BrowserContext,mode="normal"){
   await context.addInitScript(()=>sessionStorage.setItem("homexo.staff.token","verification-job-browser-fixture-only"));
-  const state={job:mode==="resume"?job():null as ReturnType<typeof job>|null,posts:[] as Record<string,unknown>[],failNext:false,failPost:false,denied:mode==="denied"};
+  const state={job:mode==="resume"?job():null as ReturnType<typeof job>|null,posts:[] as Record<string,unknown>[],failNext:false,failPost:false,denied:mode==="denied",customerAllowed:mode!=="no-consent"};
   const ticket={ticket_number:number,title:"Synthetic verification case",service_slug:"title-verification",service_name:"Title Verification",customer_name:"Fixture Customer",phone:"+919999900001",package:null,location:"Bengaluru",status:"submitted",status_label:"Received",priority:"normal",source:"website",needs_reply:false,
     created_at:"2026-11-11T07:00:00Z",updated_at:"2026-11-11T07:00:00Z",assignee:null,description:"Synthetic verification fixture",customer:{id:"customer",name:"Fixture Customer",phone:"+919999900001",email:null},property:{type:"apartment",location:"Bengaluru"},
     documents:[{id:"file-fixture",filename:"Synthetic deed.pdf",tag:"sale-deed",size:100,at:"2026-11-11T07:00:00Z",uploaded_by:"customer",download_url:null,scan_status:"clean",checksum_sha256:"a".repeat(64),note:null,check:null}],report:null,messages:[],meetings:[],notifications:[],events:[],verification_workflow:null,guided_request:null,chat_transcript:[],
@@ -19,6 +19,7 @@ async function fixtures(context:BrowserContext,mode="normal"){
     if(path.endsWith("/admin/staff"))return reply({items:[person]});
     if(path.endsWith("/admin/meta"))return reply({statuses:[{value:"submitted",label:"Received"}],priorities:["normal"],notifications:{},meetings:{google_calendar:false,whatsapp:false,timezone:"Asia/Kolkata",reminder_minutes:[]}});
     if(path.endsWith(`/admin/tickets/${number}`))return state.denied?reply({detail:"Ticket not found"},404):reply(ticket);
+    if(path.endsWith("/ai-processing"))return reply({allowed:state.customerAllowed,status:state.customerAllowed?"allowed":"not_allowed"});
     if(path.endsWith("/verification/config"))return reply({configured:true,provider:"synthetic-provider",model:"fixture-model",max_documents:10,max_pages_per_document:15,background_processing:true,configuration_revision:"configuration-reviewed"});
     if(path.endsWith("/verification/jobs")&&req.method()==="POST"){
       const body=req.postDataJSON();state.posts.push(body);if(state.failPost){state.failPost=false;return reply({detail:"Synthetic submission unavailable"},503);}
@@ -84,4 +85,14 @@ test("status refresh failure retains settings and labels old jobs",async({page,c
 
 test("inaccessible cases show no background analysis controls",async({page,context})=>{
   await fixtures(context,"denied");await page.goto(`/admin/tickets/${number}`);await expect(page.getByRole("region",{name:"Background analysis",exact:true})).toHaveCount(0);await expect(page.getByText("Ticket not found",{exact:false}).first()).toBeVisible();
+});
+
+
+test("customer permission blocks LLM selection and refreshing it keeps case reply drafts",async({page,context})=>{
+  const state=await fixtures(context,"no-consent");await page.goto(`/admin/tickets/${number}`);
+  const llm=page.getByRole("checkbox",{name:/Use LLM evidence analysis/});
+  await expect(llm).toBeDisabled();await expect(page.getByRole("region",{name:"Customer AI permission",exact:true})).toContainText("Customer permission is required");
+  const reply=page.getByRole("textbox",{name:"Message to the customer",exact:true});await reply.fill("Keep this unsent case reply.");
+  state.customerAllowed=true;await page.getByRole("button",{name:"Refresh customer AI permission",exact:true}).click();
+  await expect(llm).toBeEnabled();await expect(reply).toHaveValue("Keep this unsent case reply.");expect(state.posts).toHaveLength(0);
 });

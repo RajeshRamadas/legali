@@ -140,7 +140,7 @@ export type CustomerDocument = {
 
 // Automatic upload check (backend/app/upload_check.py). Advice only: it never accepts or rejects a checklist item.
 export type UploadCheck = {
-  status: "pending" | "done" | "failed" | "skipped";
+  status: "pending" | "done" | "failed" | "skipped" | "awaiting_consent";
   document_type?: string | null;
   suggested_tag?: string | null;
   legible?: "yes" | "partly" | "no" | null;
@@ -157,6 +157,7 @@ export type UploadCheck = {
 // One line a person can read about an upload check, plus whether it needs their attention.
 export function describeUploadCheck(check: UploadCheck | null | undefined): { text: string; warn: boolean } | null {
   if (!check) return null;
+  if (check.status === "awaiting_consent") return { text: "External AI check awaits your permission. Your case team can still review this file.", warn: false };
   if (check.status === "pending") return { text: "Checking this file…", warn: false };
   if (check.status === "failed") return { text: "Automatic check unavailable; the case team will review it.", warn: false };
   if (check.status === "skipped") return { text: check.summary || "This file type can't be checked automatically.", warn: false };
@@ -710,6 +711,8 @@ export const normalizeTag = (value: string) => value.toLowerCase().replace(/^#/,
 export const formatBytes = (bytes: number) =>
   bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
+export type CaseAIProcessing = { status:"not_allowed"|"allowed"|"withdrawn"|"review_required"; allowed:boolean; revision:number; changed_at:string|null; can_withdraw:boolean; disclosure:{configured:boolean;processor:string|null;privacy_url:string|null;notice_version:string;processing_revision:string|null;paragraphs:string[]} };
+
 export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
   getToken?: () => string | null | undefined | Promise<string | null | undefined>;
   onUnauthorized?: (token: string) => void;
@@ -727,6 +730,8 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     }
   }
   return {
+    aiProcessing(ticket:string):Promise<CaseAIProcessing> { return request(baseUrl, `/api/v1/account/requests/${encodeURIComponent(ticket)}/ai-processing`, {cache:"no-store"}); },
+    setAIProcessing(ticket:string,payload:{allowed:boolean;revision:number;notice_version:string;processing_revision:string}):Promise<CaseAIProcessing> { return request(baseUrl, `/api/v1/account/requests/${encodeURIComponent(ticket)}/ai-processing`, {...post(payload),method:"PUT"}); },
     supportRequests(page = 1): Promise<SupportPage> { return request(baseUrl, `/api/v1/account/support-requests?page=${page}`); },
     supportUnread(): Promise<{ requests: number; unread_replies: number }> { return request(baseUrl, "/api/v1/account/support-requests/unread"); },
     readSupportReplies(id: string, through_revision: number): Promise<SupportRecord> { return request(baseUrl, `/api/v1/account/support-requests/${encodeURIComponent(id)}/read`, post({ through_revision })); },

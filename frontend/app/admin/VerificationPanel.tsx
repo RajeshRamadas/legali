@@ -5,6 +5,7 @@ import { adminFetch, formatDate, type TicketDetail } from "./api";
 import "../ui/views/admin-verification.css";
 import PropertyIntakeFields, { EMPTY_INTAKE } from "../PropertyIntakeFields";
 import BackgroundVerification from "./BackgroundVerification";
+import AIProcessingStatus from "./AIProcessingStatus";
 
 type Evidence = { document_id: string; page: number; quote: string };
 type Law = { id: string; act: string; sections: string; principle: string; url: string };
@@ -31,6 +32,7 @@ export default function VerificationPanel({ ticket, onTicket }: { ticket: Ticket
   const [state, setState] = useState("Karnataka");
   const [useLLM, setUseLLM] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [customerAllowed,setCustomerAllowed]=useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewSources, setReviewSources] = useState("https://www.indiacode.nic.in/");
@@ -93,14 +95,15 @@ export default function VerificationPanel({ ticket, onTicket }: { ticket: Ticket
   return <section className="admin-card verification-panel" aria-label="Property verification agent">
     <div className="verification-heading"><div><span className="eyebrow">Evidence → comparison → legal screening</span><h2>Property verification agent</h2></div><span className="admin-tag">Indian property law</span></div>
     <p>Read the case documents, compare evidence and prepare a reasoned screening verdict. The case lawyer retains the final signed opinion.</p>
+    <AIProcessingStatus ticketNumber={ticket.ticket_number} onAllowed={setCustomerAllowed}/>
     <details><summary>Structured property intake and required documents</summary><PropertyIntakeFields value={intake} onChange={setIntake} identifiers /><button type="button" className="btn btn-secondary" style={{ marginTop: 12 }} disabled={busy || ticket.report?.status === "signed"} onClick={saveIntake}>Save intake and request documents</button><p>{ticket.document_request?.prompt}</p></details>
     <div className="verification-controls">
       <label>Property state / union territory<input ref={stateInput} value={state} maxLength={80} onChange={e => setState(e.target.value)} required /></label>
-      <label className="verification-check"><input type="checkbox" checked={useLLM} disabled={!config?.configured || busy} onChange={e => { setUseLLM(e.target.checked); setConsent(false); }} />Use LLM evidence analysis {config?.configured ? `(${config.provider} · ${config.model})` : "(not configured)"}</label>
+      <label className="verification-check"><input type="checkbox" checked={useLLM} disabled={!config?.configured || !customerAllowed || busy} onChange={e => { setUseLLM(e.target.checked); setConsent(false); }} />Use LLM evidence analysis {config?.configured ? `(${config.provider} · ${config.model})` : "(not configured)"}</label>
       {useLLM && <label className="verification-check"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />I am authorised to send the extracted case document text, and images of scanned pages, to this LLM provider for analysis.</label>}
       {!config?.configured && <p className="verification-help">LLM analysis is configured by the server administrator. You can still run local extraction and identify open verification checks.</p>}
       <small>PDF, DOCX, JPG, PNG and WEBP extraction · up to {config?.max_documents ?? 10} files, {config?.max_pages_per_document ?? 15} pages per PDF. Scanned pages use OCR; unsupported, unreadable and omitted content is flagged.</small>
-      {config?.background_processing?<BackgroundVerification ticketNumber={ticket.ticket_number} request={{state,use_llm:useLLM,consent_to_external_processing:consent}} configurationRevision={config.configuration_revision??""} refreshKey={inputs} onCompleted={refreshSaved} onReview={()=>{setConsent(false);stateInput.current?.focus();}} disabled={busy||!ticket.documents.length||!state.trim()||(useLLM&&!consent)} />:<button type="button" className="btn btn-primary" onClick={analyse} disabled={busy || !ticket.documents.length || !state.trim() || (useLLM && !consent)}>{busy ? "Reading and analysing documents…" : "Run verification"}</button>}
+      {config?.background_processing?<BackgroundVerification ticketNumber={ticket.ticket_number} request={{state,use_llm:useLLM,consent_to_external_processing:consent}} configurationRevision={config.configuration_revision??""} refreshKey={inputs} onCompleted={refreshSaved} onReview={()=>{setConsent(false);stateInput.current?.focus();}} disabled={busy||!ticket.documents.length||!state.trim()||(useLLM&&(!consent||!customerAllowed))} />:<button type="button" className="btn btn-primary" onClick={analyse} disabled={busy || !ticket.documents.length || !state.trim() || (useLLM && (!consent || !customerAllowed))}>{busy ? "Reading and analysing documents…" : "Run verification"}</button>}
       {!ticket.documents.length && <p>Upload the property documents in the case file below to begin.</p>}
     </div>
     <div role="status" aria-live="polite">{busy && <p>Extraction and model analysis can take several minutes. Keep this case open.</p>}</div>

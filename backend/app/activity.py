@@ -26,6 +26,8 @@ GROUPS = {
         "service.intake_form_published": "Intake form published",
     }),
     "cases": ("Case work", {
+        "case.ai_processing_allowed": "Customer allowed external AI document processing",
+        "case.ai_processing_withdrawn": "Customer withdrew external AI document processing",
         "verification.job_queued": "Analysis job queued", "verification.job_started": "Analysis job started",
         "verification.job_completed": "Analysis job completed", "verification.job_failed": "Analysis job failed",
         "verification.job_cancelled": "Analysis job cancelled", "verification.job_stale": "Analysis inputs changed",

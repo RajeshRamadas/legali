@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from app import config, verification, verification_jobs as jobs
 from app.db import SessionLocal, engine
 from app.models import ApiRateBucket, AuditLog, Document, Notification, ServiceRequest, VerificationJob, VerificationRun, utcnow
-from test_verification import local, upload
+from test_verification import local, upload, approve
 
 
 def base(number):return f"/api/v1/admin/tickets/{number}/verification/jobs"
@@ -127,6 +127,7 @@ def test_llm_consent_settings_binding_and_sanitized_failure(client,admin_headers
     monkeypatch.setattr(config,"VERIFICATION_LLM_API_KEY","synthetic-never-sent")
     assert client.post(base(case),headers=admin_headers,json=payload(use_llm=True)).status_code==422
     assert client.post(base(case),headers=admin_headers,json=payload(use_llm=True,consent_to_external_processing=True,configuration_revision="old")).status_code==409
+    approve(client,case)
     job=queued(client,admin_headers,case,use_llm=True,consent_to_external_processing=True,configuration_revision=jobs.configuration(True))
     def failed(*args,**kwargs):raise ValueError("PRIVATE provider response and API key")
     monkeypatch.setattr(verification,"model_call",failed)

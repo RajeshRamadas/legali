@@ -9,6 +9,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Durable background verification queues case analysis with saved progress, cancellation, explicit retry/consent review, evidence/access checks and an optional PostgreSQL worker (`docs/background-verification.md`).
 - Background verification provider usage includes administrator filters, per-job token/latency summaries, optional reviewed-rate USD estimates and explicit unknown billing outcomes (`docs/verification-usage.md`).
 - A versioned synthetic verification benchmark gates evidence grounding, factual accuracy and screening regressions offline in CI, with an explicit provider-evaluation command (`docs/verification-evaluation.md`).
+- Verified customers can allow or withdraw external document AI per case, with processor-bound notices, default denial and checks across upload classification and full-case analysis (`docs/case-ai-consent.md`).
 
 - Database-enforced append-only audit records reject updates/deletes and PostgreSQL truncation, with guard checks in readiness/System health and private task-change auditing (`docs/append-only-audit.md`).
 

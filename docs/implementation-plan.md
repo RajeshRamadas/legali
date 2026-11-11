@@ -46,6 +46,8 @@
 - [ ] Notification templates, consent and retry handling
 
 ## Phase 4 — AI assistance
+- [x] Give customers control over external document AI per case
+  Verified customer grants/withdrawals, processor-bound notices, strict revision checks, retained audit and guarded upload/full-case processing are implemented (`case-ai-consent.md`). Existing cases receive no inferred grant. Review public processor identity/policy settings and deploy API/workers together before use; historical data is not replayed automatically.
 - [x] Process full-case verification through durable background jobs
   Case-scoped submission/status/cancellation, detached processing, leased PostgreSQL claims, stale/access/configuration checks, explicit retries and worker health are implemented (`background-verification.md`). Start the optional worker with shared configuration after reviewing queued work. Upload classification/rechecks retain their existing flow; broader evaluation and retention controls remain further work.
 - [x] Monitor background verification provider usage, latency and estimated cost

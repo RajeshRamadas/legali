@@ -140,8 +140,7 @@ Provider calls are mocked with `httpx.MockTransport` or monkeypatching; no test 
   minutes. Needs a worker queue before production. The staff re-check also runs inline.
 - **No cross-checks, RERA match, typed schemas, confidence or gold set yet** (VR-15 to VR-18); being built in the
   accuracy work.
-- **Upload checks send data without customer consent.** Every upload's first pages go to the provider when configured;
-  the Documents page footer says so. Decide whether explicit consent is needed.
+- **Case document AI now requires explicit customer permission.** See [case AI permission](../case-ai-consent.md) for processor notices, grants/withdrawals and guarded upload/full-case processing. No legacy grant is inferred.
 - **No retention policy** for `verification_runs` (extracted text is kept indefinitely) and no cost tracking per run.
 - **Mobile app** does not show upload checks or the journey yet.
 - **Native OCR default.** Outside Docker, `VERIFICATION_OCR_LANGUAGES` defaults to `eng`; Kannada scans need

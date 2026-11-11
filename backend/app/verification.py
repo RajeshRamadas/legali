@@ -19,7 +19,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from . import case_files, config, document_reader, property_law, storage, tickets, document_requirements, verification_usage
 from .admin import _get_ticket
@@ -209,6 +209,12 @@ def prepare(ticket, request: RunRequest):
         raise HTTPException(422, "Confirm consent to send extracted document text to the configured LLM provider.")
     if request.use_llm and not provider_status()["configured"]:
         raise HTTPException(409, "Configure VERIFICATION_LLM_API_KEY, provider and model on the server first.")
+    approval=None
+    if request.use_llm:
+        from . import ai_processing
+        db=object_session(ticket)
+        if db is None:raise ai_processing.ApprovalRequired()
+        approval={"case_id":str(ticket.id),"revision":ai_processing.approved(db,ticket.id)}
     state = request.state.strip()
     if not state:
         raise HTTPException(422, "Choose the property's state or union territory.")
@@ -219,14 +225,19 @@ def prepare(ticket, request: RunRequest):
     document_request = document_requirements.view(ticket)
     checklist = ([{"tag": i.tag, "label": i.label, "status": i.status, "files": sum(d.tag == i.tag for d in docs)} for i in ticket.report.items]
         if ticket.report else [{"tag": i["tag"], "label": i["label"], "status": i["status"], "files": len(i["documents"])} for i in document_request["items"]])
-    return deepcopy({"state": state, "scope": scope, "document_request": document_request, "checklist": checklist,
+    return deepcopy({"state": state, "scope": scope, "document_request": document_request, "checklist": checklist,"ai_approval":approval,
         "property_type": ticket.prop.property_type if ticket.prop else None,
         "documents": [{"id": str(d.id), "original_filename": d.original_filename, "tag": d.tag,
             "checksum_sha256": d.checksum_sha256, "storage_key": d.storage_key} for d in docs]})
 
 
 def run_agent(ticket, request: RunRequest):
-    return run_prepared(prepare(ticket, request), request)
+    prepared=prepare(ticket,request)
+    result=run_prepared(prepared,request)
+    if request.use_llm:
+        from . import ai_processing
+        ai_processing.approved(object_session(ticket),ticket.id,prepared["ai_approval"]["revision"],lock=True)
+    return result
 
 
 def run_prepared(prepared, request: RunRequest, progress=lambda phase: None):
@@ -254,7 +265,17 @@ def run_prepared(prepared, request: RunRequest, progress=lambda phase: None):
                 page["text"] = page["text"][:remaining_text]
             remaining_text -= len(page["text"])
         documents.append(item)
-    return screen_documents(prepared, request, documents, page_images, progress)
+    call=None
+    if request.use_llm:
+        from . import ai_processing
+        approval=prepared.get("ai_approval")
+        if not approval:raise ai_processing.ApprovalRequired()
+        def call(*args,**kwargs):
+            ai_processing.fresh(approval["case_id"],approval["revision"])
+            result=model_call(*args,**kwargs)
+            ai_processing.fresh(approval["case_id"],approval["revision"])
+            return result
+    return screen_documents(prepared, request, documents, page_images, progress,model_runner=call)
 
 
 def screen_documents(prepared, request: RunRequest, documents, page_images=None, progress=lambda phase: None, *, model_runner=None):

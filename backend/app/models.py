@@ -101,6 +101,20 @@ class VerificationJob(Base):
     claim_token: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("verification_runs.id", ondelete="SET NULL"))
     reason_code: Mapped[str | None] = mapped_column(Text)
+    consent_revision: Mapped[int | None] = mapped_column(Integer)
+
+
+class CaseAIConsent(Base):
+    __tablename__ = "case_ai_consents"
+    __table_args__ = (CheckConstraint("revision >= 0", name="ck_case_ai_consent_revision"),)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), primary_key=True)
+    customer_account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="SET NULL"))
+    allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    processing_revision: Mapped[str | None] = mapped_column(String(64))
+    notice_version: Mapped[str | None] = mapped_column(String(40))
+    notice_snapshot: Mapped[dict] = mapped_column(JSONType, default=dict)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 class VerificationUsage(Base):
     """Provider attempts from background jobs. Loose references avoid case locks."""

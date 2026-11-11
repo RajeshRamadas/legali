@@ -477,3 +477,9 @@
     flex: 1;
   }
 }
+.ai-processing-choice fieldset { border:0; padding:0; margin:16px 0; min-width:0; }
+.ai-processing-choice label { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+.ai-processing-choice input[type="checkbox"] { flex:0 0 auto; width:20px; height:20px; margin:2px 0 0; }
+.ai-processing-choice summary { cursor:pointer; padding:12px 0; font-weight:700; }
+.ai-processing-choice a { overflow-wrap:anywhere; }
+.ai-processing-choice [tabindex="-1"]:focus { outline:2px solid var(--primary); outline-offset:4px; }

@@ -163,6 +163,10 @@ Staff case deadline monitoring and pause behavior are documented in [deadline al
 
 ## Background verification provider usage
 
+External document AI requires the owning customer's current case permission.
+Customer grant/withdrawal and staff read-only endpoints, revision conflicts and
+processor notices are documented in [case AI permission](case-ai-consent.md).
+
 `GET /api/v1/admin/verification-usage` is administrator-only and private/no-store.
 It returns filtered provider attempt metadata, matching totals, paging and safe
 pricing configuration status. Case-scoped background job responses also include

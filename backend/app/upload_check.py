@@ -13,7 +13,7 @@ from typing import Literal
 import httpx
 from pydantic import Field, ValidationError
 
-from . import config, document_reader, document_requirements, report_templates, storage, verification
+from . import config, document_reader, document_requirements, report_templates, storage, verification, ai_processing
 from .db import SessionLocal
 from .models import Document, ServiceRequest, utcnow
 
@@ -65,7 +65,8 @@ def assess(document: Document, ticket: ServiceRequest) -> dict:
     """Run the check for one document and return what to store in Document.ai_check."""
     from .malware_scan import require_clean
     require_clean(document)
-    base = {"model": verification.model_for("classify"), "checked_at": utcnow().isoformat(), "checksum_sha256": document.checksum_sha256}
+    consent=ai_processing.fresh(ticket.id)
+    base = {"model": verification.model_for("classify"), "checked_at": utcnow().isoformat(), "checksum_sha256": document.checksum_sha256,"consent_revision":consent}
     suffix = "." + document.original_filename.rsplit(".", 1)[-1].lower() if "." in document.original_filename else ""
     if suffix not in SUPPORTED:
         return {**base, "status": "skipped", "problems": [], "summary": "This file type can't be checked automatically; the case team will open it."}
@@ -79,8 +80,10 @@ def assess(document: Document, ticket: ServiceRequest) -> dict:
     requested = _requested(ticket)
     payload = {"filename": document.original_filename, "filed_under_tag": document.tag or "", "page_count": extracted.get("page_count"),
                "pages_shown": [{"page": p["page"], "text": p["text"][:4000]} for p in extracted["pages"]], "checklist": requested}
+    ai_processing.fresh(ticket.id,consent)
     result = verification.model_call(TASK, payload, UploadCheck, step="classify", system=SYSTEM, timeout=60,
                                      images=[(str(document.id), page, jpeg) for page, jpeg in sorted(images.items())])
+    ai_processing.fresh(ticket.id,consent)
     check = result.model_dump()
     if check["suggested_tag"] not in {i["tag"] for i in requested}:
         check["suggested_tag"] = ""
@@ -108,7 +111,11 @@ def run(document_id: uuid.UUID) -> None:
             return
         ticket = db.get(ServiceRequest, document.service_request_id)
         try:
-            document.ai_check = assess(document, ticket)
+            result=assess(document,ticket)
+            ai_processing.approved(db,ticket.id,result["consent_revision"],lock=True)
+            document.ai_check=result
+        except ai_processing.ApprovalRequired:
+            return  # Withdrawal/configuration changes do not publish a late result.
         except (httpx.HTTPError, ValueError, ValidationError, KeyError, TypeError, IndexError, OSError):
             # Provider bodies and document text stay out of logs.
             log.warning("Upload check failed for document %s", document_id)
@@ -123,6 +130,13 @@ def view(document: Document) -> dict | None:
         return None
     check = document.ai_check
     if not check:
+        if enabled() and document.document_category is None:
+            from sqlalchemy.orm import object_session
+            db=object_session(document)
+            try:
+                if db is None:raise ai_processing.ApprovalRequired()
+                ai_processing.approved(db,document.service_request_id)
+            except ai_processing.ApprovalRequired:return {"status":"awaiting_consent","problems":[]}
         return {"status": "pending"} if enabled() and document.document_category is None else None
     out = {k: check.get(k) for k in ("status", "document_type", "suggested_tag", "legible", "complete", "issue_date",
                                       "period_from", "period_to", "summary", "problems", "checked_at")}

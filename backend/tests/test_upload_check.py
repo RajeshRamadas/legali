@@ -6,6 +6,7 @@ import pytest
 from reportlab.pdfgen import canvas
 
 from app import config, upload_check, verification
+from test_verification import approve
 
 CONTACT = "+91 98765 43210"
 
@@ -22,6 +23,8 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "")
     monkeypatch.setattr(config, "VERIFICATION_LLM_API_KEY", "test-key")
     monkeypatch.setattr(config, "VERIFICATION_UPLOAD_CHECKS", True)
+    monkeypatch.setattr(config,"VERIFICATION_PROCESSOR_NAME","Synthetic AI processor")
+    monkeypatch.setattr(config,"VERIFICATION_PROCESSOR_PRIVACY_URL","https://privacy.example.test/policy")
 
 
 def pdf(text="ENCUMBRANCE CERTIFICATE FORM 15. Search period 01-04-2015 to 31-03-2020. Survey No. 42/1."):
@@ -33,6 +36,7 @@ def pdf(text="ENCUMBRANCE CERTIFICATE FORM 15. Search period 01-04-2015 to 31-03
 
 
 def upload(client, ticket, tag):
+    approve(client,ticket)
     r = client.post("/api/v1/tickets/documents", data={"ticket_number": ticket, "contact": CONTACT, "tag": tag},
                     files={"file": ("upload.pdf", pdf(), "application/pdf")})
     assert r.status_code == 201, r.text

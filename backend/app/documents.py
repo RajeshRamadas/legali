@@ -340,6 +340,8 @@ def staff_recheck(ticket_number: str, document_id: uuid.UUID, user: User = Depen
     malware_scan.require_clean(document)
     if not upload_check.enabled():
         raise HTTPException(status_code=409, detail="Automatic upload checks are off or the LLM is not configured on the server.")
+    from . import ai_processing
+    ai_processing.approved(db,ticket.id)
     upload_check.run(document.id)
     db.expire_all()
     return _detail(db, _get_ticket(db, user, ticket_number))
