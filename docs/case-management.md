@@ -31,13 +31,21 @@ tasks stay current without each endpoint having to remember.
 | `PUT /api/v1/admin/tickets/{n}/fee` | `action`: quote, paid, waive, clear |
 | `GET /api/v1/admin/cases/board` | Open cases by milestone column, with counts |
 | `GET /api/v1/admin/tasks` | Open tasks for me (admins: `assignee=all` or a staff id) |
+| `GET /api/v1/admin/task-queue` | Filtered and paginated task triage with matching counts; current case access applies |
 | Customer lookup and account | `progress`: milestones, next step, due date, fee (no tasks or team) |
 
 ## Screens
 
 - `/admin/cases`: case board with counts, My tasks and milestone columns.
+- `/admin/tasks`: [staff task queue](staff-task-queue.md) with search, ownership,
+  status, due-date and case-priority filters, matching counts and paging.
 - Ticket page: Case progress panel, Tasks, Case team, Case fee, and close or reopen in the Status card.
 - Customer tracking card and account requests: step bar, next step, target date and fee.
+
+Task assignment does not grant case access. Both the board's My tasks list and
+the dedicated queue exclude tasks whose case the current staff member cannot
+open. Add the assignee to the case team when appropriate. Removing all case-access
+paths hides its tasks without deleting or reassigning them.
 
 ## Not yet
 

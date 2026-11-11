@@ -115,12 +115,14 @@ def test_tasks_and_my_tasks(client, admin_headers, agent, raise_ticket):
     task = next(t for t in created["case"]["tasks"] if t["source"] == "manual")
     assert task["overdue"] and task["assignee"]["id"] == agent["id"] and created["case"]["overdue_tasks"] >= 1
 
-    # The assignee isn't on the case yet, so they can't open it, but My tasks lists it.
+    # Task assignment alone does not grant case access or expose its task list.
     assert client.get(f"/api/v1/admin/tickets/{number}", headers=agent["headers"]).status_code == 404
     mine = client.get("/api/v1/admin/tasks", headers=agent["headers"]).json()["items"]
-    assert [t["title"] for t in mine] == ["Call the society secretary"] and mine[0]["case"]["ticket_number"] == number
+    assert mine == []
 
     client.post(f"/api/v1/admin/tickets/{number}/members", json={"user_id": agent["id"], "role": "paralegal"}, headers=admin_headers)
+    mine = client.get("/api/v1/admin/tasks", headers=agent["headers"]).json()["items"]
+    assert [t["title"] for t in mine] == ["Call the society secretary"] and mine[0]["case"]["ticket_number"] == number
     done = client.patch(f"{base}/{task['id']}", json={"status": "done"}, headers=agent["headers"]).json()
     assert next(t for t in done["case"]["tasks"] if t["id"] == task["id"])["status"] == "done"
     assert client.get("/api/v1/admin/tasks", headers=agent["headers"]).json()["items"] == []

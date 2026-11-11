@@ -70,6 +70,7 @@ export default function CaseBoard() {
       <div className="board-layout">
         <aside className="admin-card board-tasks" aria-label="My tasks">
           <h2>My tasks{tasks?.length ? ` (${tasks.length})` : ""}</h2>
+          <p><Link className="text-link" href="/admin/tasks">Open full task queue →</Link></p>
           {tasks?.length === 0 && <p className="muted">No open tasks for you.</p>}
           <ul className="task-list">
             {tasks?.map((t) => (

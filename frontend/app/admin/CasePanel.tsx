@@ -147,6 +147,7 @@ export function TasksCard({ ticket, staff, act }: { ticket: TicketDetail; staff:
             </label>
             <label>Due<input type="datetime-local" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} /></label>
           </div>
+          <p className="muted">Assigning a task does not grant case access. Add the staff member to the case team if needed.</p>
           <label>Notes (team only)<textarea rows={2} maxLength={2000} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
           <div className="form-actions">
             <button className="btn small" disabled={busy || form.title.trim().length < 2}>{busy ? "Adding…" : "Add task"}</button>

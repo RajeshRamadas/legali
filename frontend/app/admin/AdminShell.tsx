@@ -115,6 +115,7 @@ export default function AdminShell({
         { href: "/admin", label: "Dashboard", icon: "home" },
         { href: "/admin?view=queue", label: "Ticket queue", icon: "case" },
         { href: "/admin/cases", label: "Case board", icon: "inbox" },
+        { href: "/admin/tasks", label: "Task queue", icon: "file" },
         { href: "/admin/alerts", label: "Deadline alerts", icon: "bell", count: deadlineCount },
         { href: "/admin/calendar", label: "Calendar", icon: "cal" },
         { href: "/admin/time-off", label: "Time off", icon: "cal" },

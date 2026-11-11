@@ -33,7 +33,8 @@
 - [ ] Ticket queue, search, filters and pagination
 - [ ] Ticket details, assignment, status workflow and SLA
 - [ ] Internal notes vs customer-visible messages
-- [ ] Agent's assigned work queue and checklist
+- [x] Agent's assigned work queue and checklist
+  A dedicated task queue adds explicit search/filters, due-date ordering, matching counts and paging, with links to existing case checklists (`staff-task-queue.md`). Both task lists enforce current case permissions; task assignment alone does not grant access.
 - [ ] Append-only audit history
 
 ## Phase 3 — Documents and communications

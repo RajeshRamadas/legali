@@ -110,6 +110,7 @@ def my_tasks(
 ):
     """Open tasks across cases, overdue first, then by due date."""
     query = select(CaseTask).join(ServiceRequest, CaseTask.service_request_id == ServiceRequest.id).where(ServiceRequest.status.not_in(CLOSED_STATUSES))
+    query = query.where(ServiceRequest.id.in_(_visible_tickets(user).with_only_columns(ServiceRequest.id)))
     if not include_done:
         query = query.where(CaseTask.status == "open")
     if assignee == "me" or not user.is_admin:

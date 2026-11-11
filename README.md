@@ -6,6 +6,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
+- Staff task queue adds search, ownership/status/deadline/priority filters, matching counts and paging, with current case-access checks on both task lists (`docs/staff-task-queue.md`).
+
 - Administrator activity history adds private, read-only filtering of retained platform changes by group, current staff name, India-time dates and record reference, without loading audit payloads (`docs/activity-history.md`).
 
 - Administrator intake-form restoration reviews retained questions and republishes them as a new version, with private reasons, source history and preservation of saved customer requests and unpublished editor drafts (`docs/intake-form-restoration.md`).
