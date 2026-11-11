@@ -84,7 +84,7 @@ export type SupportSummary = {
   assignee?: { id: string; name: string; active: boolean } | null;
 };
 export type SupportRecord = SupportSummary & { details: string };
-export type SupportPage = { items: SupportSummary[]; total: number; page: number; page_size: number; overdue?: number; filtered_overdue?: number };
+export type SupportPage = { items: SupportSummary[]; total: number; page: number; page_size: number; overdue?: number; filtered_overdue?: number; response_target_as_of?: string };
 export type SupportMessages = { items: { id: string; body: string; author_type: "customer" | "staff"; visibility: "customer" | "internal"; created_at: string }[]; total: number; page: number; page_size: number; customer_update_revision?: number };
 export type SupportCreate = { kind: SupportKind; subject: string; details: string; ticket_number?: string | null; submission_key: string };
 

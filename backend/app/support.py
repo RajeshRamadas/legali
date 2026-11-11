@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from . import config, support_notifications, support_deadline_email
@@ -86,7 +86,7 @@ def find(db, request_id, account_id=None, *, lock=False):
     return item
 
 
-def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=None, owners=None):
+def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=None, owners=None, as_of=None):
     ticket_number = (ticket_numbers.get(item.service_request_id) if ticket_numbers is not None else
         db.scalar(select(ServiceRequest.ticket_number).where(ServiceRequest.id == item.service_request_id)) if item.service_request_id else None)
     result = {"id": str(item.id), "reference": "SR-" + item.id.hex.upper(), "kind": item.kind,
@@ -97,7 +97,7 @@ def view(db, item, *, staff=False, detail=True, ticket_numbers=None, customers=N
         "ticket_number": ticket_number,
         "created_at": item.created_at.isoformat(), "updated_at": item.updated_at.isoformat(),
         "reply_due_at": item.reply_due_at.isoformat() if item.reply_due_at else None,
-        "overdue": item.status != "resolved" and item.reply_due_at is not None and aware(item.reply_due_at) < utcnow(),
+        "overdue": item.status != "resolved" and item.reply_due_at is not None and aware(item.reply_due_at) < (as_of or utcnow()),
         "resolved_at": item.resolved_at.isoformat() if item.resolved_at else None}
     if detail:
         result["details"] = item.details
@@ -149,9 +149,10 @@ def create(payload: Create, response: Response, account: CustomerAccount = Depen
     return view(db, item)
 
 
-def listing(db, query, page, page_size, *, staff=False):
+def listing(db, query, page, page_size, *, staff=False, order_by=None, as_of=None):
     total = db.scalar(select(func.count()).select_from(query.subquery()))
-    items = db.scalars(query.order_by(SupportRequest.updated_at.desc(), SupportRequest.id).offset((page - 1) * page_size).limit(page_size)).all()
+    ordering = order_by if order_by is not None else (SupportRequest.updated_at.desc(), SupportRequest.id)
+    items = db.scalars(query.order_by(*ordering).offset((page - 1) * page_size).limit(page_size)).all()
     ticket_ids = {item.service_request_id for item in items if item.service_request_id}
     ticket_numbers = dict(db.execute(select(ServiceRequest.id, ServiceRequest.ticket_number).where(ServiceRequest.id.in_(ticket_ids))).all()) if ticket_ids else {}
     account_ids = {item.account_id for item in items}
@@ -159,7 +160,7 @@ def listing(db, query, page, page_size, *, staff=False):
         select(CustomerAccount.id, CustomerAccount.full_name, CustomerAccount.phone_normalized).where(CustomerAccount.id.in_(account_ids)))} if staff and account_ids else {}
     owner_ids = {item.assignee_user_id for item in items if item.assignee_user_id} if staff else set()
     owners = {owner.id: owner for owner in db.scalars(select(User).where(User.id.in_(owner_ids)))} if owner_ids else {}
-    return {"items": [view(db, item, staff=staff, detail=False, ticket_numbers=ticket_numbers, customers=customers, owners=owners) for item in items], "total": total, "page": page, "page_size": page_size}
+    return {"items": [view(db, item, staff=staff, detail=False, ticket_numbers=ticket_numbers, customers=customers, owners=owners, as_of=as_of) for item in items], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/account/support-requests")
@@ -241,7 +242,13 @@ def reply(request_id: uuid.UUID, payload: Reply, response: Response, account: Cu
 @router.get("/admin/support-requests")
 def queue(status: Literal["active", "all", "open", "in_progress", "waiting_for_customer", "resolved"] = "active", kind: Kind | None = None,
     q: str = Query("", max_length=120, pattern=r"^[^\x00]*$"), page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=50),
-    assignee: str = Query("all", max_length=40), actor: User = Depends(require_admin), db: Session = Depends(get_db)):
+    assignee: str = Query("all", max_length=40),
+    response_target: Literal["all", "overdue", "due_soon", "none"] = "all",
+    sort: Literal["updated", "response_target"] = "updated",
+    actor: User = Depends(require_admin), db: Session = Depends(get_db)):
+    as_of = utcnow()
+    pending = (SupportRequest.status != "resolved") & SupportRequest.reply_due_at.is_not(None)
+    overdue = pending & (SupportRequest.reply_due_at < as_of)
     query = select(SupportRequest)
     if status == "active": query = query.where(SupportRequest.status != "resolved")
     elif status != "all": query = query.where(SupportRequest.status == status)
@@ -264,9 +271,16 @@ def queue(status: Literal["active", "all", "open", "in_progress", "waiting_for_c
         except ValueError:
             request_id = None
         query = query.where(or_(func.lower(SupportRequest.subject).contains(term, autoescape=True), SupportRequest.id == request_id))
-    result = listing(db, query, page, page_size, staff=True)
-    result["overdue"] = db.scalar(select(func.count()).select_from(SupportRequest).where(SupportRequest.status != "resolved", SupportRequest.reply_due_at < utcnow()))
-    result["filtered_overdue"] = db.scalar(select(func.count()).select_from(query.where(SupportRequest.status != "resolved", SupportRequest.reply_due_at < utcnow()).subquery()))
+    if response_target == "overdue": query = query.where(overdue)
+    elif response_target == "due_soon":
+        query = query.where(pending, SupportRequest.reply_due_at >= as_of, SupportRequest.reply_due_at <= as_of + timedelta(hours=24))
+    elif response_target == "none": query = query.where(~pending)
+    # Rank pending targets before resolved/untargeted work on both SQLite and PostgreSQL.
+    ordering = (case((pending, 0), else_=1), case((pending, SupportRequest.reply_due_at)), SupportRequest.updated_at.desc(), SupportRequest.id) if sort == "response_target" else None
+    result = listing(db, query, page, page_size, staff=True, order_by=ordering, as_of=as_of)
+    result["overdue"] = db.scalar(select(func.count()).select_from(SupportRequest).where(overdue))
+    result["filtered_overdue"] = db.scalar(select(func.count()).select_from(query.where(overdue).subquery()))
+    result["response_target_as_of"] = as_of.isoformat()
     return result
 
 

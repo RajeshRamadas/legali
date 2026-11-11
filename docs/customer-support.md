@@ -20,6 +20,11 @@ The queue supports status/category filters, subject/reference search, pagination
 and a count of overdue team-response targets. Open a request to view the
 customer's initial description, optional case link and conversation.
 
+The queue defaults to earliest pending response targets, with filters for overdue,
+due within 24 hours and no pending target. Owner/category/search filters combine
+with these views; list refresh and filtering preserve open conversation drafts.
+See [support queue prioritization](support-queue-priority.md) for timing and ordering.
+
 Private support ownership adds administrator assignment, owner filters and a
 handoff history while preserving reply drafts and response targets. Review
 unassigned and unavailable-owner work regularly; see [support ownership](support-ownership.md).

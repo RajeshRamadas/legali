@@ -42,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Prioritize pending support responses before targets are missed
+  Administrator response-target filters, earliest-target ordering, checked-at timestamps and draft-safe queue refresh are implemented (`support-queue-priority.md`). Monitor both overdue and upcoming work; targets are operational and require an accountable team.
 - [x] Inspect support notification delivery without exposing private payloads
   Administrator-only filtered history, safe reason labels, current configuration and draft-safe refresh are implemented (`support-delivery-history.md`). Review uncertain outcomes before arranging another message; the view does not resend or enable delivery.
 - [x] Email eligible administrators about current missed support targets

@@ -6,6 +6,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
+- Administrator support queue prioritization combines response-target and owner filters, earliest-target ordering and draft-safe refresh (`docs/support-queue-priority.md`).
+
 - Administrator support delivery history shows safe status/reason metadata with filters and paging, while preserving reply drafts and keeping contact/message/provider details private (`docs/support-delivery-history.md`).
 
 - Optional administrator email for missed support response targets follows owner/fallback routing, escalation and current acknowledgement/recipient checks (`docs/support-deadline-email.md`).
