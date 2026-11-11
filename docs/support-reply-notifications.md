@@ -84,6 +84,9 @@ configuration. Old workers do not understand account-scoped preference checks;
 do not leave them running during the rollout. No provider is called by the
 migration, preference save, administrator reply transaction or read receipt.
 Actual delivery occurs only in the separately configured notification worker.
+Administrators can inspect safe state/reason metadata in each request's
+[delivery history](support-delivery-history.md), without recipient addresses,
+private content or a resend action.
 
 The migration adds nullable account/request references, the reply revision,
 scope checks and lookup indexes to the existing notification outbox. Existing

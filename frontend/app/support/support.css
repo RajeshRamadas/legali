@@ -45,3 +45,7 @@
 .support-alert-toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .support-alert-toggle input { width: 20px; height: 20px; flex: 0 0 auto; }
 .support-alert-feedback:focus { outline: 2px solid var(--primary); outline-offset: 3px; }
+.support-delivery { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 12px; }
+.support-delivery summary { cursor: pointer; padding: 12px 0; font-weight: 700; }
+.support-delivery-list { list-style: none; padding: 0; display: grid; gap: 14px; }
+.support-delivery-list li { border: 1px solid var(--line); border-radius: 12px; padding: 14px; overflow-wrap: anywhere; }

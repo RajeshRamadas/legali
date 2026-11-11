@@ -28,6 +28,9 @@ or missing provider configuration. Enabled means configured, not verified
 delivery or provider health. The in-app list, bell, acknowledgement and overdue
 targets remain available in every state. Continue monitoring the queue.
 Customer notification preferences do not disable these private staff notices.
+Per-request [delivery history](support-delivery-history.md) shows safe attempt,
+status and cancellation metadata without the stored email address or provider
+responses, and does not resend notices.
 The separate [customer reply notices](support-reply-notifications.md) continue
 to honor the customer's channel choices.
 

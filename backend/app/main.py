@@ -11,7 +11,7 @@ from .db import SessionLocal
 from .models import ReraProject
 from .rera_sample import load_sample
 from .abuse_protection import AbuseProtection
-from . import operations, privacy, support, support_alerts, site_policies, refunds, review_moderation, customer_reviews, notification_preferences, service_availability, time_off
+from . import operations, privacy, support, support_alerts, support_delivery, site_policies, refunds, review_moderation, customer_reviews, notification_preferences, service_availability, time_off
 from .telemetry import RequestTelemetry, disable_raw_access_logs
 
 disable_raw_access_logs()
@@ -63,6 +63,7 @@ app.include_router(operations.router)
 app.include_router(privacy.router)
 app.include_router(support_alerts.router)
 app.include_router(support.router)
+app.include_router(support_delivery.router)
 app.include_router(site_policies.router)
 app.include_router(review_moderation.router)
 app.include_router(customer_reviews.router)

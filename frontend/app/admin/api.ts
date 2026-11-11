@@ -32,6 +32,13 @@ export type SupportDeadlineAlert = {
   owner: { id: string; name: string; active: boolean } | null;
 };
 export type SupportDeadlineAlerts = { items: SupportDeadlineAlert[]; total: number; unacknowledged: number; escalated: number; page: number; page_size: number; check_interval_seconds: number; email_delivery?: "disabled" | "unconfigured" | "enabled" };
+export type SupportDeliveryPage = {
+  items: { id: string; event: "customer_reply" | "support_deadline" | "support_escalation"; recipient_kind: "customer" | "administrator"; recipient_name: string;
+    channel: "email" | "sms" | "whatsapp"; status: "queued" | "sent" | "delivered" | "failed" | "cancelled"; attempts: number;
+    created_at: string; last_attempt_at: string | null; scheduled_for: string | null; delivered_at: string | null; reason: string | null }[];
+  total: number; page: number; page_size: number;
+  configuration: { customer_replies_enabled: boolean; staff_email: "enabled" | "disabled" | "unconfigured"; channels: { email: boolean; sms: boolean; whatsapp: boolean } };
+};
 export type StaffLogin = StaffSession | { mfa_required: true; challenge_token: string } | { mfa_setup_required: true; setup_token: string };
 export type TeamMember = StaffUser & { lawyer: boolean };
 export type StaffRef = { id: string; name: string } | null;

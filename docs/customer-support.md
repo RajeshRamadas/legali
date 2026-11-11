@@ -28,6 +28,11 @@ Private [support response alerts](support-deadline-alerts.md) add staff bell
 counts, acknowledgement and escalation for missed targets, with links to the
 conversation. Acknowledgement does not count as a customer response.
 
+Administrators can expand [Delivery history](support-delivery-history.md) below
+the reply form to investigate notice states and safe failure/cancellation
+reasons. Refresh and filters preserve drafts; this read-only view hides
+recipient addresses and provider payloads and does not retry delivery.
+
 - **Open:** received or reopened for the team.
 - **Being reviewed:** an administrator is handling it.
 - **Waiting for customer:** the team has asked for more information.

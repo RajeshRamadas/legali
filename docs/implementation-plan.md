@@ -42,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Inspect support notification delivery without exposing private payloads
+  Administrator-only filtered history, safe reason labels, current configuration and draft-safe refresh are implemented (`support-delivery-history.md`). Review uncertain outcomes before arranging another message; the view does not resend or enable delivery.
 - [x] Email eligible administrators about current missed support targets
   Owner/fallback routing, escalation, current-role/address checks and pending-notice cancellation are implemented (`support-deadline-email.md`). Review recipients/backlog, configure email and enable consistently; verify delivery and keep in-app monitoring active.
 - [x] Notify customers of unread support replies without copying private content

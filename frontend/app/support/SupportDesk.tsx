@@ -9,6 +9,7 @@ import { readSession } from "../account/session";
 import { openDocuments } from "../documents/ref";
 import "./support.css";
 import SupportAssignment from "./SupportAssignment";
+import SupportDeliveryHistory from "./SupportDeliveryHistory";
 
 const date = (value: string) => new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
 const message = (error: unknown) => error instanceof Error ? error.message : "The request could not be completed. Please try again.";
@@ -163,6 +164,7 @@ function Conversation({ item, messages, staff, onError, onReload, onPage, onSave
       {!staff && item.status === "resolved" && <p>Sending a reply reopens this support request for the team.</p>}
       <button className="btn" disabled={busy || retry.seconds > 0}>{busy ? "Saving…" : retry.seconds ? `Try again in ${retry.seconds}s` : staff ? "Save support update" : "Send reply"}</button>
     </fieldset>{error && <div className="support-error" role="alert"><p>{error}</p><p>Your draft is kept here. Reloading replaces it with the latest saved conversation.</p><button type="button" className="btn small light" onClick={onReload}>Reload latest request</button></div>}</form>
+    {staff && <SupportDeliveryHistory requestId={item.id} onError={onError} />}
   </article>;
 }
 
