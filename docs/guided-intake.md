@@ -22,6 +22,11 @@ without supplemental collection. Submission retains original form definitions,
 version and choice labels in the case snapshot/transcript. Migration
 `0038_service_intake_forms` preserves legacy drafts with empty form snapshots.
 
+Staff can review [submitted request answers](submitted-intake-review.md) directly
+on authorized case details. New submissions retain original prompts and display
+labels; older records distinguish saved general values from retained service
+labels. Search/filter controls preserve unsent staff conversation drafts.
+
 ## Privacy and consistency
 
 - Drafts require customer JWTs and are selected by account ID on every route. Staff/customer token audiences remain distinct; knowing the draft UUID is insufficient. Private responses use `private, no-store`. Draft answers are not written to browser storage, and neither answers nor session tokens are placed in URLs. Draft URLs contain only an opaque owner-checked UUID; the optional `service` query contains a public service slug.

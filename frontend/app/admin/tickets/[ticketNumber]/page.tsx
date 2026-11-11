@@ -9,6 +9,7 @@ import CaseFile from "../../CaseFile";
 import { CaseOverview, FeeCard, TasksCard, TeamCard } from "../../CasePanel";
 import VerificationPanel from "../../VerificationPanel";
 import VerificationOverview from "../../VerificationOverview";
+import SubmittedIntakeReview from "../../SubmittedIntakeReview";
 import { adminFetch, formatDate, joinable, toLocalInput, type Meeting, type Meta, type StaffUser, type TicketDetail } from "../../api";
 
 const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Record<string, string>) => string> = {
@@ -146,6 +147,7 @@ export default function TicketPage() {
       <div className="ticket-layout">
         <div className="ticket-main">
           <CaseOverview ticket={ticket} act={act} />
+          <SubmittedIntakeReview key={ticket.ticket_number} review={ticket.guided_request} hasHistory={ticket.chat_transcript.length > 0} />
           <TasksCard ticket={ticket} staff={user.role === "admin" ? staff : [user]} act={act} />
           <Conversation ticket={ticket} onSend={(message, visibility) => act("/messages", "POST", { message, visibility }, visibility === "internal" ? "Internal note added." : "Message sent to the customer.")} />
 
@@ -160,7 +162,7 @@ export default function TicketPage() {
           />
           {ticket.chat_transcript.length > 0 && (
             <details className="admin-card chat-transcript">
-              <summary><h2>Chat with the assistant</h2><small>{ticket.chat_transcript.filter((m) => m.from === "customer").length} customer messages · {formatDate(ticket.chat_transcript[0].at)}</small></summary>
+              <summary><h2>{ticket.guided_request ? "Submitted question history" : "Chat with the assistant"}</h2><small>{ticket.chat_transcript.filter((m) => m.from === "customer").length} customer messages · {formatDate(ticket.chat_transcript[0].at)}</small></summary>
               <ol>
                 {ticket.chat_transcript.map((m, i) => (
                   <li key={i} className={`from-${m.from}`}>

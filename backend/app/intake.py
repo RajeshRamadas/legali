@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from . import document_requirements, tickets, service_intake_forms
+from . import document_requirements, tickets, service_intake_forms, submitted_intake
 from .customer_auth import current_customer
 from .db import get_db
 from .models import Consent, Conversation, ConversationMessage, CustomerAccount, IntakeDraft, ServiceRequest, ServiceType, utcnow
@@ -274,6 +274,7 @@ def submit(id: uuid.UUID, payload: Submit, account: CustomerAccount = Depends(cu
     ticket.prop.state = answers.get("state_name") if answers["state"] == "Other" else "Karnataka" if answers["state"] == "Karnataka" else None
     now = utcnow()
     guided = {"draft_id": str(draft.id), "answers": answers, "notice_version": NOTICE_VERSION, "consented_at": now.isoformat(),
+              "submitted_answers": submitted_intake.capture(rows, answers),
               "service_form": draft.service_form_snapshot,
               "saving_notice_version": draft.saving_notice_version, "saving_consented_at": tickets.aware(draft.saving_consented_at).isoformat()}
     ticket.structured_answers = {**ticket.structured_answers, "guided_intake": guided}

@@ -154,7 +154,14 @@ export type Board = {
   counts: { open: number; overdue: number; due_this_week: number; first_response_missed: number; overdue_tasks: number; closed_30_days: number };
 };
 
+export type SubmittedIntake = {
+  format: "snapshot" | "legacy"; incomplete: boolean; service_form_revision: number | null;
+  submitted_at: string | null; saving_consented_at: string | null; submission_notice: string | null; saving_notice: string | null;
+  answers: { key: string; question: string; answer: string; skipped: boolean; section: "general" | "service" }[];
+};
+
 export type TicketDetail = TicketSummary & {
+  guided_request?: SubmittedIntake | null;
   case: CaseView;
   document_request?: DocumentRequest;
   verification_workflow?: { run_id: string; approval: { name: string; at: string; notes: string; sources: string[] } | null } | null;

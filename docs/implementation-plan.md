@@ -23,6 +23,8 @@
 - [x] Add verified customer contact flow
 
 ## Phase 2 — Admin and agent workspaces
+- [x] Review submitted customer intake with original wording and case-scoped access
+  Searchable read-only question/answer snapshots, retained service labels, notice metadata and explicit legacy/missing-data handling are implemented (`submitted-intake-review.md`). Existing case permissions apply; current intake changes do not rewrite original submissions.
 - [ ] Authentication and role-based access control
 - [ ] Ticket queue, search, filters and pagination
 - [ ] Ticket details, assignment, status workflow and SLA

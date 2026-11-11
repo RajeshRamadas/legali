@@ -45,6 +45,10 @@ answer transcript uses the original prompts and choice labels. A submitted retry
 returns the same case. Existing service admission checks still run at creation.
 No answers are sent to an AI provider by this flow, and no legal outcome is inferred.
 
+The case team's [Submitted request review](submitted-intake-review.md) shows these
+retained service labels and, for new submissions, the original core questions and
+display answers. It respects existing case access and provides local search.
+
 ## Privacy, edits and history
 
 The guided request notice is now `guided-request-v2` and explicitly includes

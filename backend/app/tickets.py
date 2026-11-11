@@ -257,10 +257,12 @@ def property_view(prop: Property) -> dict:
     return {"type": prop.property_type, "location": prop.locality, **{field: getattr(prop, field) for field in PROPERTY_ID_FIELDS}}
 
 def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> dict:
+    from .submitted_intake import review
     customer = ticket.customer
     return {
         **staff_summary(ticket),
         "description": ticket.description,
+        "guided_request": review((ticket.structured_answers or {}).get("guided_intake")),
         "customer": {"id": str(customer.id), "name": customer.full_name, "phone": customer.phone, "email": customer.email},
         "property": property_view(ticket.prop) if ticket.prop else None,
         "events": [
