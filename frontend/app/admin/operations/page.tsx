@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useStaff } from "../AdminShell";
 import { adminFetch, type OperationsHealth } from "../api";
 
-const labels = { notifications: "Notifications, case & support deadlines", blog_scan: "Case research scheduler" };
+const labels = { notifications: "Notifications, case & support deadlines", blog_scan: "Case research scheduler", verification:"Background verification worker" };
 const states = { healthy: "Recent check succeeded", failed: "Last check failed", stale: "No recent completion", starting: "Check in progress", not_observed: "Not yet observed", disabled: "Not enabled" };
 const channels = { email: "Email", sms: "SMS", whatsapp: "WhatsApp" };
 function when(value: string | null) { return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Not yet recorded"; }
@@ -55,6 +55,7 @@ export default function SystemHealth() {
         <div className="operations-database"><span className="operations-state good">Database ready</span><small>Schema matched the application at this check.</small></div>
       </section>
       <div className="operations-stats">
+        {data.verification_jobs&&<div className="admin-card"><span>Verification · queued / running</span><b>{data.verification_jobs.queued} / {data.verification_jobs.running}</b><small>{data.verification_jobs.interrupted} interrupted · {data.verification_jobs.failed_24h} failed in 24h. A dedicated verification worker is required.</small></div>}
         {[ ["Delayed deliveries", delayed], ["Failed deliveries · 24h", failed], ["Files awaiting a scan", data.documents.pending], ["Deadline alerts", data.deadlines.unacknowledged] ].map(([label, value]) => <div className="admin-card" key={label}><span>{label}</span><b>{value}</b></div>)}
       </div>
       <section className="admin-card" aria-label="Audit history protection"><div className="operations-row"><h2>Audit history protection</h2><span className={`operations-state ${data.audit_history?.state === "configured" ? "good" : "warn"}`}>{data.audit_history?.state === "configured" ? "Database guards installed" : "Audit guards need attention"}</span></div>

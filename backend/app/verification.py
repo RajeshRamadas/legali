@@ -4,10 +4,12 @@ No model output can approve a checklist item or sign a legal report. Every model
 fact/finding is anchored to a literal quote and page from this run's inputs.
 """
 import base64
+from copy import deepcopy
 import hashlib
 import json
 import unicodedata
 import uuid
+from types import SimpleNamespace
 from datetime import date, timedelta
 import re
 from typing import Literal
@@ -182,7 +184,8 @@ def fingerprint(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
 
 
-def run_agent(ticket, request: RunRequest):
+def prepare(ticket, request: RunRequest):
+    """Validate and copy bounded metadata; no file reads, OCR or provider calls."""
     from .malware_scan import require_clean_case
     require_clean_case(ticket)
     docs = case_files.case_documents(ticket)
@@ -201,10 +204,28 @@ def run_agent(ticket, request: RunRequest):
     if (declared == "Karnataka" and state.lower() != "karnataka") or (declared == "Other" and state.lower() == "karnataka"):
         raise HTTPException(422, "The analysis state conflicts with the property intake. Correct the intake before analysis.")
     scope = snapshot(ticket)
+    document_request = document_requirements.view(ticket)
+    checklist = ([{"tag": i.tag, "label": i.label, "status": i.status, "files": sum(d.tag == i.tag for d in docs)} for i in ticket.report.items]
+        if ticket.report else [{"tag": i["tag"], "label": i["label"], "status": i["status"], "files": len(i["documents"])} for i in document_request["items"]])
+    return deepcopy({"state": state, "scope": scope, "document_request": document_request, "checklist": checklist,
+        "property_type": ticket.prop.property_type if ticket.prop else None,
+        "documents": [{"id": str(d.id), "original_filename": d.original_filename, "tag": d.tag,
+            "checksum_sha256": d.checksum_sha256, "storage_key": d.storage_key} for d in docs]})
+
+
+def run_agent(ticket, request: RunRequest):
+    return run_prepared(prepare(ticket, request), request)
+
+
+def run_prepared(prepared, request: RunRequest, progress=lambda phase: None):
+    """Process a detached value snapshot without holding a database connection."""
+    state, scope = prepared["state"], prepared["scope"]
+    docs = [SimpleNamespace(**row) for row in prepared["documents"]]
     documents = []
     page_images: dict[str, dict[int, bytes]] = {}
     remaining_text = 90000
     for doc in docs:
+        progress("extracting")
         item = {"id": str(doc.id), "filename": doc.original_filename, "tag": doc.tag, "sha256": doc.checksum_sha256}
         try:
             data = storage.get(doc.storage_key)
@@ -235,6 +256,7 @@ def run_agent(ticket, request: RunRequest):
                 if not any(p["text"].strip() for p in document["pages"]):
                     continue
                 images = [(document["id"], page, data) for page, data in sorted(page_images.get(document["id"], {}).items())]
+                progress("analysing")
                 extracted = model_call("Extract property identifiers, parties, document types, dates, area, registration and encumbrance statements from this one document, with literal page quotes. For unambiguous execution dates, use ISO YYYY-MM-DD values and quote the original date. Do not infer missing values or merge different historical transfers mentioned in one document.",
                                        {"documents": [document], "state": state}, Facts, step="extract", images=images)
                 for fact in extracted.facts:
@@ -243,6 +265,7 @@ def run_agent(ticket, request: RunRequest):
                         facts.append(fact.model_dump())
                     else:
                         rejected["facts"] += 1
+            progress("analysing")
             assessed = model_call("Compare the documents and extracted facts. Identify material inconsistencies between documents (category factual_inconsistency: survey/hissa numbers, extent, boundaries, names, dates; law_ids may be empty), explicit adverse restrictions and legal issues (category legal, citing supplied law IDs). Do not treat absence from a limited excerpt as proof a requirement is violated. No final clearance. An empty findings list is valid.",
                 {"documents": documents, "facts": facts, "state": state, "property": scope["property"], "laws": applicable_laws(state)}, Findings, step="compare")
             for finding in assessed.findings:
@@ -271,16 +294,12 @@ def run_agent(ticket, request: RunRequest):
         open_checks.append({"title": "Karnataka land status and grant history", "law_ids": ["karnataka-land", "karnataka-grant"], "action": "Check RTC/mutation, survey boundaries, conversion where applicable, original grants and restrictions against official records."})
     else:
         open_checks.append({"title": "State-specific legal review", "law_ids": ["stamp"], "action": f"The curated state-law pack currently covers Karnataka only. An advocate must check {state}'s land, revenue, tenancy, grant, planning and stamp laws."})
-    if ticket.prop and ticket.prop.property_type in ("apartment", "residential_plot", "commercial"):
+    if prepared["property_type"] in ("apartment", "residential_plot", "commercial"):
         open_checks.append({"title": "Project and promoter compliance", "law_ids": ["rera"], "action": "Determine RERA applicability and exemptions, then verify the project and promoter disclosures on the relevant state RERA portal. Sample app data is not verification."})
     # Tags and staff checklist status describe intake, never proof that bytes establish title.
-    checklist = []
-    if ticket.report:
-        checklist = [{"tag": i.tag, "label": i.label, "status": i.status, "files": sum(d.tag == i.tag for d in docs)} for i in ticket.report.items]
-    else:
-        checklist = [{"tag": i["tag"], "label": i["label"], "status": i["status"], "files": len(i["documents"])} for i in document_requirements.view(ticket)["items"]]
+    checklist = prepared["checklist"]
     missing = [i for i in checklist if i["status"] not in ("verified", "waived")]
-    incomplete = any(d["warnings"] for d in documents) or not checklist or bool(missing) or llm_status != "completed" or bool(document_requirements.view(ticket)["questions"]) or bool(rejected["facts"] or rejected["findings"])
+    incomplete = any(d["warnings"] for d in documents) or not checklist or bool(missing) or llm_status != "completed" or bool(prepared["document_request"]["questions"]) or bool(rejected["facts"] or rejected["findings"])
     if any(f["severity"] in ("critical", "high") for f in findings):
         verdict = "high_risk"
         reason = "Material risks were identified in the supplied evidence. Pause the transaction pending advocate investigation and resolution of the cited issues."
@@ -291,6 +310,7 @@ def run_agent(ticket, request: RunRequest):
         verdict = "conditional_review"
         reason = "No high-severity issue was identified in the analysed copies. Independent record checks and an advocate's signed opinion remain required before proceeding."
     trace.append({"step": "verdict", "detail": "Applied evidence completeness and severity gates. The agent cannot verify official records, approve checklist items or sign the final legal opinion."})
+    progress("finalizing")
     return {"version": 1, "state": state, "law_version": property_law.LAW_VERSION,
             "input_fingerprint": fingerprint(scope), "verdict": verdict, "reason": reason,
             "llm_status": llm_status, "provider": provider_status()["provider"] if request.use_llm else None,
@@ -299,7 +319,7 @@ def run_agent(ticket, request: RunRequest):
             "page_images_sent": sum(len(v) for v in page_images.values()) if request.use_llm and llm_status != "not_requested" else 0,
             "rejected": rejected,
             "documents": documents, "facts": facts, "findings": findings, "open_checks": open_checks,
-            "document_request": document_requirements.view(ticket),
+            "document_request": prepared["document_request"],
             "title_chain": title_chain(facts, documents),
             "checklist": checklist, "laws": applicable_laws(state), "trace": trace,
             "limitations": ["This is an automated screening verdict, not a signed legal opinion or certification of ownership, authenticity or absence of fraud.",
@@ -351,7 +371,8 @@ def view(run, ticket):
 
 @router.get("/admin/verification/config")
 def agent_config(user: User = Depends(current_staff)):
-    return provider_status()
+    from .verification_jobs import configuration
+    return {**provider_status(), "background_processing": True, "configuration_revision": configuration(True)}
 
 
 @router.get("/admin/tickets/{ticket_number}/verification")
@@ -366,6 +387,9 @@ def analyse(ticket_number: str, payload: RunRequest, user: User = Depends(curren
     ticket = _get_ticket(db, user, ticket_number)
     # Serialize runs per ticket, including external calls, without blocking unrelated cases.
     db.execute(select(type(ticket).id).where(type(ticket).id == ticket.id).with_for_update())
+    from .models import VerificationJob
+    if db.scalar(select(VerificationJob.id).where(VerificationJob.service_request_id==ticket.id, VerificationJob.status.in_(("queued","running"))).limit(1)):
+        raise HTTPException(409, "Background analysis is active for this case. Cancel or finish it before starting another run.")
     recent = db.scalar(select(VerificationRun).where(VerificationRun.service_request_id == ticket.id,
         VerificationRun.created_at > utcnow() - timedelta(seconds=60)).limit(1))
     if recent:

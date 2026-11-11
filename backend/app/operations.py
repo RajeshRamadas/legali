@@ -13,7 +13,7 @@ from starlette.responses import JSONResponse
 
 from . import audit_guard_v1, config, notification_providers, whatsapp, support_alerts
 from .db import engine, get_db
-from .models import CaseDeadlineAlert, CaseScanRun, Document, Notification, SupportRequest, User, WorkerPulse, utcnow
+from .models import CaseDeadlineAlert, CaseScanRun, Document, Notification, SupportRequest, User, VerificationJob, WorkerPulse, utcnow
 from .security import require_admin
 
 router = APIRouter()
@@ -91,6 +91,15 @@ def snapshot(_: User = Depends(require_admin), db: Session = Depends(get_db)):
         ("notifications", config.NOTIFY_WORKER_ENABLED, config.NOTIFY_INTERVAL_SECONDS),
         ("blog_scan", config.BLOG_AGENT_ENABLED, 900),
     )]
+    job_counts=dict(db.execute(select(VerificationJob.status,func.count()).group_by(VerificationJob.status)).all())
+    interrupted=db.scalar(select(func.count()).select_from(VerificationJob).where(VerificationJob.status=="running",(VerificationJob.lease_until.is_(None))|(VerificationJob.lease_until<=now)))
+    verification_jobs={"queued":job_counts.get("queued",0),"running":job_counts.get("running",0),"interrupted":interrupted,
+        "failed_24h":db.scalar(select(func.count()).select_from(VerificationJob).where(VerificationJob.status=="failed",VerificationJob.finished_at>=since))}
+    pulse=db.get(WorkerPulse,"verification")
+    if pulse or verification_jobs["queued"] or verification_jobs["running"]:
+        verification_worker=worker_view(pulse,"verification",True,10,now)
+        verification_worker["enabled_in_api"]=False
+        workers.append(verification_worker)
     due_at = func.coalesce(Notification.send_after, Notification.created_at)
     queued = Notification.delivery_status == "queued"
     due = queued & (due_at <= now)
@@ -121,6 +130,7 @@ def snapshot(_: User = Depends(require_admin), db: Session = Depends(get_db)):
     attention = audit_history["state"] != "configured" or any(worker["state"] not in ("healthy", "disabled") for worker in workers) or any(
         row["delayed"] or row["failed_24h"] or (row["due"] and not row["configured"]) for row in channels)
     attention = attention or any(documents[name] for name in ("delayed", "failed", "infected")) or deadlines["unacknowledged"] or research["failed_24h"] or support["overdue_requests"]
+    attention = attention or bool(verification_jobs["interrupted"] or verification_jobs["failed_24h"])
     return {"checked_at": now.isoformat(), "status": "attention" if attention else "healthy", "database": "ready",
         "queue_warn_minutes": config.OPS_QUEUE_WARN_MINUTES, "workers": workers, "channels": channels,
-        "documents": documents, "deadlines": deadlines, "research": research, "support": support, "audit_history": audit_history}
+        "documents": documents, "deadlines": deadlines, "research": research, "support": support, "audit_history": audit_history,"verification_jobs":verification_jobs}

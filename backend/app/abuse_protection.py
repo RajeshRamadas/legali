@@ -37,6 +37,10 @@ class Policy:
 def policy_for(method, path):
     path = path.rstrip("/")
     if method == "POST":
+        if re.fullmatch(r"/api/v1/admin/tickets/[^/]+/verification/jobs", path):
+            return Policy("expensive_checks", config.API_AI_ACTIONS_PER_MINUTE)
+        if re.fullmatch(r"/api/v1/admin/tickets/[^/]+/verification/jobs/[^/]+/cancel", path):
+            return Policy("customer_writes", config.API_WRITES_PER_MINUTE)
         if path == "/api/v1/tickets" or re.fullmatch(r"/api/v1/lawyers/[^/]+/bookings", path) or re.fullmatch(r"/api/v1/intake/drafts/[^/]+/submit", path):
             return Policy("submissions", config.API_SUBMISSIONS_PER_HOUR, 3600)
         if path == "/api/v1/tickets/documents" or re.fullmatch(r"/api/v1/admin/tickets/[^/]+/(documents|report/signed)", path):
@@ -50,6 +54,8 @@ def policy_for(method, path):
         if path.startswith("/api/v1/auth/") or path in ("/api/v1/account/login/start", "/api/v1/account/login/verify"):
             return Policy("authentication", config.API_AUTH_PER_MINUTE)
     if method == "GET":
+        if re.fullmatch(r"/api/v1/admin/tickets/[^/]+/verification(?:/jobs)?", path):
+            return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path in ("/api/v1/admin/activity", "/api/v1/admin/task-queue", "/api/v1/admin/tasks"):
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path.startswith("/api/v1/files/"):

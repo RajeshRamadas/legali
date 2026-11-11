@@ -6,6 +6,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
+- Durable background verification queues case analysis with saved progress, cancellation, explicit retry/consent review, evidence/access checks and an optional PostgreSQL worker (`docs/background-verification.md`).
+
 - Database-enforced append-only audit records reject updates/deletes and PostgreSQL truncation, with guard checks in readiness/System health and private task-change auditing (`docs/append-only-audit.md`).
 
 - Staff task queue adds search, ownership/status/deadline/priority filters, matching counts and paging, with current case-access checks on both task lists (`docs/staff-task-queue.md`).

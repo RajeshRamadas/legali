@@ -26,6 +26,10 @@ GROUPS = {
         "service.intake_form_published": "Intake form published",
     }),
     "cases": ("Case work", {
+        "verification.job_queued": "Analysis job queued", "verification.job_started": "Analysis job started",
+        "verification.job_completed": "Analysis job completed", "verification.job_failed": "Analysis job failed",
+        "verification.job_cancelled": "Analysis job cancelled", "verification.job_stale": "Analysis inputs changed",
+        "verification.job_interrupted": "Analysis worker interrupted",
         "case.task_created": "Case task created", "case.task_updated": "Case task updated",
         "ticket.status_changed": "Case status changed", "ticket.assigned": "Case assignment changed",
         "case.due_changed": "Case due date changed", "case.member_added": "Case team member added",

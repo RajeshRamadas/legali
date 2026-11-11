@@ -17,7 +17,8 @@ export type PrivacyRetention = { cleanup_enabled: boolean; retention_days: numbe
 export type OperationsHealth = {
   checked_at: string; status: "healthy" | "attention"; database: "ready"; queue_warn_minutes: number;
   audit_history?: { state: "configured" | "missing" | "unsupported" };
-  workers: { name: "notifications" | "blog_scan"; state: "healthy" | "failed" | "stale" | "starting" | "not_observed" | "disabled";
+  verification_jobs?: {queued:number;running:number;interrupted:number;failed_24h:number};
+  workers: { name: "notifications" | "blog_scan" | "verification"; state: "healthy" | "failed" | "stale" | "starting" | "not_observed" | "disabled";
     enabled_in_api: boolean; stale_after_seconds: number; started_at: string | null; finished_at: string | null;
     last_success_at: string | null; last_failure_at: string | null; duration_ms: number | null; consecutive_failures: number; error_code: string | null }[];
   channels: { name: "email" | "sms" | "whatsapp"; configured: boolean; due: number; scheduled: number; delayed: number; failed_24h: number; oldest_due_at: string | null }[];

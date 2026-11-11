@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { adminFetch, formatDate, type TicketDetail } from "./api";
 import "../ui/views/admin-verification.css";
 import PropertyIntakeFields, { EMPTY_INTAKE } from "../PropertyIntakeFields";
+import BackgroundVerification from "./BackgroundVerification";
 
 type Evidence = { document_id: string; page: number; quote: string };
 type Law = { id: string; act: string; sections: string; principle: string; url: string };
@@ -20,7 +21,7 @@ type Run = {
   laws: Law[]; limitations: string[];
   title_chain?: { note: string; chronology?: string[]; links?: { from_document: string; to_document: string; status: string; reason: string }[]; transfers: { document_id: string; filename: string; gaps: string[]; fields: Record<string, { value: string; evidence: Evidence }[]> }[] };
 };
-type AgentConfig = { configured: boolean; provider: string; model: string; max_documents: number; max_pages_per_document: number };
+type AgentConfig = { configured: boolean; provider: string; model: string; max_documents: number; max_pages_per_document: number; background_processing?:boolean; configuration_revision?:string };
 const VERDICTS = { high_risk: "High risk · resolve before proceeding", insufficient_evidence: "Insufficient evidence for a title decision", conditional_review: "Conditional · advocate review required" };
 
 export default function VerificationPanel({ ticket, onTicket }: { ticket: TicketDetail; onTicket: (ticket: TicketDetail) => void }) {
@@ -38,7 +39,9 @@ export default function VerificationPanel({ ticket, onTicket }: { ticket: Ticket
   const [checksConfirmed, setChecksConfirmed] = useState(false);
   const [notice, setNotice] = useState("");
   const [intake, setIntake] = useState(ticket.document_request?.intake ?? EMPTY_INTAKE);
+  const stateInput=useRef<HTMLInputElement>(null);
   const base = `/admin/tickets/${encodeURIComponent(ticket.ticket_number)}/verification`;
+  const refreshSaved=useCallback(async()=>{const history=await adminFetch<{items:Run[]}>(base);setRuns(history.items);setSelected("");},[base]);
   // Changes to documents, property or checklist refresh server-calculated staleness.
   const inputs = JSON.stringify([ticket.documents.map(d => [d.id, d.tag, d.checksum_sha256]), ticket.property, ticket.report?.items]);
   useEffect(() => {
@@ -92,12 +95,12 @@ export default function VerificationPanel({ ticket, onTicket }: { ticket: Ticket
     <p>Read the case documents, compare evidence and prepare a reasoned screening verdict. The case lawyer retains the final signed opinion.</p>
     <details><summary>Structured property intake and required documents</summary><PropertyIntakeFields value={intake} onChange={setIntake} identifiers /><button type="button" className="btn btn-secondary" style={{ marginTop: 12 }} disabled={busy || ticket.report?.status === "signed"} onClick={saveIntake}>Save intake and request documents</button><p>{ticket.document_request?.prompt}</p></details>
     <div className="verification-controls">
-      <label>Property state / union territory<input value={state} maxLength={80} onChange={e => setState(e.target.value)} required /></label>
+      <label>Property state / union territory<input ref={stateInput} value={state} maxLength={80} onChange={e => setState(e.target.value)} required /></label>
       <label className="verification-check"><input type="checkbox" checked={useLLM} disabled={!config?.configured || busy} onChange={e => { setUseLLM(e.target.checked); setConsent(false); }} />Use LLM evidence analysis {config?.configured ? `(${config.provider} · ${config.model})` : "(not configured)"}</label>
       {useLLM && <label className="verification-check"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />I am authorised to send the extracted case document text, and images of scanned pages, to this LLM provider for analysis.</label>}
       {!config?.configured && <p className="verification-help">LLM analysis is configured by the server administrator. You can still run local extraction and identify open verification checks.</p>}
       <small>PDF, DOCX, JPG, PNG and WEBP extraction · up to {config?.max_documents ?? 10} files, {config?.max_pages_per_document ?? 15} pages per PDF. Scanned pages use OCR; unsupported, unreadable and omitted content is flagged.</small>
-      <button type="button" className="btn btn-primary" onClick={analyse} disabled={busy || !ticket.documents.length || !state.trim() || (useLLM && !consent)}>{busy ? "Reading and analysing documents…" : "Run verification"}</button>
+      {config?.background_processing?<BackgroundVerification ticketNumber={ticket.ticket_number} request={{state,use_llm:useLLM,consent_to_external_processing:consent}} configurationRevision={config.configuration_revision??""} refreshKey={inputs} onCompleted={refreshSaved} onReview={()=>{setConsent(false);stateInput.current?.focus();}} disabled={busy||!ticket.documents.length||!state.trim()||(useLLM&&!consent)} />:<button type="button" className="btn btn-primary" onClick={analyse} disabled={busy || !ticket.documents.length || !state.trim() || (useLLM && !consent)}>{busy ? "Reading and analysing documents…" : "Run verification"}</button>}
       {!ticket.documents.length && <p>Upload the property documents in the case file below to begin.</p>}
     </div>
     <div role="status" aria-live="polite">{busy && <p>Extraction and model analysis can take several minutes. Keep this case open.</p>}</div>

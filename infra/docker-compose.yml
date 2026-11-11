@@ -34,7 +34,7 @@ services:
       context: ../backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    environment:
+    environment: &api-environment
       CLAMAV_HOST: clamav
       CLAMAV_PORT: "3310"
       CLAMAV_TIMEOUT: ${CLAMAV_TIMEOUT:-30}
@@ -127,6 +127,25 @@ services:
         condition: service_started
       db:
         condition: service_healthy
+
+  verification-worker:
+    profiles: [verification]
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.verification_jobs", "--loop"]
+    environment:
+      <<: *api-environment
+      NOTIFY_WORKER_ENABLED: "false"
+      BLOG_AGENT_ENABLED: "false"
+    volumes:
+      - api_storage:/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      clamav:
+        condition: service_started
 
   backup:
     profiles: [maintenance]

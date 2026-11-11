@@ -73,6 +73,35 @@ class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
+
+class VerificationJob(Base):
+    __tablename__ = "verification_jobs"
+    __table_args__ = (
+        CheckConstraint("status IN ('queued','running','completed','failed','cancelled','stale')", name="ck_verification_job_status"),
+        CheckConstraint("phase IN ('queued','extracting','analysing','finalizing','finished')", name="ck_verification_job_phase"),
+        UniqueConstraint("service_request_id", "submission_key", name="uq_verification_job_submission"),
+        Index("uq_verification_job_active", "service_request_id", unique=True,
+            postgresql_where=text("status IN ('queued','running')"), sqlite_where=text("status IN ('queued','running')")),
+        Index("ix_verification_job_queue", "status", "created_at"),
+        Index("ix_verification_job_case", "service_request_id", "created_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"))
+    requested_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    submission_key: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    request: Mapped[dict] = mapped_column(JSONType, nullable=False)
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    configuration_revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="queued", nullable=False)
+    phase: Mapped[str] = mapped_column(Text, default="queued", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    claim_token: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("verification_runs.id", ondelete="SET NULL"))
+    reason_code: Mapped[str | None] = mapped_column(Text)
+
 user_roles = Table(
     "user_roles",
     Base.metadata,

@@ -46,6 +46,8 @@
 - [ ] Notification templates, consent and retry handling
 
 ## Phase 4 — AI assistance
+- [x] Process full-case verification through durable background jobs
+  Case-scoped submission/status/cancellation, detached processing, leased PostgreSQL claims, stale/access/configuration checks, explicit retries and worker health are implemented (`background-verification.md`). Start the optional worker with shared configuration after reviewing queued work. Upload classification/rechecks retain their existing flow; evaluation, cost and retention controls remain further work.
 - [ ] Add provider abstraction and secrets management
 - [ ] Define service-specific prompts and structured output schemas
 - [ ] Keep server-side validation as the authority

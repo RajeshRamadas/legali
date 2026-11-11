@@ -24,7 +24,7 @@ if not log.handlers:
     log.addHandler(handler)
 log.setLevel(logging.INFO)
 log.propagate = False
-WORKERS = {"notifications", "blog_scan"}
+WORKERS = {"notifications", "blog_scan", "verification"}
 POLICIES = {"submissions", "uploads", "expensive_checks", "chat", "lookups", "authentication", "downloads", "customer_writes"}
 
 
