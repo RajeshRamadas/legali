@@ -242,6 +242,7 @@ class ServiceType(TimestampMixin, Base):
     __tablename__ = "service_types"
     __table_args__ = (CheckConstraint("availability_revision >= 1", name="ck_service_availability_revision"),
         CheckConstraint("description_revision >= 1", name="ck_service_description_revision"),
+        CheckConstraint("intake_form_revision >= 1", name="ck_service_intake_form_revision"),
         CheckConstraint("description_override IS NULL OR length(description_override) BETWEEN 10 AND 800", name="ck_service_description_length"))
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -251,6 +252,8 @@ class ServiceType(TimestampMixin, Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     description_override: Mapped[str | None] = mapped_column(Text)
     description_revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
+    intake_questions: Mapped[list] = mapped_column(JSONType, default=list, server_default=text("'[]'"), nullable=False)
+    intake_form_revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
     supported_property_types: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
     required_fields: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
     required_documents: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
@@ -391,6 +394,7 @@ class IntakeDraft(TimestampMixin, Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="CASCADE"), nullable=False)
     answers: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    service_form_snapshot: Mapped[dict] = mapped_column(JSONType, default=dict, server_default=text("'{}'"), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
     status: Mapped[str] = mapped_column(Text, default="draft", nullable=False)
     saving_notice_version: Mapped[str] = mapped_column(Text, nullable=False)

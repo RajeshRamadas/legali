@@ -13,6 +13,15 @@
 
 This flow is deterministic. No answers are sent to an LLM and the model cannot change validation, consent or submission. An intake transcript is created at submission; unrelated anonymous assistant chat is not attached automatically. Submitted cases use the existing `source=chat` classification and keep a `guided_intake` snapshot in structured answers.
 
+Administrators can publish up to five [service-specific questions](service-intake-forms.md)
+after the standard questions. New service selections pin the current form; later
+publications leave saved questions/answers intact. Switching service clears
+previous supplemental answers and selects the new form. The `guided-request-v2`
+notice includes this collection. Older saving-consent drafts keep core questions
+without supplemental collection. Submission retains original form definitions,
+version and choice labels in the case snapshot/transcript. Migration
+`0038_service_intake_forms` preserves legacy drafts with empty form snapshots.
+
 ## Privacy and consistency
 
 - Drafts require customer JWTs and are selected by account ID on every route. Staff/customer token audiences remain distinct; knowing the draft UUID is insufficient. Private responses use `private, no-store`. Draft answers are not written to browser storage, and neither answers nor session tokens are placed in URLs. Draft URLs contain only an opaque owner-checked UUID; the optional `service` query contains a public service slug.

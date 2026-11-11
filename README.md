@@ -6,6 +6,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
+- Administrator intake forms add reviewed service-specific questions, with version-pinned customer drafts, private publication history and retained original submission labels (`docs/service-intake-forms.md`).
+
 - Reviewed administrator service descriptions persist across startup and feed a searchable live services catalogue, with publication history and guarded standard restoration (`docs/service-descriptions.md`).
 
 - Administrator support queue prioritization combines response-target and owner filters, earliest-target ordering and draft-safe refresh (`docs/support-queue-priority.md`).

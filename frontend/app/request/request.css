@@ -3,6 +3,9 @@
 .intake-header p, .intake-hint { color: var(--ink-2); line-height: 1.7; }
 .intake-card { display: grid; gap: 16px; padding: clamp(20px, 4vw, 32px); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); min-width: 0; }
 .intake-card h2 { font-size: clamp(20px, 3vw, 26px); line-height: 1.4; margin: 0; }
+.intake-card h2, #intake-help { overflow-wrap:anywhere; }
+#intake-help { white-space:pre-wrap; }
+.intake-form-version { color:var(--ink-2); line-height:1.7; }
 .intake-card p { margin: 0; line-height: 1.7; color: var(--ink-2); }
 .intake-card a:not(.btn) { color: var(--primary-text); text-decoration: underline; text-underline-offset: 3px; }
 .intake-card > .btn { justify-self: start; }
@@ -21,10 +24,11 @@
 .intake-error p { margin: 0 0 10px; }
 .intake-history summary { cursor: pointer; color: var(--primary-text); }
 .intake-review, .intake-history dl { margin: 0; display: grid; gap: 14px; }
-.intake-review > div { display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.intake-review > div { border-bottom: 1px solid var(--line); padding-bottom: 14px; }
 .intake-review dt, .intake-history dt { color: var(--ink-2); font-size: 12px; }
 .intake-review dd, .intake-history dd { margin: 5px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
-.intake-review > div > div { min-width: 0; }
+.intake-review dd { display:flex; justify-content:space-between; gap:18px; }
+.intake-review dd > span { min-width:0; }
 .intake-review button { flex-shrink: 0; align-self: flex-start; }
 .intake-success h2 { color: var(--primary-text); overflow-wrap: anywhere; }
 @media (max-width: 540px) { .guided-intake { width: calc(100% - 28px); margin-top: 24px; } .intake-drafts li { display: grid; } .intake-actions .btn { padding-inline: 18px; } }

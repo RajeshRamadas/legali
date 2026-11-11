@@ -7,13 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from . import document_requirements, tickets
+from . import document_requirements, tickets, service_intake_forms
 from .customer_auth import current_customer
 from .db import get_db
 from .models import Consent, Conversation, ConversationMessage, CustomerAccount, IntakeDraft, ServiceRequest, ServiceType, utcnow
 
 router = APIRouter(prefix="/api/v1/intake")
-NOTICE_VERSION = "guided-request-v1"
+NOTICE_VERSION = "guided-request-v2"
 RETENTION_DAYS = 30
 NOTICE = {
     "version": NOTICE_VERSION,
@@ -21,9 +21,9 @@ NOTICE = {
     "saving": "Save my completed answers privately for up to 30 days so I can resume this request on my signed-in devices. I can discard an unfinished draft at any time.",
     "submission": "I ask Homexo to review these details and contact me about this service request. The case team will confirm scope, availability, required documents and fees.",
     "details": [
-        "We collect your verified phone number, name, optional email, service goal, property details, available document names and preferred way to follow up.",
+        "We collect your verified phone number, name, optional email, service goal, property details, available document names, service-specific answers requested by the team and preferred way to follow up.",
         "Completed answers are saved to your signed-in account when you select Continue. Unsaved text in the current question is not retained. Do not enter identity numbers, financial information or document contents here.",
-        "This guided flow uses fixed questions. It does not send your answers to an AI provider or make legal decisions. Staff see the submitted summary and question history after you create a request.",
+        "This guided flow uses configured questions, including up to five service-specific questions. It does not send your answers to an AI provider or make legal decisions. Staff see the submitted summary and question history after you create a request.",
         "Unfinished drafts expire 30 days after creation. Discard removes their answers immediately. Submitted details and consent become part of the case record and follow Homexo's case-retention requirements.",
         "Submitting this request does not give marketing consent. Ask your case team through your account for help with access, corrections or deletion, subject to applicable retention requirements.",
     ],
@@ -61,7 +61,7 @@ def _text(key, prompt, *, required=False, maximum=100, minimum=0, kind="text", h
     return {"key": key, "prompt": prompt, "kind": kind, "required": required, "max_length": maximum, "min_length": minimum,
             "help": help, "options": []}
 
-def questions(db, answers):
+def questions(db, answers, form_snapshot=None):
     # Keep the selected service in a saved draft so a pause never discards its
     # answers. Only available services can be selected for a new draft.
     services = list(db.scalars(select(ServiceType).where(ServiceType.is_active.is_(True),
@@ -101,13 +101,16 @@ def questions(db, answers):
         contacts.append(("email", "Email"))
     rows.append(_select("contact_preference", "How would you prefer the case team to follow up?", contacts,
                         "This is your preference for this request. It does not subscribe you to marketing."))
-    return rows
+    return rows + service_intake_forms.selected_questions(form_snapshot, answers)
 
 
 def validate(question, value):
     import re
     value = value.strip()
+    if "\x00" in value:
+        raise HTTPException(422, "Remove unsupported control characters from this answer.")
     if question["kind"] == "select":
+        if not value and not question["required"]: return value
         if value not in {o["value"] for o in question["options"]}:
             raise HTTPException(422, "Choose one of the available answers.")
     else:
@@ -118,11 +121,11 @@ def validate(question, value):
     return value
 
 
-def clean(db, answers):
+def clean(db, answers, form_snapshot=None):
     answers = dict(answers)
     # Changing service/property/state removes irrelevant answers and invalid dependent choices.
     for _ in range(3):
-        allowed = {q["key"]: q for q in questions(db, answers)}
+        allowed = {q["key"]: q for q in questions(db, answers, form_snapshot)}
         valid = {}
         for key, value in answers.items():
             if key in allowed and isinstance(value, str):
@@ -151,13 +154,14 @@ def _created(db, draft):
             "message": "Request received. A specialist will confirm scope, availability, required documents and fees."}
 
 def view(db, draft):
-    answers = clean(db, draft.answers) if draft.status == "draft" else draft.answers
-    rows = questions(db, answers)
+    answers = clean(db, draft.answers, draft.service_form_snapshot) if draft.status == "draft" else draft.answers
+    rows = questions(db, answers, draft.service_form_snapshot)
     from .service_availability import accepts_requests
     return {"id": str(draft.id), "status": draft.status, "revision": draft.revision, "answers": answers, "questions": rows,
             "service_available": accepts_requests(db, answers["service_slug"]) if answers.get("service_slug") else True,
             "next_question": next((q["key"] for q in rows if q["key"] not in answers), None),
             "completed": sum(q["key"] in answers for q in rows), "total": len(rows),
+            "service_form_revision": draft.service_form_snapshot.get("revision"),
             "updated_at": tickets.aware(draft.updated_at).isoformat(),
             "expires_at": (tickets.aware(draft.created_at) + timedelta(days=RETENTION_DAYS)).isoformat(),
             "ticket": _created(db, draft) if draft.status == "submitted" else None, "notice": NOTICE}
@@ -203,7 +207,9 @@ def start(payload: Start, account: CustomerAccount = Depends(current_customer), 
             raise HTTPException(409, PAUSED)
         validate(questions(db, {})[0], payload.service_slug)
         answers["service_slug"] = payload.service_slug
-    draft = IntakeDraft(account_id=account.id, answers=clean(db, answers), saving_notice_version=NOTICE_VERSION, saving_consented_at=now)
+    form_snapshot = service_intake_forms.snapshot(db, payload.service_slug) if payload.service_slug else {}
+    draft = IntakeDraft(account_id=account.id, answers=clean(db, answers, form_snapshot), service_form_snapshot=form_snapshot,
+        saving_notice_version=NOTICE_VERSION, saving_consented_at=now)
     db.add(draft); db.commit()
     return view(db, draft)
 
@@ -215,14 +221,18 @@ def get_draft(id: uuid.UUID, account: CustomerAccount = Depends(current_customer
 def answer(id: uuid.UUID, payload: Answer, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     draft = _owned(db, id, account, lock=True)
     editable(draft, payload.revision)
-    answers = clean(db, draft.answers)
-    rows = questions(db, answers)
+    answers = clean(db, draft.answers, draft.service_form_snapshot)
+    rows = questions(db, answers, draft.service_form_snapshot)
     index = next((i for i, q in enumerate(rows) if q["key"] == payload.key), None)
     first = next((i for i, q in enumerate(rows) if q["key"] not in answers), len(rows))
     if index is None or (index > first and payload.key not in answers):
         raise HTTPException(422, "Answer the current question before continuing.")
     answers[payload.key] = validate(rows[index], payload.value)
-    draft.answers = clean(db, answers)
+    if payload.key == "service_slug" and answers[payload.key] != draft.answers.get("service_slug"):
+        draft.service_form_snapshot = service_intake_forms.snapshot(db, answers[payload.key]) if draft.saving_notice_version == NOTICE_VERSION else {}
+        # Even identical identifiers on different services must not carry answers over.
+        answers = {key: value for key, value in answers.items() if not key.startswith("extra_")}
+    draft.answers = clean(db, answers, draft.service_form_snapshot)
     draft.revision += 1
     draft.updated_at = utcnow()
     db.commit()
@@ -232,7 +242,7 @@ def answer(id: uuid.UUID, payload: Answer, account: CustomerAccount = Depends(cu
 def discard(id: uuid.UUID, account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     draft = _owned(db, id, account, lock=True)
     editable(draft, draft.revision)
-    draft.answers, draft.status = {}, "discarded"
+    draft.answers, draft.status, draft.service_form_snapshot = {}, "discarded", {}
     draft.revision += 1
     db.commit()
     return {"message": "Draft answers removed."}
@@ -244,10 +254,10 @@ def submit(id: uuid.UUID, payload: Submit, account: CustomerAccount = Depends(cu
         return _created(db, draft)
     editable(draft, payload.revision)
     consent(payload)
-    answers = clean(db, draft.answers)
+    answers = clean(db, draft.answers, draft.service_form_snapshot)
     if answers != draft.answers:
         raise HTTPException(409, "Available questions changed. Reload the saved answers and review them before submitting.")
-    rows = questions(db, answers)
+    rows = questions(db, answers, draft.service_form_snapshot)
     if any(q["key"] not in answers for q in rows):
         raise HTTPException(422, "Finish the questions and review your answers before submitting.")
     service = db.scalar(select(ServiceType).where(ServiceType.slug == answers["service_slug"], ServiceType.is_active.is_(True)))
@@ -264,6 +274,7 @@ def submit(id: uuid.UUID, payload: Submit, account: CustomerAccount = Depends(cu
     ticket.prop.state = answers.get("state_name") if answers["state"] == "Other" else "Karnataka" if answers["state"] == "Karnataka" else None
     now = utcnow()
     guided = {"draft_id": str(draft.id), "answers": answers, "notice_version": NOTICE_VERSION, "consented_at": now.isoformat(),
+              "service_form": draft.service_form_snapshot,
               "saving_notice_version": draft.saving_notice_version, "saving_consented_at": tickets.aware(draft.saving_consented_at).isoformat()}
     ticket.structured_answers = {**ticket.structured_answers, "guided_intake": guided}
     conversation = Conversation(customer_id=ticket.customer_id, property_id=ticket.property_id, service_type_id=service.id,

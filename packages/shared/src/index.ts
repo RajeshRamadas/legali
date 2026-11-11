@@ -66,6 +66,7 @@ export type IntakeQuestion = {
 };
 export type IntakeDraft = {
   service_available?: boolean;
+  service_form_revision?: number | null;
   id: string; status: "draft" | "submitted"; revision: number; answers: Record<string, string>;
   questions: IntakeQuestion[]; next_question: string | null; completed: number; total: number;
   updated_at: string; expires_at: string; ticket: TicketCreated | null; notice: IntakeNotice;
