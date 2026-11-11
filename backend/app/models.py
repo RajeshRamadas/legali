@@ -240,13 +240,17 @@ class Property(TimestampMixin, Base):
 
 class ServiceType(TimestampMixin, Base):
     __tablename__ = "service_types"
-    __table_args__ = (CheckConstraint("availability_revision >= 1", name="ck_service_availability_revision"),)
+    __table_args__ = (CheckConstraint("availability_revision >= 1", name="ck_service_availability_revision"),
+        CheckConstraint("description_revision >= 1", name="ck_service_description_revision"),
+        CheckConstraint("description_override IS NULL OR length(description_override) BETWEEN 10 AND 800", name="ck_service_description_length"))
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    description_override: Mapped[str | None] = mapped_column(Text)
+    description_revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
     supported_property_types: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
     required_fields: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
     required_documents: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)

@@ -11,7 +11,9 @@
 
 ## Phase 1 — Service catalogue and intake
 - [ ] Store services and dynamic intake forms in PostgreSQL
-  Public service choices now read the database and administrator admission controls persist across startup (`service-availability.md`). Catalogue descriptions and dynamic question definitions remain code-managed.
+  Public service choices read the database, administrator admission controls persist across startup (`service-availability.md`), and reviewed description overrides persist independently (`service-descriptions.md`). Dynamic question definitions, catalogue identities and default copy remain code-managed.
+- [x] Publish reviewed service descriptions to a live customer catalogue
+  Administrator preview/publication, independent editing revisions, private history and guarded standard restoration are implemented (`service-descriptions.md`). The public services page supports search/category filters and current availability; editorial marketing sections remain separate.
 - [x] Build guided chat state machine per service
 - [x] Add save/resume and request summary review
 - [x] Add consent capture and privacy notice version

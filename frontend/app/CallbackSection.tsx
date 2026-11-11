@@ -127,6 +127,7 @@ export default function CallbackSection() {
                 {serviceUnavailable && <option value={service} disabled>{serviceLabel(service)} — unavailable</option>}
                 {(available ? available.map(item => ({ slug: item.slug, label: item.name })) : SERVICE_OPTIONS).map((option) => <option key={option.slug} value={option.slug}>{option.label}</option>)}
               </select>
+              {!availabilityError && available?.find(item => item.slug === service)?.description && <p className="form-note" style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{available.find(item => item.slug === service)?.description}</p>}
               {serviceUnavailable && <p role="status">{available?.length ? "This service is not accepting new requests. Choose another service." : "No services are currently accepting new requests. Please try again later."} <button className="text-link" type="button" onClick={refreshAvailability}>Refresh availability</button></p>}
               {availabilityError && <p>Current availability will be checked when you submit. <button className="text-link" type="button" onClick={refreshAvailability}>Refresh availability</button></p>}
             </div>

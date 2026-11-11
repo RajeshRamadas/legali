@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import MainContent from "../../ui/MainContent";
 import { useStaff } from "../AdminShell";
 import { adminFetch } from "../api";
+import DescriptionEditor from "./DescriptionEditor";
+import type { ManagedService as Service } from "./types";
 import "./services.css";
 
-type Service = { id: string; slug: string; name: string; category: string; description: string; active: boolean; paused: boolean; revision: number };
 type History = { items: { id: string; paused: boolean; revision: number; reason: string; actor: string; at: string }[]; total: number; page: number; page_size: number };
 const date = (value: string) => new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
@@ -31,25 +32,27 @@ export default function ServiceAvailabilityPage() {
       <button className="btn light" disabled={busy || loading} onClick={() => { setNotice(""); load(); }}>Reload catalogue (replaces draft)</button>
       {loading && <p role="status">Loading service availability…</p>}{error && <p role="alert">{error}</p>}{notice && <p ref={feedback} tabIndex={-1} role="status">{notice}</p>}
     </section>
-    {service && !loading && <AvailabilityEditor key={`${service.id}:${version}`} service={service} onBusy={setBusy} onError={onError} onSaved={async () => { await load(); setNotice("Service availability saved. New requests now follow this setting."); }} />}
+    {service && !loading && <><AvailabilityEditor key={`${service.id}:${version}`} service={service} disabled={busy} onBusy={setBusy} onError={onError} onSaved={async result => { setServices(items => items.map(item => item.id === result.id ? { ...item, paused: result.paused, revision: result.revision, active: result.active } : item)); setNotice("Service availability saved. New requests now follow this setting."); }} />
+      <DescriptionEditor key={`description:${service.id}:${version}`} service={service} disabled={busy} onBusy={setBusy} onError={onError} onSaved={result => setServices(items => items.map(item => item.id === result.id ? { ...item, description: result.description, description_revision: result.description_revision, description_customized: result.description_customized, default_description: result.default_description } : item))} /></>}
   </MainContent>;
 }
 
-function AvailabilityEditor({ service, onBusy, onError, onSaved }: { service: Service; onBusy: (value: boolean) => void; onError: (error: unknown) => string; onSaved: () => Promise<void> }) {
+function AvailabilityEditor({ service, disabled, onBusy, onError, onSaved }: { service: Service; disabled: boolean; onBusy: (value: boolean) => void; onError: (error: unknown) => string; onSaved: (service: Service) => Promise<void> }) {
   const [reason, setReason] = useState(""), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [history, setHistory] = useState<History | null>(null), [page, setPage] = useState(1), [historyError, setHistoryError] = useState("");
   const guard = useRef(false);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const loadHistory = useCallback(async () => { try { setHistory(await adminFetch<History>(`/admin/services/${encodeURIComponent(service.slug)}/history?page=${page}`)); setHistoryError(""); } catch (error) { setHistoryError(onError(error)); } }, [service.slug, page, onError]);
-  useEffect(() => { loadHistory(); }, [loadHistory]);
+  useEffect(() => { loadHistory(); }, [loadHistory, historyRefresh]);
   async function submit(event: React.FormEvent) {
-    event.preventDefault(); if (guard.current) return; guard.current = true; setBusy(true); onBusy(true); setError("");
-    try { await adminFetch(`/admin/services/${encodeURIComponent(service.slug)}`, { method: "PATCH", body: JSON.stringify({ revision: service.revision, paused: !service.paused, confirmed, reason: reason.trim() }) }); await onSaved(); }
+    event.preventDefault(); if (guard.current || disabled) return; guard.current = true; setBusy(true); onBusy(true); setError("");
+    try { const result = await adminFetch<Service>(`/admin/services/${encodeURIComponent(service.slug)}`, { method: "PATCH", body: JSON.stringify({ revision: service.revision, paused: !service.paused, confirmed, reason: reason.trim() }) }); await onSaved(result); setReason(""); setConfirmed(false); setPage(1); setHistoryRefresh(value => value+1); }
     catch (error) { setError(`${onError(error)} Your draft is kept. Reload the catalogue to review the current state before trying again.`); }
     finally { guard.current = false; setBusy(false); onBusy(false); }
   }
   return <><section className="service-availability-card"><span className="service-availability-state">{!service.active ? "Retired" : service.paused ? "New requests paused" : "Accepting new requests"}</span><h2>{service.name}</h2><p>{service.description}</p>
     {!service.active ? <p>This service is retired. These controls cannot reactivate retired services.</p> : <form onSubmit={submit}><p>{service.paused ? "Resuming makes this service available for new requests again." : "Pausing removes this service from new-request choices and blocks new cases, including online consultations when that service is paused."} Existing work continues. This does not cancel a case, refund a payment or send a notification.</p>
-      <fieldset disabled={busy}><label>Private operational reason<textarea required minLength={10} maxLength={1000} rows={3} value={reason} onChange={event => setReason(event.target.value)} /></label>
+      <fieldset disabled={busy || disabled}><label>Private operational reason<textarea required minLength={10} maxLength={1000} rows={3} value={reason} onChange={event => setReason(event.target.value)} /></label>
       <label className="service-availability-confirm"><input type="checkbox" required checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /><span>I reviewed the effect on new requests. Existing cases and bookings will continue.</span></label>
       <button className="btn" disabled={!confirmed || reason.trim().length < 10}>{busy ? "Saving…" : service.paused ? "Resume new requests" : "Pause new requests"}</button></fieldset>
     </form>}{error && <p role="alert">{error}</p>}</section>

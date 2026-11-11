@@ -16,3 +16,7 @@
 .service-availability nav { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
 .service-availability [tabindex="-1"]:focus-visible { outline:2px solid var(--primary); outline-offset:4px; }
 @media(max-width:640px) { .service-availability-card { padding:18px; } }
+.service-description-preview { padding:18px; margin-block:16px; border:1px solid var(--line); border-radius:12px; }
+.service-description-preview p { white-space:pre-wrap; }
+.service-description-history { margin-top:24px; }
+.service-description-history summary { padding:12px 0; cursor:pointer; font-weight:700; }

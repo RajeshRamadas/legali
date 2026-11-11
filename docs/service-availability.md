@@ -16,6 +16,11 @@ and customers cannot access the administration endpoints or history. Conflicting
 updates return 409 and retain the editor's reason and confirmation until the
 administrator explicitly reloads the catalogue. History is paginated separately.
 
+The same page provides [reviewed public descriptions](service-descriptions.md),
+with independent revisions and private publication history. Saving availability
+preserves an unsaved description draft; publishing copy preserves the operational
+reason and confirmation. Only an explicit catalogue reload replaces both drafts.
+
 ## Customer behavior
 
 The public catalogue reads PostgreSQL and lists only active services accepting

@@ -16,7 +16,8 @@ PAUSED = "This service is temporarily not accepting new requests. Choose another
 
 def public_view(service):
     return {"slug": service.slug, "name": service.name, "category": service.category,
-        "description": service.description, "property_types": service.supported_property_types}
+        "description": service.description_override if service.description_override is not None else service.description,
+        "property_types": service.supported_property_types}
 
 
 def accepts_requests(db: Session, slug: str) -> bool:
@@ -34,7 +35,9 @@ def admit_new_request(db: Session, service: ServiceType) -> None:
 
 def view(service):
     return {**public_view(service), "id": str(service.id), "active": service.is_active,
-        "paused": service.intake_paused, "revision": service.availability_revision}
+        "paused": service.intake_paused, "revision": service.availability_revision,
+        "description_revision": service.description_revision, "description_customized": service.description_override is not None,
+        "default_description": service.description}
 
 
 @router.get("")

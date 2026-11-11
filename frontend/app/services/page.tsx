@@ -2,6 +2,7 @@ import MainContent from "../ui/MainContent";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DOC_SERVICES, PROCESS, VERIFY_SERVICES } from "../content";
+import ServiceCatalogue from "./ServiceCatalogue";
 
 export const metadata: Metadata = {
   title: "Property services, documents and affidavits · Homexo Legal",
@@ -17,7 +18,7 @@ export default function ServicesPage() {
       <MainContent>
         <section className="section services" id="verify">
           <div className="wrap">
-            <div className="section-head"><div><div className="eyebrow">What we verify &amp; handle</div><h1 className="heading hx-tone-b0e08465" style={{ fontSize: "clamp(36px,4.4vw,52px)", lineHeight: 1.06, margin: "9px 0 0" }}>Every angle of your<br />property’s legal health.</h1></div><p>From historical title and compliance to drafting, registration coordination and post-purchase paperwork. <Link className="hx-tone-b2722ad7" href="/#packages" style={{ fontWeight: 700 }}>Compare packages →</Link></p></div>
+            <div className="section-head"><div><div className="eyebrow">What we verify &amp; handle</div><h1 className="heading hx-tone-b0e08465" style={{ fontSize: "clamp(36px,4.4vw,52px)", lineHeight: 1.06, margin: "9px 0 0" }}>Every angle of your<br />property’s legal health.</h1></div><p>From historical title and compliance to drafting, registration coordination and post-purchase paperwork. <Link className="hx-tone-b2722ad7" href="/#packages" style={{ fontWeight: 700 }}>Compare packages →</Link> <Link className="text-link" href="#live-catalogue">Explore current services ↓</Link></p></div>
             <div className="service-grid">
               {VERIFY_SERVICES.map((item) => (
                 <article className="service-card" key={item.title}><div className="service-icon">{item.icon}</div><h3>{item.title}</h3><p>{item.text}</p><div className="tags">{item.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></article>
@@ -25,6 +26,8 @@ export default function ServicesPage() {
             </div>
           </div>
         </section>
+
+        <ServiceCatalogue />
 
         <section className="section document-desk" id="documents">
           <div className="wrap">

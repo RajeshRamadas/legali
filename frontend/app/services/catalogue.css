@@ -1,0 +1,9 @@
+.live-catalogue { border-block:1px solid var(--line); scroll-margin-top:90px; }
+.live-catalogue-controls { display:flex; flex-wrap:wrap; align-items:end; gap:16px; margin:24px 0; }
+.live-catalogue-controls label { display:grid; gap:8px; flex:1 1 240px; min-width:0; font-weight:600; }
+.live-catalogue-controls :is(select,input) { box-sizing:border-box; width:100%; min-width:0; padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); font:inherit; }
+.live-catalogue .service-card { min-width:0; display:flex; flex-direction:column; }
+.live-catalogue .service-card p { white-space:pre-wrap; overflow-wrap:anywhere; }
+.live-catalogue .service-card :is(h3,a) { overflow-wrap:anywhere; }
+.live-catalogue .service-card .text-link { margin-top:auto; padding-top:12px; }
+.live-catalogue-category { color:var(--primary); font-size:13px; font-weight:700; }
