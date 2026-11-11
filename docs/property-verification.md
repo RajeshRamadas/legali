@@ -2,6 +2,10 @@
 
 Requirements, design and implementation notes for the LLM parts of this feature are in [llm-verification/](llm-verification/README.md).
 
+Use the [verification quality benchmark](verification-evaluation.md) to check
+screening regressions offline or explicitly evaluate a configured provider on
+synthetic extracted text. Passing replay scores do not establish live accuracy.
+
 The staff case page (`/admin/tickets/<ticket number>`) includes a document analysis agent. Customers continue to upload through the existing document repository. Assigned agents and admins can run the agent; it uses the same case access restrictions as the rest of the staff workspace.
 
 ## Workflow

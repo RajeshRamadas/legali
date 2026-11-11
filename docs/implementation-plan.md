@@ -55,7 +55,9 @@
 - [ ] Keep server-side validation as the authority
 - [ ] Add safety filters, prompt-injection protections and human handoff
 - [ ] Measure answer quality and monitor cost/latency
-  Background verification usage/latency and optional estimates are implemented as above. Cross-workflow coverage and measured answer quality are still pending.
+  Background verification usage/latency and optional estimates are implemented as above. A versioned synthetic text benchmark adds shared screening, offline CI gating and explicitly requested provider evaluation (`verification-evaluation.md`). No live benchmark was run during implementation; reviewed historical outcomes, broader workflow/language/OCR coverage and production quality measurement remain pending.
+- [x] Gate verification screening with a synthetic quality benchmark
+  Twelve curated cases cover correct facts, mismatches, current/historical mortgages, incomplete evidence, prompt injection, quote/state-law grounding and provider/schema failures. Reports retain hashes and metrics without source content; replay scores validate regression behavior, not live model accuracy (`verification-evaluation.md`).
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness

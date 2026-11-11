@@ -73,7 +73,7 @@ detection, legal research beyond the curated pack, and any automatic legal concl
 | VR-15 | Code cross-checks between documents (survey number, extent with unit conversion, owner names, EC coverage across the chain) that do not depend on the model noticing. | Planned |
 | VR-16 | Match the project against imported Karnataka RERA records. | Planned |
 | VR-17 | Per-document-type extraction schemas (sale deed, EC, RTC, khata) instead of 8 generic fact types. | Planned |
-| VR-18 | A confidence signal on findings, and a gold evaluation set of 30 to 50 past cases with known outcomes to measure accuracy. | Planned |
+| VR-18 | A confidence signal on findings, and a gold evaluation set of 30 to 50 past cases with known outcomes to measure accuracy. | Partial: synthetic text benchmark and opt-in provider evaluator implemented; confidence and reviewed historical outcomes remain planned. See [evaluation](../verification-evaluation.md). |
 
 ### 4.3 Advocate workflow
 
@@ -110,7 +110,7 @@ detection, legal research beyond the curated pack, and any automatic legal concl
 | NF-8 | **Languages:** OCR in English, Hindi and Kannada in the Docker image; page images let the model read scans OCR gets wrong. | Built |
 | NF-9 | **Audit:** each run records who ran it, the models, the law pack version, the trace of steps and the verdict. | Built |
 | NF-10 | **Latency:** runs are synchronous and can take minutes on scans; a durable worker queue is needed for production. | Partial |
-| NF-11 | **Measured accuracy:** extraction and finding accuracy measured on a gold set before relying on the feature in production. | Planned |
+| NF-11 | **Measured accuracy:** extraction and finding accuracy measured on a gold set before relying on the feature in production. | Partial: offline screening gate and explicit synthetic provider evaluation available; live validation and historical gold set remain pending. |
 
 ## 6. Acceptance criteria (current build)
 

@@ -231,7 +231,6 @@ def run_agent(ticket, request: RunRequest):
 
 def run_prepared(prepared, request: RunRequest, progress=lambda phase: None):
     """Process a detached value snapshot without holding a database connection."""
-    state, scope = prepared["state"], prepared["scope"]
     docs = [SimpleNamespace(**row) for row in prepared["documents"]]
     documents = []
     page_images: dict[str, dict[int, bytes]] = {}
@@ -255,6 +254,18 @@ def run_prepared(prepared, request: RunRequest, progress=lambda phase: None):
                 page["text"] = page["text"][:remaining_text]
             remaining_text -= len(page["text"])
         documents.append(item)
+    return screen_documents(prepared, request, documents, page_images, progress)
+
+
+def screen_documents(prepared, request: RunRequest, documents, page_images=None, progress=lambda phase: None, *, model_runner=None):
+    """Shared screening rules for production extraction and synthetic text evaluation.
+
+    Production calls must use prepare/run_prepared for access, consent and file
+    integrity checks. This internal seam does not load or authorize case data.
+    """
+    state, scope = prepared["state"], prepared["scope"]
+    page_images = page_images or {}
+    call = model_runner or model_call
     trace = [{"step": "intake", "detail": f"Inventoried {len(documents)} files and compared their SHA-256 hashes."},
              {"step": "extract", "detail": "Extracted embedded text or local OCR; page limits and unreadable files are recorded below."}]
     facts, findings = [], []
@@ -269,7 +280,7 @@ def run_prepared(prepared, request: RunRequest, progress=lambda phase: None):
                     continue
                 images = [(document["id"], page, data) for page, data in sorted(page_images.get(document["id"], {}).items())]
                 progress("analysing")
-                extracted = model_call("Extract property identifiers, parties, document types, dates, area, registration and encumbrance statements from this one document, with literal page quotes. For unambiguous execution dates, use ISO YYYY-MM-DD values and quote the original date. Do not infer missing values or merge different historical transfers mentioned in one document.",
+                extracted = call("Extract property identifiers, parties, document types, dates, area, registration and encumbrance statements from this one document, with literal page quotes. For unambiguous execution dates, use ISO YYYY-MM-DD values and quote the original date. Do not infer missing values or merge different historical transfers mentioned in one document.",
                                        {"documents": [document], "state": state}, Facts, step="extract", images=images)
                 for fact in extracted.facts:
                     # Drop only the unsupported fact; one bad quote should not discard the rest of the evidence.
@@ -278,7 +289,7 @@ def run_prepared(prepared, request: RunRequest, progress=lambda phase: None):
                     else:
                         rejected["facts"] += 1
             progress("analysing")
-            assessed = model_call("Compare the documents and extracted facts. Identify material inconsistencies between documents (category factual_inconsistency: survey/hissa numbers, extent, boundaries, names, dates; law_ids may be empty), explicit adverse restrictions and legal issues (category legal, citing supplied law IDs). Do not treat absence from a limited excerpt as proof a requirement is violated. No final clearance. An empty findings list is valid.",
+            assessed = call("Compare the documents and extracted facts. Identify material inconsistencies between documents (category factual_inconsistency: survey/hissa numbers, extent, boundaries, names, dates; law_ids may be empty), explicit adverse restrictions and legal issues (category legal, citing supplied law IDs). Do not treat absence from a limited excerpt as proof a requirement is violated. No final clearance. An empty findings list is valid.",
                 {"documents": documents, "facts": facts, "state": state, "property": scope["property"], "laws": applicable_laws(state)}, Findings, step="compare")
             for finding in assessed.findings:
                 if all(law in law_ids for law in finding.law_ids) and all(valid_evidence(e, documents) for e in finding.evidence):

@@ -109,12 +109,20 @@ jobs:
       - name: Run API security and business regressions
         working-directory: backend
         run: python -m pytest -q --junitxml=../security-reports/api-${{ matrix.database }}.xml
+      - name: Gate synthetic verification screening quality without provider calls
+        if: matrix.database == 'sqlite'
+        working-directory: backend
+        env:
+          DATABASE_URL: sqlite://
+        run: python -m app.verification_evaluation --output ../security-reports/verification-evaluation.json
       - name: Retain API test results
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: api-results-${{ matrix.database }}
-          path: security-reports/*.xml
+          path: |
+            security-reports/*.xml
+            security-reports/verification-evaluation.json
           retention-days: 7
           if-no-files-found: warn
 
