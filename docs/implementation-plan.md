@@ -26,7 +26,7 @@
 
 ## Phase 2 — Admin and agent workspaces
 - [x] Review retained platform activity with administrator-only filters
-  A private read-only activity index supports group, current staff-name, India-day and record-reference filters with cursor paging and draft-safe refresh (`activity-history.md`). It excludes audit payloads and unknown action text. Database-level append-only enforcement and broader action coverage remain separate work.
+  A private read-only activity index supports group, current staff-name, India-day and record-reference filters with cursor paging and draft-safe refresh (`activity-history.md`). It excludes audit payloads and unknown action text. Database guards and task-change coverage are implemented separately (`append-only-audit.md`); broader event coverage remains future work.
 - [x] Review submitted customer intake with original wording and case-scoped access
   Searchable read-only question/answer snapshots, retained service labels, notice metadata and explicit legacy/missing-data handling are implemented (`submitted-intake-review.md`). Existing case permissions apply; current intake changes do not rewrite original submissions.
 - [ ] Authentication and role-based access control
@@ -35,7 +35,8 @@
 - [ ] Internal notes vs customer-visible messages
 - [x] Agent's assigned work queue and checklist
   A dedicated task queue adds explicit search/filters, due-date ordering, matching counts and paging, with links to existing case checklists (`staff-task-queue.md`). Both task lists enforce current case permissions; task assignment alone does not grant access.
-- [ ] Append-only audit history
+- [x] Append-only audit history
+  PostgreSQL/SQLite guards preserve `audit_logs` against data rewrites and deletion, including PostgreSQL truncation and SQLite replacement (`append-only-audit.md`). Readiness and administrator health inspect actual guard configuration. Manual task writes append safe audit events atomically; schema owners and broader timeline/event coverage remain outside this protection boundary.
 
 ## Phase 3 — Documents and communications
 - [ ] Private object storage and presigned uploads

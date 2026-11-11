@@ -7,10 +7,11 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
-    JSON, BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Table, Text, UniqueConstraint, Uuid, text,
+    JSON, BigInteger, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Table, Text, UniqueConstraint, Uuid, event, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from . import audit_guard_v1
 
 JSONType = JSON().with_variant(JSONB(), "postgresql")
 
@@ -961,6 +962,10 @@ class AuditLog(Base):
     # "metadata" is reserved on declarative models, so the attribute name differs from the column.
     metadata_: Mapped[dict] = mapped_column("metadata", JSONType, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+event.listen(AuditLog.__table__, "after_create", audit_guard_v1.after_create)
+event.listen(AuditLog.__table__, "before_drop", audit_guard_v1.before_drop)
+
 
 class Post(TimestampMixin, Base):
     """A blog article or case study. Admins write the body in Markdown; the website renders published posts."""

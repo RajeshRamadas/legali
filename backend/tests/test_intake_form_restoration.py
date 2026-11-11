@@ -31,6 +31,21 @@ def restore(client,headers,**extra):
         "reason":"Restore the reviewed original question set.","confirmed":True,**extra})
 
 
+def legacy_history(*, source=True, invalid=False, duplicate=False):
+    # Model missing/corrupt pre-existing history through initial fixture inserts;
+    # retained audit records are never edited or deleted to arrange a test.
+    with SessionLocal() as db:
+        service=db.scalar(select(ServiceType).where(ServiceType.slug==SLUG))
+        service.intake_form_revision=3;service.intake_questions=copy.deepcopy(REVISED)
+        def event(revision,questions,previous):
+            return AuditLog(action="service.intake_form_published",entity_type="service_type",entity_id=service.id,
+                metadata_={"revision":revision,"questions":questions,"previous_questions":previous,"reason":"Retained legacy fixture history."})
+        db.add(event(3,REVISED,ORIGINAL))
+        if source:db.add(event(2,[{"prompt":"Invalid retained data"}] if invalid else ORIGINAL,[]))
+        if duplicate:db.add(event(2,ORIGINAL,[]))
+        db.commit()
+
+
 def test_restoration_creates_new_version_with_trace_and_preserves_pinned_customer_draft(client,admin_headers,versions):
     authenticate_customer(client);draft=complete(client,start(client,service_slug=SLUG),**{KEY:"2"})
     with SessionLocal() as db:
@@ -54,10 +69,8 @@ def test_restoration_creates_new_version_with_trace_and_preserves_pinned_custome
     assert history["items"][0]["restored_from_revision"] == 2
 
 
-def test_original_empty_form_and_following_retained_snapshot_are_restorable(client,admin_headers,versions):
-    with SessionLocal() as db:
-        event=db.scalar(select(AuditLog).where(AuditLog.action=="service.intake_form_published",AuditLog.metadata_["revision"].as_integer()==2))
-        db.delete(event);db.commit()
+def test_original_empty_form_and_following_retained_snapshot_are_restorable(client,admin_headers):
+    legacy_history(source=False)
     # Version 3 retains version 2's preceding definition even after its own event is unavailable.
     result=restore(client,admin_headers);assert result.status_code == 200
     with SessionLocal() as db:
@@ -95,18 +108,10 @@ def test_strict_reviewed_restore_payload(client,admin_headers,versions,extra):
     with SessionLocal() as db:assert db.scalar(select(ServiceType).where(ServiceType.slug==SLUG)).intake_form_revision == 3
 
 
-def test_preview_mismatch_invalid_and_ambiguous_history_never_write(client,admin_headers,versions):
-    assert restore(client,admin_headers,preview_questions=REVISED).status_code == 409
-    with SessionLocal() as db:
-        event=db.scalar(select(AuditLog).where(AuditLog.action=="service.intake_form_published",AuditLog.metadata_["revision"].as_integer()==2))
-        original=copy.deepcopy(event.metadata_)
-        event.metadata_={**original,"questions":[{"prompt":"Invalid retained data"}]};db.commit()
-    assert restore(client,admin_headers).status_code == 409
-    with SessionLocal() as db:
-        event=db.scalar(select(AuditLog).where(AuditLog.action=="service.intake_form_published",AuditLog.metadata_["revision"].as_integer()==2))
-        event.metadata_=original
-        db.add(AuditLog(action=event.action,entity_type=event.entity_type,entity_id=event.entity_id,metadata_=original));db.commit()
-    assert restore(client,admin_headers).status_code == 409
+@pytest.mark.parametrize("kind",["preview","invalid","ambiguous"])
+def test_preview_mismatch_invalid_and_ambiguous_history_never_write(client,admin_headers,kind):
+    legacy_history(invalid=kind=="invalid",duplicate=kind=="ambiguous")
+    assert restore(client,admin_headers,preview_questions=REVISED if kind=="preview" else ORIGINAL).status_code == 409
     with SessionLocal() as db:assert db.scalar(select(ServiceType).where(ServiceType.slug==SLUG)).intake_form_revision == 3
 
 

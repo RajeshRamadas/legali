@@ -7,9 +7,14 @@ Apply migration `0022_operations_monitoring` (`cd backend && alembic upgrade hea
 ## Liveness and readiness
 
 - `GET /health` remains a cheap process-liveness check; database failure does not make it fail.
-- `GET /ready` returns **200** `{ "status": "ready" }` only when PostgreSQL is reachable and its Alembic revisions match the running application. Otherwise it returns **503** `{ "status": "not_ready" }`, without disclosing database details. Probe responses are not cached. Readiness is exempt from application rate budgets.
+- `GET /ready` returns **200** `{ "status": "ready" }` only when the database is reachable, its Alembic revisions match the running application and its [audit guards](append-only-audit.md) have the expected configuration. Otherwise it returns **503** `{ "status": "not_ready" }`, without disclosing database details. Probe responses are not cached. Readiness is exempt from application rate budgets.
 
-PostgreSQL readiness uses a separate unpooled connection with a 3-second connection timeout and 2-second statement timeout, so it does not wait for a saturated application pool. DNS/network behavior can add latency outside database query execution. Readiness tests database/schema availability, not every table's integrity, external providers, workers or backups. Monitor both endpoints from outside the application; use readiness for routing traffic and liveness for process restarts. Do not restart a healthy API repeatedly just because its database is unavailable.
+PostgreSQL readiness uses a separate unpooled connection with a 3-second connection timeout and 2-second statement timeout, so it does not wait for a saturated application pool. DNS/network behavior can add latency outside database query execution. Readiness tests database/schema availability and audit-guard configuration, not every table's integrity, external providers, workers or backups. Monitor both endpoints from outside the application; use readiness for routing traffic and liveness for process restarts. Do not restart a healthy API repeatedly just because its database is unavailable.
+
+**Audit history protection** reports missing, altered or unsupported database
+guards as attention. Migration `0040_append_only_audit` installs the guards;
+inspect actual configuration and database ownership before routing traffic. The
+health check reads catalogues and never attempts a destructive write probe.
 
 ## Worker observations and queue warnings
 

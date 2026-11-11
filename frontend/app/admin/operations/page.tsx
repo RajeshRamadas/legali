@@ -45,17 +45,22 @@ export default function SystemHealth() {
   if (user.role !== "admin") return <MainContent className="operations-page"><h1>System health</h1><p>Administrator access is required to view operational checks.</p></MainContent>;
   const delayed = data?.channels.reduce((total, channel) => total + channel.delayed, 0) ?? 0;
   const failed = data?.channels.reduce((total, channel) => total + channel.failed_24h, 0) ?? 0;
+  const attention = data?.status === "attention" || data?.audit_history?.state !== "configured";
   return <MainContent className="operations-page">
     <header className="operations-head"><div><div className="eyebrow">Administrator workspace</div><h1>System health</h1><p>Spot stalled work and delivery problems before they reach customers.</p></div><button className="btn small light" onClick={load} disabled={busy}>{busy ? "Checking…" : "Refresh checks"}</button></header>
     {error && <div className="admin-error" role="alert"><b>Could not refresh checks.</b><p>{error}</p>{data && <p>Showing the last successful snapshot below. Its checks may be out of date.</p>}</div>}
     {!data ? <p role="status">{error ? "Use Refresh checks to try again." : "Loading system checks…"}</p> : <>
-      <section className={`operations-summary admin-card ${error || data.status === "attention" ? "attention" : "healthy"}`} aria-label="Overall health">
-        <div><span className={`operations-state ${error || data.status === "attention" ? "warn" : "good"}`}>{error ? "Refresh needed" : data.status === "healthy" ? "Checks look healthy" : "Attention needed"}</span><h2>{error ? "The latest check is unavailable" : data.status === "healthy" ? "No issues in the observed checks" : "Review the checks below"}</h2><p>Last successful snapshot: <time dateTime={data.checked_at}>{when(data.checked_at)}</time></p></div>
+      <section className={`operations-summary admin-card ${error || attention ? "attention" : "healthy"}`} aria-label="Overall health">
+        <div><span className={`operations-state ${error || attention ? "warn" : "good"}`}>{error ? "Refresh needed" : !attention ? "Checks look healthy" : "Attention needed"}</span><h2>{error ? "The latest check is unavailable" : !attention ? "No issues in the observed checks" : "Review the checks below"}</h2><p>Last successful snapshot: <time dateTime={data.checked_at}>{when(data.checked_at)}</time></p></div>
         <div className="operations-database"><span className="operations-state good">Database ready</span><small>Schema matched the application at this check.</small></div>
       </section>
       <div className="operations-stats">
         {[ ["Delayed deliveries", delayed], ["Failed deliveries · 24h", failed], ["Files awaiting a scan", data.documents.pending], ["Deadline alerts", data.deadlines.unacknowledged] ].map(([label, value]) => <div className="admin-card" key={label}><span>{label}</span><b>{value}</b></div>)}
       </div>
+      <section className="admin-card" aria-label="Audit history protection"><div className="operations-row"><h2>Audit history protection</h2><span className={`operations-state ${data.audit_history?.state === "configured" ? "good" : "warn"}`}>{data.audit_history?.state === "configured" ? "Database guards installed" : "Audit guards need attention"}</span></div>
+        <p>{data.audit_history?.state === "configured" ? "Database guards reject changes and deletion of recorded audit entries. Corrections must be recorded as new events." : data.audit_history?.state === "unsupported" ? "This database does not support the required audit guards. Ask the database operator to review the deployment." : "The expected database guards are missing or changed. Ask the database operator to apply the latest migration and review the guard configuration."}</p>
+        <p>Database owners can change schema; keep application credentials separate from schema administration.</p><Link className="text-link" href="/admin/activity">Review activity history →</Link>
+      </section>
       <section className="admin-card"><div className="operations-section-head"><div><h2>Background checks</h2><p>Shared observations from API and external workers.</p></div></div>
         <div className="operations-workers">{data.workers.map(worker => <article key={worker.name} className="operations-worker"><div className="operations-row"><h3>{labels[worker.name]}</h3><span className={`operations-state ${worker.state === "healthy" ? "good" : worker.state === "disabled" ? "neutral" : "warn"}`}>{states[worker.state]}</span></div><p>{workerHint(worker)}</p>
           <dl><div><dt>Last success</dt><dd>{when(worker.last_success_at)}</dd></div><div><dt>Last check</dt><dd>{when(worker.finished_at)}</dd></div><div><dt>Last duration</dt><dd>{worker.duration_ms === null ? "–" : `${(worker.duration_ms / 1000).toFixed(1)}s`}</dd></div></dl>

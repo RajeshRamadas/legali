@@ -26,6 +26,7 @@ GROUPS = {
         "service.intake_form_published": "Intake form published",
     }),
     "cases": ("Case work", {
+        "case.task_created": "Case task created", "case.task_updated": "Case task updated",
         "ticket.status_changed": "Case status changed", "ticket.assigned": "Case assignment changed",
         "case.due_changed": "Case due date changed", "case.member_added": "Case team member added",
         "case.member_removed": "Case team member removed", "case.fee_quote": "Case fee quoted",

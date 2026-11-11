@@ -69,8 +69,9 @@ The unknown raw strings are never returned. Actor names and IDs render as text.
 
 This is an index of retained `AuditLog` records, not a complete security log or
 proof that every platform action was recorded. It does not backfill historical
-events, add missing event producers or enforce append-only storage in the
-database. Existing case timelines, form/policy publication histories and other
+events or add missing event producers. [Database audit guards](append-only-audit.md)
+now protect `audit_logs` from data rewrites and deletion; manual task writes also
+produce safe activity entries. Existing case timelines, form/policy publication histories and other
 specialist decision histories keep their current permissions and data. Review
 access and database ownership operationally before production use.
 

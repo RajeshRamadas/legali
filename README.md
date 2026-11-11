@@ -6,6 +6,8 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 
 ## Included
 
+- Database-enforced append-only audit records reject updates/deletes and PostgreSQL truncation, with guard checks in readiness/System health and private task-change auditing (`docs/append-only-audit.md`).
+
 - Staff task queue adds search, ownership/status/deadline/priority filters, matching counts and paging, with current case-access checks on both task lists (`docs/staff-task-queue.md`).
 
 - Administrator activity history adds private, read-only filtering of retained platform changes by group, current staff name, India-time dates and record reference, without loading audit payloads (`docs/activity-history.md`).

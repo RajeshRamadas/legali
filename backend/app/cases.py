@@ -70,6 +70,9 @@ def add_task(ticket_number: str, payload: TaskCreate, user: User = Depends(curre
                     due_at=_aware(payload.due_at), created_by_user_id=user.id, source="manual", status="open")
     ticket.tasks.append(task)
     tickets.add_event(db, ticket, "task_added", user, new={"title": task.title, "assignee": assignee.display_name})
+    db.flush()
+    tickets.audit(db, user, "case.task_created", ticket.id, task_id=str(task.id), source="manual",
+        assignee_id=str(task.assignee_user_id), due_at=_aware(task.due_at).isoformat() if task.due_at else None)
     ticket.updated_at = utcnow()
     db.commit()
     return _detail(db, ticket)
@@ -82,6 +85,8 @@ def update_task(ticket_number: str, task_id: uuid.UUID, payload: TaskUpdate, use
         raise HTTPException(status_code=404, detail="Task not found")
     _open_case(ticket)
     fields = payload.model_fields_set
+    before = {"title": task.title, "notes": task.notes, "assignee_id": task.assignee_user_id,
+        "due_at": _aware(task.due_at), "status": task.status}
     if "title" in fields and payload.title:
         task.title = payload.title.strip()
     if "notes" in fields:
@@ -97,6 +102,12 @@ def update_task(ticket_number: str, task_id: uuid.UUID, payload: TaskUpdate, use
         task.completed_by_user_id = user.id if payload.status != "open" else None
         kind = {"done": "task_done", "cancelled": "task_cancelled", "open": "task_reopened"}[payload.status]
         tickets.add_event(db, ticket, kind, user, old={"status": old}, new={"title": task.title})
+    after = {"title": task.title, "notes": task.notes, "assignee_id": task.assignee_user_id,
+        "due_at": _aware(task.due_at), "status": task.status}
+    changed = sorted(key for key in before if before[key] != after[key])
+    if changed:
+        tickets.audit(db, user, "case.task_updated", ticket.id, task_id=str(task.id), changed_fields=changed,
+            previous_status=before["status"], status=after["status"])
     ticket.updated_at = utcnow()
     db.commit()
     return _detail(db, ticket)
