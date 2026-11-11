@@ -42,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Notify customers of unread support replies without copying private content
+  Account-scoped transactional notices, preference/recipient checks, coalescing, read cancellation and guarded rollout are implemented (`support-reply-notifications.md`). Configure providers/templates and enable consistently after reviewing delivery policy; external staff routing remains operational work.
 - [x] Surface missed support response targets with private acknowledgement and escalation
   Persistent incidents, administrator bell/navigation counts, direct conversation links, current-state checks and operations health are implemented (`support-deadline-alerts.md`). Keep monitoring running and complete external alert routing and operational review before launch.
 - [x] Assign accountable support owners and surface unassigned work

@@ -3,7 +3,7 @@ from datetime import timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from .customer_auth import current_customer
@@ -23,7 +23,13 @@ def view(preference):
 
 
 def delivery_allowed(db: Session, notification: Notification) -> bool:
-    if notification.channel not in CHANNELS or notification.user_id is not None or notification.customer_id is None:
+    if notification.channel not in CHANNELS or notification.user_id is not None:
+        return True
+    if notification.account_id is not None:
+        enabled = db.scalar(select(getattr(CustomerNotificationPreference, notification.channel))
+            .where(CustomerNotificationPreference.account_id == notification.account_id))
+        return enabled is not False
+    if notification.customer_id is None:
         return True
     # Query scalar values every time, including after a worker's claim commit;
     # the session identity map must not retain an old channel choice.
@@ -74,7 +80,7 @@ def save_preferences(payload: Choices, account: CustomerAccount = Depends(curren
     disabled = [channel for channel, enabled in values.items() if not enabled]
     if disabled:
         customers = select(Customer.id).where(Customer.phone_normalized == account.phone_normalized)
-        db.execute(update(Notification).where(Notification.customer_id.in_(customers), Notification.user_id.is_(None),
+        db.execute(update(Notification).where(or_(Notification.customer_id.in_(customers), Notification.account_id == account.id), Notification.user_id.is_(None),
             Notification.channel.in_(disabled), Notification.delivery_status == "queued")
             .values(delivery_status="cancelled", error_code="preference_disabled", claim_token=None, processing_until=None))
     db.add(AuditLog(action="notification.preferences_changed", entity_type="customer_account", entity_id=account.id,

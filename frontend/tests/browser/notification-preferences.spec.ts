@@ -42,6 +42,8 @@ async function fixtures(context: BrowserContext, failure = "") {
 test("customers save all-channel opt-out, retain sign-in access and see persisted choices", async ({ page, context }) => {
   const state = await fixtures(context);
   await page.goto("/account/notifications");
+  await expect(page.getByText(/support-reply alerts/)).toBeVisible();
+  await expect(page.getByText(/Support alerts only tell you a reply is available/)).toBeVisible();
   for (const label of ["Email alerts", "SMS alerts", "WhatsApp alerts"]) {
     await expect(page.getByRole("checkbox", { name: label })).toBeChecked();
     await page.getByRole("checkbox", { name: label }).uncheck();

@@ -760,11 +760,17 @@ class Notification(Base):
         CheckConstraint(_check_in("delivery_status", ("queued", "sent", "delivered", "failed", "cancelled")), name="ck_notifications_status"),
         Index("idx_notifications_request", "service_request_id"),
         Index("idx_notifications_due", "delivery_status", "send_after"),
+        Index("idx_notifications_account", "account_id", "delivery_status"),
+        Index("idx_notifications_support", "support_request_id", "delivery_status"),
+        CheckConstraint("(template_key = 'support_reply' AND support_update_revision IS NOT NULL AND support_update_revision >= 1 AND customer_id IS NULL AND user_id IS NULL AND service_request_id IS NULL AND meeting_id IS NULL AND case_alert_id IS NULL) OR (template_key <> 'support_reply' AND account_id IS NULL AND support_request_id IS NULL AND support_update_revision IS NULL)", name="ck_notifications_support_scope"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     service_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="SET NULL"))
     customer_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customers.id", ondelete="SET NULL"))
+    account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="SET NULL", name="fk_notifications_account"))
+    support_request_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("support_requests.id", ondelete="SET NULL", name="fk_notifications_support"))
+    support_update_revision: Mapped[int | None] = mapped_column(Integer)
     # Staff recipient (a lawyer's meeting invite, reminder or daily agenda).
     user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
     meeting_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("meetings.id", ondelete="SET NULL"))

@@ -1,5 +1,10 @@
 # Unread support replies
 
+Optional generic [customer reply notices](support-reply-notifications.md) can
+also use configured external channels. Reading the loaded reply cancels its
+pending notices; provider acceptance never marks a reply read. External delivery
+is off by default and respects the account's notification preferences.
+
 Customers can see new team responses without opening every support conversation.
 The account's **Support & complaints** link, request list and notification bell
 show unread reply counts. The bell links back to the private support area.
@@ -10,7 +15,7 @@ Only committed, customer-visible administrator responses create unread replies.
 Internal notes, customer messages and status-only edits do not. Counts include
 resolved requests, whose saved responses remain available. Email/SMS/WhatsApp
 preferences do not hide saved conversations or their in-app badges; this feature
-does not send messages through any delivery provider.
+keeps unread/read state independent of the optional external reply notices.
 
 ## Reading a conversation
 

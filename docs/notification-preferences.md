@@ -7,6 +7,11 @@ invites, changes, cancellations and reminders for requests associated with their
 verified phone. Historical customer rows with that same normalized phone are
 included. The choices do not replace contact details on those requests.
 
+When enabled for the deployment, generic [support reply notices](support-reply-notifications.md)
+also honor these choices, including support accounts with no linked case or
+legacy customer row. They use the account's current contact details and keep
+support content inside the verified portal.
+
 Existing delivery behavior is preserved until a customer saves different choices.
 No marketing subscription or marketing consent is created. Personal contact by
 the case team remains outside these automated-channel settings. Customers can

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from . import config
+from . import config, support_notifications
 from .customer_auth import current_customer, owned_ticket
 from .db import get_db
 from .models import AuditLog, CustomerAccount, Role, ServiceRequest, SupportMessage, SupportRequest, User, utcnow
@@ -186,6 +186,7 @@ def read_replies(request_id: uuid.UUID, payload: ReadReplies, account: CustomerA
         db.execute(update(SupportRequest).where(SupportRequest.id == item.id).values(
             customer_read_revision=payload.through_revision, updated_at=SupportRequest.updated_at),
             execution_options={"synchronize_session": False})
+        support_notifications.cancel_queued(db, item.id, through_revision=payload.through_revision, reason="support_reply_read")
         db.commit()
         db.refresh(item)
     return view(db, item)
@@ -346,5 +347,7 @@ def review(request_id: uuid.UUID, payload: Review, actor: User = Depends(require
         item.reply_due_at = utcnow() + timedelta(hours=config.SUPPORT_RESPONSE_HOURS)
     for visibility, body in (("customer", payload.customer_response), ("internal", payload.internal_note)):
         if body: db.add(SupportMessage(support_request_id=item.id, submission_key=uuid.uuid4(), author_type="staff", author_user_id=actor.id, visibility=visibility, body=body))
+    if payload.customer_response:
+        support_notifications.queue_reply(db, item)
     audit(db, item, "support.reviewed", actor=actor, previous=previous); db.commit()
     return view(db, item, staff=True)

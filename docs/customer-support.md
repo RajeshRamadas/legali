@@ -49,9 +49,12 @@ counts and pagination. Agents cannot access this queue or its API.
 Replies are available in the account, with unread badges on the support link,
 request list and notification bell. Customers can explicitly mark loaded replies
 read while preserving their draft; newer replies stay unread
-([unread support replies](support-unread-replies.md)). This version does not send
-email, WhatsApp or SMS alerts; the support owner must monitor the queue. Set an
-operational owner and review schedule before relying on it for live support.
+([unread support replies](support-unread-replies.md)). Optional generic customer
+[reply notices](support-reply-notifications.md) can use configured email, SMS or
+WhatsApp channels and honor notification preferences. They are off by default.
+The support owner must still monitor the queue: external staff escalation routing
+is separate. Set an operational owner and review schedule before relying on it
+for live support.
 
 ## Targets and limits
 

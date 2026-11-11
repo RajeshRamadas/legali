@@ -51,7 +51,7 @@ function Preferences() {
   }
   const changed = !!draft && !!saved && Object.keys(channels).some(channel => draft[channel as keyof typeof channels] !== saved[channel as keyof typeof channels]);
   return <section className="notification-settings-card" aria-label="Automated alert choices">
-    <h2>Your alert channels</h2><p>These choices apply to automated case updates, payment updates and consultation reminders for requests linked to your verified phone.</p>
+    <h2>Your alert channels</h2><p>These choices apply to automated case updates, payment updates, consultation reminders and support-reply alerts for your verified account. Support alerts only tell you a reply is available; sign in to read it securely.</p>
     <p id="alert-settings-help">Turning off a channel also cancels queued alerts on that channel. An alert already being sent may still arrive. Turning it back on applies to future alerts; cancelled alerts stay cancelled.</p>
     <p>Sign-in codes still arrive when you request them. Your case updates and meeting links remain available in <Link href="/account">your account</Link>. These settings do not subscribe you to marketing or change how your case team contacts you personally.</p>
     {loading && <p role="status">Loading saved choices…</p>}

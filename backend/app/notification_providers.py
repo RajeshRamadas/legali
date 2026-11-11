@@ -37,6 +37,8 @@ SUBJECTS = {
 
 def customer_message(notification, ticket_number: str | None = None) -> tuple[str, str]:
     """Keep legal details, documents and staff-message excerpts inside the verified portal."""
+    if notification.template_key == "support_reply":
+        return "Homexo Legal: New support reply", f"Homexo Legal: You have a new support reply. Sign in to read it securely: {config.PUBLIC_SITE_URL.rstrip('/')}/account/support"
     if notification.template_key == "case_deadline_alert":
         kind, phase = notification.params or ["case_due", "initial"]
         label = "First response overdue" if kind == "first_response" else "Case target missed"

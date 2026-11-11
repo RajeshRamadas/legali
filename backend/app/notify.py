@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from . import config, payments, whatsapp, notification_providers as providers, sla_alerts, support_alerts
+from . import config, payments, whatsapp, notification_providers as providers, sla_alerts, support_alerts, support_notifications
 from .db import SessionLocal
 from .meetings import render
 from .models import Meeting, Notification, ServiceRequest, User, utcnow
@@ -49,6 +49,10 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
     """
     fixed_now = now
     now = now or utcnow()
+    if not config.SUPPORT_REPLY_NOTIFICATIONS_ENABLED:
+        db.execute(update(Notification).where(Notification.template_key == "support_reply", Notification.delivery_status == "queued")
+            .values(delivery_status="cancelled", error_code="support_notifications_disabled", claim_token=None, processing_until=None))
+        db.commit()
     channels = [c for c in ("email", "sms") if providers.enabled(c)]
     if whatsapp.enabled():
         channels.append("whatsapp")
@@ -62,6 +66,12 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             .with_for_update(skip_locked=True).limit(1)).first()
         if notification is None:
             break
+        reason = support_notifications.cancellation_reason(db, notification)
+        if reason:
+            notification.delivery_status, notification.error_code = "cancelled", reason
+            notification.processing_until = notification.claim_token = None
+            db.commit()
+            continue
         if not delivery_allowed(db, notification):
             notification.delivery_status, notification.error_code = "cancelled", "preference_disabled"
             notification.processing_until = notification.claim_token = None
@@ -105,6 +115,12 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
             db.refresh(notification)
             if notification.delivery_status != "queued" or notification.claim_token != claim:
                 continue
+            reason = support_notifications.cancellation_reason(db, notification)
+            if reason:
+                db.execute(update(Notification).where(Notification.id == notification_id, Notification.claim_token == claim)
+                    .values(delivery_status="cancelled", error_code=reason, claim_token=None, processing_until=None))
+                db.commit()
+                continue
             if not delivery_allowed(db, notification):
                 db.execute(update(Notification).where(Notification.id == notification_id, Notification.claim_token == claim)
                     .values(delivery_status="cancelled", error_code="preference_disabled", claim_token=None, processing_until=None))
@@ -116,7 +132,8 @@ def deliver_due(db: Session, now: datetime | None = None, limit: int = 100) -> i
                 db.commit()
                 continue
             if notification.channel == "whatsapp":
-                reference = whatsapp.send_template(notification.recipient or "", notification.template_key, notification.params or [])
+                params = [config.PUBLIC_SITE_URL.rstrip("/") + "/account/support"] if notification.template_key == "support_reply" else notification.params or []
+                reference = whatsapp.send_template(notification.recipient or "", notification.template_key, params)
             else:
                 ticket = db.get(ServiceRequest, notification.service_request_id) if notification.service_request_id else None
                 sender = providers.send_email if notification.channel == "email" else providers.send_sms
