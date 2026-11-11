@@ -24,6 +24,10 @@ Private support ownership adds administrator assignment, owner filters and a
 handoff history while preserving reply drafts and response targets. Review
 unassigned and unavailable-owner work regularly; see [support ownership](support-ownership.md).
 
+Private [support response alerts](support-deadline-alerts.md) add staff bell
+counts, acknowledgement and escalation for missed targets, with links to the
+conversation. Acknowledgement does not count as a customer response.
+
 - **Open:** received or reopened for the team.
 - **Being reviewed:** an administrator is handling it.
 - **Waiting for customer:** the team has asked for more information.

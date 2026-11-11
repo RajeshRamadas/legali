@@ -77,12 +77,13 @@ export default function AppShell({
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
   }, [notices]);
+  const exactNavigation = nav.some(group => group.items.some(item => item.href === pathname));
   const active = (href: string) =>
     href.includes("#")
       ? false
       : href.split("?")[0] === "/admin"
         ? pathname === "/admin" && !href.includes("?")
-        : href === "/account" ? pathname === href : pathname === href || pathname.startsWith(href + "/");
+        : href === "/account" ? pathname === href : pathname === href || (!exactNavigation && pathname.startsWith(href + "/"));
   const sidebar = (
       <aside
         id="workspace-navigation"

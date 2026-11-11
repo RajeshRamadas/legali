@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from . import config, payments, whatsapp, notification_providers as providers, sla_alerts
+from . import config, payments, whatsapp, notification_providers as providers, sla_alerts, support_alerts
 from .db import SessionLocal
 from .meetings import render
 from .models import Meeting, Notification, ServiceRequest, User, utcnow
@@ -176,6 +176,7 @@ def run_once() -> None:
         payments.release_unpaid(db)
         queue_daily_agendas(db)
         sla_alerts.reconcile(db)
+        support_alerts.reconcile(db)
         deliver_due(db)
 
 async def worker_loop() -> None:

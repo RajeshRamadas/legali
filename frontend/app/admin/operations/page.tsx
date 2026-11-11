@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useStaff } from "../AdminShell";
 import { adminFetch, type OperationsHealth } from "../api";
 
-const labels = { notifications: "Notifications & case deadlines", blog_scan: "Case research scheduler" };
+const labels = { notifications: "Notifications, case & support deadlines", blog_scan: "Case research scheduler" };
 const states = { healthy: "Recent check succeeded", failed: "Last check failed", stale: "No recent completion", starting: "Check in progress", not_observed: "Not yet observed", disabled: "Not enabled" };
 const channels = { email: "Email", sms: "SMS", whatsapp: "WhatsApp" };
 function when(value: string | null) { return value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Not yet recorded"; }
@@ -70,7 +70,7 @@ export default function SystemHealth() {
         </article>)}</div><p className="operations-footnote">Configuration checks do not contact providers or prove delivery. Inspect delivery history before retrying failed messages; some outcomes need manual review.</p>
       </section>
       <div className="operations-bottom"><section className="admin-card"><h2>Document scanning</h2><p>{data.documents.delayed} pending longer than {data.queue_warn_minutes} min · {data.documents.failed} failed scans · {data.documents.infected} threats detected.</p><p>Quarantined files remain blocked from download and verification.</p><Link className="text-link" href="/admin?view=queue">Open case queue →</Link></section>
-        <section className="admin-card"><h2>Work needing review</h2><p>{data.deadlines.unacknowledged} deadline alerts · {data.deadlines.escalated} escalated.</p><p>{data.research.failed_24h} failed case-research scans in the last 24 hours.</p><div className="operations-links"><Link className="text-link" href="/admin/alerts">Deadline alerts →</Link><Link className="text-link" href="/admin/blog/cases">Case research →</Link></div></section></div>
+        <section className="admin-card"><h2>Work needing review</h2><p>{data.deadlines.unacknowledged} deadline alerts · {data.deadlines.escalated} escalated.</p><p>{data.research.failed_24h} failed case-research scans in the last 24 hours.</p>{data.support && <p>{data.support.overdue_requests} overdue support responses · {data.support.unacknowledged} support alerts need acknowledgement · {data.support.escalated} escalated.</p>}<div className="operations-links"><Link className="text-link" href="/admin/alerts">Deadline alerts →</Link><Link className="text-link" href="/admin/support/alerts">Support alerts →</Link><Link className="text-link" href="/admin/blog/cases">Case research →</Link></div></section></div>
       <p className="operations-footnote">Refreshes every 30 seconds while this page is visible. These application checks do not test external provider availability or backup recoverability; keep off-host backup monitoring and recovery drills running.</p>
     </>}
   </MainContent>;

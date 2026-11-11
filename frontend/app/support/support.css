@@ -40,3 +40,8 @@
 .support-receipt { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 18px; }
 .support-receipt [role=status]:focus { outline: 2px solid var(--primary); outline-offset: 3px; }
 @media(max-width:850px) { .support-grid { grid-template-columns: 1fr; } .support-page { padding: 22px 0; } .hx-public .support-page { padding-inline: 16px; } .support-card { padding: 18px; } .support-filters { grid-template-columns: 1fr; } }
+.support-alert-list { list-style: none; margin: 18px 0; padding: 0; display: grid; gap: 16px; }
+.support-alert-list .support-reference { overflow-wrap: anywhere; }
+.support-alert-toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.support-alert-toggle input { width: 20px; height: 20px; flex: 0 0 auto; }
+.support-alert-feedback:focus { outline: 2px solid var(--primary); outline-offset: 3px; }

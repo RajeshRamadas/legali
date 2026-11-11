@@ -22,7 +22,16 @@ export type OperationsHealth = {
   channels: { name: "email" | "sms" | "whatsapp"; configured: boolean; due: number; scheduled: number; delayed: number; failed_24h: number; oldest_due_at: string | null }[];
   documents: { pending: number; delayed: number; failed: number; infected: number };
   deadlines: { unacknowledged: number; escalated: number }; research: { failed_24h: number };
+  support?: { overdue_requests: number; unacknowledged: number; escalated: number };
 };
+
+export type SupportDeadlineAlert = {
+  id: string; support_request_id: string; reference: string; kind: import("@homexo/shared").SupportKind; revision: number;
+  target_at: string; created_at: string; escalated_at: string | null; acknowledged_at: string | null;
+  acknowledged_by: { id: string; name: string } | null;
+  owner: { id: string; name: string; active: boolean } | null;
+};
+export type SupportDeadlineAlerts = { items: SupportDeadlineAlert[]; total: number; unacknowledged: number; escalated: number; page: number; page_size: number; check_interval_seconds: number };
 export type StaffLogin = StaffSession | { mfa_required: true; challenge_token: string } | { mfa_setup_required: true; setup_token: string };
 export type TeamMember = StaffUser & { lawyer: boolean };
 export type StaffRef = { id: string; name: string } | null;

@@ -42,6 +42,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Surface missed support response targets with private acknowledgement and escalation
+  Persistent incidents, administrator bell/navigation counts, direct conversation links, current-state checks and operations health are implemented (`support-deadline-alerts.md`). Keep monitoring running and complete external alert routing and operational review before launch.
 - [x] Assign accountable support owners and surface unassigned work
   Private administrator ownership, filtered queues, assignment history and conflict-safe draft preservation are implemented (`support-ownership.md`). Operators must monitor unassigned and unavailable-owner work; assignment does not send external alerts.
 - [x] Surface unread support replies without exposing private team notes

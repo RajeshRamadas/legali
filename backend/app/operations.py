@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 from starlette.responses import JSONResponse
 
-from . import config, notification_providers, whatsapp
+from . import config, notification_providers, whatsapp, support_alerts
 from .db import engine, get_db
-from .models import CaseDeadlineAlert, CaseScanRun, Document, Notification, User, WorkerPulse, utcnow
+from .models import CaseDeadlineAlert, CaseScanRun, Document, Notification, SupportRequest, User, WorkerPulse, utcnow
 from .security import require_admin
 
 router = APIRouter()
@@ -115,9 +115,11 @@ def snapshot(_: User = Depends(require_admin), db: Session = Depends(get_db)):
     deadlines = {"unacknowledged": db.scalar(select(func.count()).select_from(CaseDeadlineAlert).where(*open_alerts)),
         "escalated": db.scalar(select(func.count()).select_from(CaseDeadlineAlert).where(*open_alerts, CaseDeadlineAlert.escalated_at.is_not(None)))}
     research = {"failed_24h": db.scalar(select(func.count()).select_from(CaseScanRun).where(CaseScanRun.status == "failed", CaseScanRun.started_at >= since))}
+    support = {"overdue_requests": db.scalar(select(func.count()).select_from(SupportRequest).where(SupportRequest.status != "resolved", SupportRequest.reply_due_at < now)),
+        **support_alerts.counts(db, now)}
     attention = any(worker["state"] not in ("healthy", "disabled") for worker in workers) or any(
         row["delayed"] or row["failed_24h"] or (row["due"] and not row["configured"]) for row in channels)
-    attention = attention or any(documents[name] for name in ("delayed", "failed", "infected")) or deadlines["unacknowledged"] or research["failed_24h"]
+    attention = attention or any(documents[name] for name in ("delayed", "failed", "infected")) or deadlines["unacknowledged"] or research["failed_24h"] or support["overdue_requests"]
     return {"checked_at": now.isoformat(), "status": "attention" if attention else "healthy", "database": "ready",
         "queue_warn_minutes": config.OPS_QUEUE_WARN_MINUTES, "workers": workers, "channels": channels,
-        "documents": documents, "deadlines": deadlines, "research": research}
+        "documents": documents, "deadlines": deadlines, "research": research, "support": support}

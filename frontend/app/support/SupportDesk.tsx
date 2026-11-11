@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SUPPORT_KIND_LABELS, SUPPORT_STATUS_LABELS, SUPPORT_STAFF_STATUS_LABELS, type SupportKind, type SupportStatus, type SupportPage, type SupportRecord, type SupportMessages, type SupportSummary } from "@homexo/shared";
 import { api } from "../api";
 import { adminFetch } from "../admin/api";
@@ -63,7 +63,7 @@ export default function SupportDesk({ staff = false, onError }: { staff?: boolea
       if (current === sequence.current) setMessages(thread);
     } catch (error) { if (current === sequence.current) setError(fail(error)); }
   }
-  async function open(id: string, messagePage = 1) {
+  const open = useCallback(async (id: string, messagePage = 1) => {
     const current = ++sequence.current;
     setLoading(true); setError("");
     try {
@@ -72,9 +72,14 @@ export default function SupportDesk({ staff = false, onError }: { staff?: boolea
         staff ? adminFetch<SupportMessages>(`/admin/support-requests/${id}/messages?page=${messagePage}`) : api.supportMessages(id, messagePage),
       ]);
       if (current === sequence.current) { setSelected(record); setMessages(thread); }
-    } catch (error) { if (current === sequence.current) setError(fail(error)); }
+    } catch (error) { if (current === sequence.current) setError(onError ? onError(error) : message(error)); }
     finally { if (current === sequence.current) setLoading(false); }
-  }
+  }, [staff, onError]);
+  useEffect(() => {
+    if (!staff) return;
+    const id = new URLSearchParams(window.location.search).get("request");
+    if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) open(id);
+  }, [staff, open]);
   return <div className="support-grid"><div className="support-sidebar">
     {!staff && <NewRequest onCreated={item => { setPage(1); setRefresh(value => value + 1); open(item.id); }} />}
     <section className="support-card"><div className="support-row"><h2>{staff ? "Requests to review" : "Your support requests"}</h2><button className="btn small light" onClick={() => setRefresh(value => value + 1)}>Refresh list</button></div>
@@ -95,7 +100,7 @@ export default function SupportDesk({ staff = false, onError }: { staff?: boolea
         setSelected(current => current?.id === record.id ? mergeReceipt(current, record) : current);
         setQueue(current => current ? { ...current, items: current.items.map(row => row.id === record.id ? mergeReceipt(row, record) : row) } : current);
         window.dispatchEvent(new Event("hx-support-updated"));
-      }} onReload={() => open(selected.id)} onPage={messagePage} onSaved={() => { open(selected.id); setRefresh(value => value + 1); }} /> : <><h2>Choose a support request</h2><p>Open a request to read its replies and send an update.</p></>}
+      }} onReload={() => open(selected.id)} onPage={messagePage} onSaved={() => { open(selected.id); setRefresh(value => value + 1); if (staff) window.dispatchEvent(new Event("hx-support-alerts")); }} /> : <><h2>Choose a support request</h2><p>Open a request to read its replies and send an update.</p></>}
     </section>
   </div>;
 }

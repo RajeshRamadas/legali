@@ -47,6 +47,7 @@ export default function AdminShell({
   const router = useRouter();
   const [urgentCount, setUrgentCount] = useState(0);
   const [deadlineCount, setDeadlineCount] = useState(0);
+  const [supportAlertCount, setSupportAlertCount] = useState(0);
   const userId = user?.id;
   useEffect(() => {
     if (userId)
@@ -54,6 +55,17 @@ export default function AdminShell({
         .then((r) => setUrgentCount(r.items.length))
         .catch(() => {});
   }, [userId, pathname]);
+
+  const supportAdmin = user?.role === "admin";
+  useEffect(() => {
+    if (!userId || !supportAdmin) { setSupportAlertCount(0); return; }
+    let active = true;
+    const load = () => adminFetch<{ unacknowledged: number }>("/admin/support-requests/deadline-alerts?page_size=1")
+      .then(result => { if (active && Number.isInteger(result.unacknowledged)) setSupportAlertCount(result.unacknowledged); }).catch(() => {});
+    load(); const timer = window.setInterval(() => { if (!document.hidden) load(); }, 30000);
+    window.addEventListener("hx-support-alerts", load);
+    return () => { active = false; clearInterval(timer); window.removeEventListener("hx-support-alerts", load); };
+  }, [userId, supportAdmin, pathname]);
   useEffect(() => {
     if (!userId) { setDeadlineCount(0); return; }
     let active = true;
@@ -135,6 +147,7 @@ export default function AdminShell({
               { href: "/admin/refunds", label: "Refund tracking", icon: "card" as const },
               { href: "/admin/reviews", label: "Review moderation", icon: "shield" as const },
               { href: "/admin/support", label: "Support queue", icon: "inbox" as const },
+              { href: "/admin/support/alerts", label: "Support alerts", icon: "bell" as const, count: supportAlertCount },
             ],
           },
         ]
@@ -161,8 +174,9 @@ export default function AdminShell({
             router.push(`/admin?q=${encodeURIComponent(q)}`);
         }}
         bell={{
-          count: urgentCount + deadlineCount,
-          items: [...(deadlineCount ? [{ label: `${deadlineCount} deadline alerts need attention`, href: "/admin/alerts" }] : []),
+          count: urgentCount + deadlineCount + supportAlertCount,
+          items: [...(supportAlertCount ? [{ label: `${supportAlertCount} support response alerts need attention`, href: "/admin/support/alerts" }] : []),
+            ...(deadlineCount ? [{ label: `${deadlineCount} deadline alerts need attention`, href: "/admin/alerts" }] : []),
             ...(urgentCount ? [{ label: `${urgentCount} urgent cases need attention`, href: "/admin" }] : [])],
         }}
         footer={
