@@ -389,6 +389,8 @@ def update_staff(user_id: uuid.UUID, payload: StaffUpdate, admin: User = Depends
         user.phone = _staff_phone(db, payload.phone, user.id)
     if payload.account_status or payload.role:
         user.token_version += 1
+        from .staff_session_records import invalidate_sessions
+        invalidate_sessions(db, user)
     tickets.audit(db, admin, "staff.updated", None, user_id=str(user.id), **payload.model_dump(exclude_none=True))
     db.commit()
     return _me(user) | {"account_status": user.account_status}

@@ -99,7 +99,7 @@ def seed(destination, tickets_count=200, customer_count=20):
                     promoter_name='Synthetic Promoter', promoter_slug='synthetic-promoter', district='Bengaluru', locality='Synthetic locality',
                     locality_slug='synthetic-locality', total_units=100, booked_units=30, is_sample=True))
             db.flush()
-            identity = {'customer': create_session_token(accounts[0], db=db), 'admin': create_access_token(admin, mfa=True),
+            identity = {'customer': create_session_token(accounts[0], db=db), 'admin': create_access_token(admin, mfa=True, db=db),
                 'counts': {'customers': customer_count, 'cases': tickets_count, 'support_requests': tickets_count, 'lawyers': 8, 'projects': 40}}
     destination.parent.mkdir(parents=True, exist_ok=True)
     # Exclusive creation prevents overwriting another run's identity file; mode is private from creation.

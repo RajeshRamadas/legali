@@ -2,6 +2,11 @@
 
 Staff sign-in supports passwords, RFC 6238 authenticator codes and single-use recovery codes. **Security** in the staff navigation offers authenticator enrollment, recovery-code rotation, password changes and sign-out on every device. Customer phone sign-in remains separate.
 
+[Staff session management](staff-sessions.md) now adds active sign-in review,
+individual/other-session revocation and server-confirmed ordinary sign-out.
+Migration `0046_staff_sessions` requires existing staff to sign in again;
+passwords, enrolled authenticators and recovery codes are preserved.
+
 ## Deployment
 
 1. Install backend requirements and run `alembic upgrade head`. Migration `0018_staff_account_security` adds encrypted enrollment data, session versions, hashed one-time tokens and persistent rate-limit buckets. Existing staff tokens are invalid after this change: everyone must sign in again. Accounts and passwords are preserved.

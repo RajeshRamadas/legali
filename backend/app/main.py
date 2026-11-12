@@ -13,7 +13,7 @@ from .rera_sample import load_sample
 from .abuse_protection import AbuseProtection
 from . import operations, privacy, support, support_alerts, support_delivery, site_policies, refunds, review_moderation, customer_reviews, notification_preferences, service_availability, service_descriptions, service_intake_forms, time_off
 from .telemetry import RequestTelemetry, disable_raw_access_logs
-from . import activity, task_queue, verification_jobs, verification_usage, ai_processing, document_preservation, account_summary, customer_sessions
+from . import activity, task_queue, verification_jobs, verification_usage, ai_processing, document_preservation, account_summary, customer_sessions, staff_sessions
 
 disable_raw_access_logs()
 
@@ -47,6 +47,7 @@ app.include_router(public.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
 app.include_router(staff_auth.router)
+app.include_router(staff_sessions.router)
 app.include_router(intake.router)
 app.include_router(sla_alerts.router)
 app.include_router(cases.router)

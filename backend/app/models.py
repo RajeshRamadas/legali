@@ -211,6 +211,26 @@ class User(TimestampMixin, Base):
     def is_admin(self) -> bool:
         return bool(self.role_names & {"admin", "super_admin"})
 
+class StaffSession(Base):
+    __tablename__ = "staff_sessions"
+    __table_args__ = (
+        CheckConstraint("expires_at > created_at", name="ck_staff_session_expiry"),
+        CheckConstraint("token_version >= 1", name="ck_staff_session_version"),
+        CheckConstraint("revoke_reason IS NULL OR revoke_reason IN ('staff','other_sessions','all_sessions','session_limit','security_change')", name="ck_staff_session_reason"),
+        Index("ix_staff_session_active", "user_id", "revoked_at", "expires_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    browser: Mapped[str] = mapped_column(String(40), nullable=False)
+    device: Mapped[str] = mapped_column(String(40), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoke_reason: Mapped[str | None] = mapped_column(String(30))
+
+
 class StaffAuthToken(Base):
     __tablename__ = "staff_auth_tokens"
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

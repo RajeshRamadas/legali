@@ -3,12 +3,13 @@ import MainContent from "../../ui/MainContent";
 
 import { useCallback, useEffect, useState } from "react";
 import { useStaff } from "../AdminShell";
-import { adminFetch, setToken, type StaffSession } from "../api";
+import { adminFetch, getToken, setToken, type StaffSession } from "../api";
+import StaffSessions from "./StaffSessions";
 import MfaEnrollment, { RecoveryCodes } from "../MfaEnrollment";
 
 type Status = { mfa_enabled: boolean; mfa_required: boolean; recovery_codes_remaining: number };
 export default function SecurityPage() {
-  const { setUser, onError, signOut } = useStaff();
+  const { setUser, onError } = useStaff();
   const [status, setStatus] = useState<Status | null>(null);
   const [password, setPassword] = useState(""), [code, setCode] = useState("");
   const [current, setCurrent] = useState(""), [factor, setFactor] = useState(""), [next, setNext] = useState(""), [confirm, setConfirm] = useState("");
@@ -41,11 +42,6 @@ export default function SecurityPage() {
     } catch (e) { setError(onError(e)); }
     finally { setBusy(false); }
   }
-  async function revoke() {
-    setBusy(true); setError("");
-    try { await adminFetch("/auth/logout-all", { method: "POST" }); signOut(); }
-    catch (e) { setError(onError(e)); setBusy(false); }
-  }
   return <MainContent className="staff-security"><header><div className="eyebrow">Your staff account</div><h1>Security</h1><p>Protect your workspace and control your sign-in sessions.</p></header>
     {error && <p className="admin-error" role="alert">{error}</p>}{notice && <p className="staff-security-notice" role="status">{notice}</p>}
     {!status ? <p>Loading security settings…</p> : <>
@@ -65,7 +61,7 @@ export default function SecurityPage() {
         {status.mfa_enabled && <label>Authenticator or recovery code<input autoComplete="one-time-code" maxLength={64} required value={factor} onChange={e => setFactor(e.target.value)} /></label>}
         <p>Use at least 12 characters. Changing your password signs out other devices.</p><button className="btn" disabled={busy}>{busy ? "Please wait…" : "Change password"}</button>
       </form></section>
-      <section className="admin-card"><h2>Sign-in sessions</h2><p>Sign out every staff session, including this one, if a device is lost or shared.</p><button className="btn light" disabled={busy} onClick={revoke}>Sign out all devices</button></section>
+      <StaffSessions key={getToken() ?? ""} />
     </>}
   </MainContent>;
 }

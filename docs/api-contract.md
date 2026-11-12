@@ -107,6 +107,10 @@ Search cards include `courts`. A booking includes `payment` (null when the fee i
 
 ## Staff API
 
+[Staff session controls](staff-sessions.md) add owner-only active sign-in review
+and revocation. Migration `0046_staff_sessions` requires existing staff to sign in
+again; enrollment-only tokens cannot use these endpoints.
+
 Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`). The response returns either an `access_token` and `user`, an MFA challenge (`mfa_required: true`, `challenge_token`), or a restricted enrollment token (`mfa_setup_required: true`, `setup_token`). Complete MFA with `POST /api/v1/auth/login/mfa` (`{"token", "code"}`); enrollment uses the two setup endpoints below. Only an access token authorizes staff APIs as `Authorization: Bearer <token>`. Admins see and act on every ticket; agents only on cases they are assigned to or participate in (others return 404). See [staff security](staff-security.md) for deployment policy, expiry, rate limits and recovery safeguards.
 
 | Method | Path | Authorization | Purpose |
@@ -114,6 +118,10 @@ Staff sign in with `POST /api/v1/auth/login` (`{"email", "password"}`). The resp
 | POST | `/api/v1/auth/password-reset/request` | public | Generic response for `{"email"}`; eligible staff receive an email link |
 | POST | `/api/v1/auth/password-reset/confirm` | reset token | `{"token", "password", "code"}`; code required when MFA is enabled |
 | GET | `/api/v1/auth/security` | staff | MFA policy and number of recovery codes remaining |
+| GET | `/api/v1/auth/sessions` | staff | Own active sign-ins, safe device hints and current marker |
+| POST | `/api/v1/auth/sessions/{id}/revoke` | staff | End an own session |
+| POST | `/api/v1/auth/sessions/revoke-others` | staff | End other own active sessions, retaining caller |
+| POST | `/api/v1/auth/logout` | staff | End caller session |
 | POST | `/api/v1/auth/mfa/setup` | staff or enrollment token | `{"password"}`; encrypted pending seed, private QR/manual pairing data |
 | POST | `/api/v1/auth/mfa/enable` | staff or enrollment token | `{"password", "code"}`; new session and one-time recovery-code display |
 | POST | `/api/v1/auth/mfa/recovery-codes` | staff | `{"password", "code"}`; replace recovery codes and other sessions |

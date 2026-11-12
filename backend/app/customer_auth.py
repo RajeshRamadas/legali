@@ -1,12 +1,13 @@
 """Verified customer sessions and ownership checks shared by every customer API."""
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from . import config
+from .session_metadata import aware, device_labels
 from .db import SessionLocal, get_db
 from .models import AuditLog, Customer, CustomerAccount, CustomerSession, ServiceRequest, utcnow
 
@@ -15,17 +16,6 @@ _bearer = HTTPBearer(auto_error=False)
 _UNAUTHORIZED = HTTPException(status_code=401, detail="Sign in with your phone to access your requests, documents and bookings.", headers={"WWW-Authenticate": "Bearer"})
 
 MAX_ACTIVE_SESSIONS=20
-
-
-def aware(value):return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-
-
-def device_labels(user_agent):
-    # Keep only a small fixed vocabulary, never raw user-agent strings or IPs.
-    value=user_agent[:512].lower()
-    browser="Edge" if "edg/" in value or "edga/" in value else "Firefox" if "firefox/" in value or "fxios/" in value else "Chrome" if "chrome/" in value or "crios/" in value else "Safari" if "safari/" in value else "Other browser or app"
-    device="iPhone or iPad" if "iphone" in value or "ipad" in value else "Android" if "android" in value else "Windows" if "windows" in value else "macOS" if "macintosh" in value or "mac os" in value else "Linux" if "linux" in value else "Unknown device"
-    return browser,device
 
 
 def _issue(db,account_id,user_agent):

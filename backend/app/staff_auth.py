@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from . import config, notification_providers as providers
 from .db import get_db
+from .staff_session_records import invalidate_sessions
 from .models import AuditLog, StaffAuthBucket, StaffAuthToken, User, utcnow
 from .security import (_UNAUTHORIZED, create_access_token, current_security_staff, current_staff,
                        hash_password, verify_password)
@@ -173,9 +174,9 @@ def _proof(user, payload):
     if not verify_password(payload.password, user.password_hash) or not _factor(user, payload.code):
         raise HTTPException(400, "Check your password and authenticator or recovery code.")
 
-def _session(user, *, mfa=False):
+def _session(db, user, request, *, mfa=False):
     from .admin import _me
-    return {"access_token": create_access_token(user, mfa=mfa), "token_type": "bearer", "user": _me(user)}
+    return {"access_token": create_access_token(user, mfa=mfa, db=db, user_agent=request.headers.get("user-agent", "")), "token_type": "bearer", "user": _me(user)}
 
 
 @router.post("/login")
@@ -194,8 +195,9 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     if config.STAFF_REQUIRE_ADMIN_MFA and user.is_admin:
         return {"mfa_setup_required": True, "setup_token": create_access_token(user, setup=True)}
     audit(db, user, "staff.login")
+    result = _session(db, user, request)
     db.commit()
-    return _session(user)
+    return result
 
 
 @router.post("/login/mfa")
@@ -208,8 +210,9 @@ def login_mfa(payload: TokenCode, request: Request, db: Session = Depends(get_db
         raise HTTPException(401, "That code is incorrect, expired or already used.")
     row.used_at = utcnow()
     audit(db, user, "staff.login_mfa")
+    result = _session(db, user, request, mfa=True)
     db.commit()
-    return _session(user, mfa=True)
+    return result
 
 
 def _send_reset(token_id, email, raw):
@@ -249,6 +252,7 @@ def reset_password(payload: ResetRequest, request: Request, db: Session = Depend
         raise HTTPException(401, "Enter a current authenticator code or an unused recovery code.")
     user.password_hash = hash_password(payload.password)
     user.token_version += 1
+    invalidate_sessions(db, user)
     row.used_at = utcnow()
     user.mfa_pending_secret = user.mfa_pending_until = None
     audit(db, user, "staff.password_reset")
@@ -297,9 +301,11 @@ def enable_mfa(payload: PasswordProof, request: Request, user: User = Depends(cu
     user.mfa_pending_secret = user.mfa_pending_until = None
     codes = _recovery_codes(user)
     user.token_version += 1
+    invalidate_sessions(db, user)
     audit(db, user, "staff.mfa_enabled")
+    result = _session(db, user, request, mfa=True) | {"recovery_codes": codes}
     db.commit()
-    return _session(user, mfa=True) | {"recovery_codes": codes}
+    return result
 
 
 @router.post("/mfa/recovery-codes")
@@ -311,9 +317,11 @@ def regenerate_codes(payload: PasswordProof, request: Request, user: User = Depe
     _proof(user, payload)
     codes = _recovery_codes(user)
     user.token_version += 1
+    invalidate_sessions(db, user)
     audit(db, user, "staff.recovery_codes_regenerated")
+    result = _session(db, user, request, mfa=True) | {"recovery_codes": codes}
     db.commit()
-    return _session(user, mfa=True) | {"recovery_codes": codes}
+    return result
 
 
 @router.post("/mfa/disable")
@@ -325,9 +333,11 @@ def disable_mfa(payload: PasswordProof, request: Request, user: User = Depends(c
     _proof(user, payload)
     user.mfa_secret = user.mfa_pending_secret = user.mfa_pending_until = user.mfa_last_counter = user.mfa_recovery_hashes = None
     user.token_version += 1
+    invalidate_sessions(db, user)
     audit(db, user, "staff.mfa_disabled")
+    result = _session(db, user, request)
     db.commit()
-    return _session(user)
+    return result
 
 
 @router.post("/password/change")
@@ -337,16 +347,20 @@ def change_password(payload: PasswordChange, request: Request, user: User = Depe
     _proof(user, payload)
     user.password_hash = hash_password(payload.new_password)
     user.token_version += 1
+    invalidate_sessions(db, user)
     user.mfa_pending_secret = user.mfa_pending_until = None
     audit(db, user, "staff.password_changed")
+    result = _session(db, user, request, mfa=bool(user.mfa_secret))
     db.commit()
-    return _session(user, mfa=bool(user.mfa_secret))
+    return result
 
 
 @router.post("/logout-all")
 def logout_all(user: User = Depends(current_staff), db: Session = Depends(get_db)):
+    throttle(db, "security", str(user.id), 20)
     user = _locked(db, user)
     user.token_version += 1
+    invalidate_sessions(db, user, "all_sessions")
     audit(db, user, "staff.sessions_revoked")
     db.commit()
     return {"message": "Signed out on all devices."}

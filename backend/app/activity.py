@@ -46,6 +46,8 @@ GROUPS = {
     "staff": ("Staff & security", {
         "staff.created": "Staff account created", "staff.updated": "Staff account updated",
         "staff.availability": "Staff call availability changed", "staff.login": "Staff signed in",
+        "staff.session_revoked": "Staff session ended", "staff.other_sessions_revoked": "Other staff sessions ended",
+        "staff.sessions_limited": "Staff session limit applied",
         "staff.login_mfa": "Staff signed in with MFA", "staff.mfa_setup_started": "MFA setup started",
         "staff.mfa_enabled": "MFA enabled", "staff.mfa_disabled": "MFA disabled",
         "staff.password_changed": "Staff password changed", "staff.password_reset": "Staff password reset",

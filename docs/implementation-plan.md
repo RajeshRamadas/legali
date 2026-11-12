@@ -25,6 +25,8 @@
 - [x] Add verified customer contact flow
 
 ## Phase 2 — Admin and agent workspaces
+- [x] Let staff review and revoke their own workspace sessions
+  Persistent sign-in identifiers, owner-only active-session controls, atomic MFA/password/role-change revocation and server-confirmed sign-out are implemented (`staff-sessions.md`). Legacy staff access tokens require a fresh sign-in after migration; operational security-record retention and manual security review remain pending.
 - [x] Let verified customers review and revoke their signed-in sessions
   Persistent session identifiers, active-session listing, individual/other/global revocation and server-confirmed sign-out are implemented (`customer-sessions.md`). Legacy customer tokens require fresh phone verification after migration; security-record retention and broader account security review remain operational work.
 - [x] Review retained platform activity with administrator-only filters

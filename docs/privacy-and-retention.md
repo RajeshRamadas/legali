@@ -1,5 +1,10 @@
 # Privacy requests and anonymous chat retention
 
+[Staff sessions](staff-sessions.md) retain bounded browser/device hints and
+authentication lifecycle metadata separately from customer records. No raw user
+agent or IP is retained in session records. Expired/revoked session metadata has
+no automatic cleanup; review its retention period with the security policy.
+
 [Customer session management](customer-sessions.md) now provides individually
 revocable sign-ins. Only fixed browser/device hints and lifecycle times are kept;
 review their retention separately from anonymous chat cleanup. Existing customer

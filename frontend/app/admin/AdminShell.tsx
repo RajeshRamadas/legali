@@ -13,6 +13,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
 } from "react";
 import {
   adminFetch,
@@ -48,6 +49,8 @@ export default function AdminShell({
   const [urgentCount, setUrgentCount] = useState(0);
   const [deadlineCount, setDeadlineCount] = useState(0);
   const [supportAlertCount, setSupportAlertCount] = useState(0);
+  const [signOutError, setSignOutError] = useState("");
+  const ending = useRef(false);
   const userId = user?.id;
   useEffect(() => {
     if (userId)
@@ -93,7 +96,23 @@ export default function AdminShell({
   const signOut = useCallback(() => {
     setToken(null);
     setUser(null);
+    setSignOutError("");
   }, []);
+
+  async function endCurrentSession() {
+    const token = getToken();
+    if (!token || ending.current) return;
+    ending.current = true; setSignOutError("");
+    try {
+      await adminFetch("/auth/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      if (getToken() === token) signOut();
+    } catch (error) {
+      if (getToken() === token) {
+        if (error instanceof UnauthorizedError) signOut();
+        else setSignOutError(error instanceof Error ? error.message : "Please try again.");
+      }
+    } finally { ending.current = false; }
+  }
 
   // An expired session sends staff back to sign-in; other errors become a message for the page.
   const onError = useCallback(
@@ -169,7 +188,7 @@ export default function AdminShell({
           initials: initials(user.name),
         }}
         area="Staff workspace"
-        onSignOut={signOut}
+        onSignOut={endCurrentSession}
         searchPlaceholder="Search tickets, customers or area"
         onSearch={(q) => {
           window.dispatchEvent(
@@ -192,6 +211,7 @@ export default function AdminShell({
           />
         }
       >
+        {signOutError && <p className="admin-error" role="alert">Could not confirm sign-out. {signOutError}</p>}
         {children}
       </AppShell>
     </SessionContext.Provider>

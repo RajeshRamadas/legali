@@ -137,7 +137,7 @@ export default function AppShell({
           </div>
         </div>
         {footer}
-        <button className="hx-signout" onClick={onSignOut}>
+        <button className="hx-signout" onClick={() => { setMenu(false); onSignOut(); }}>
           Sign out
         </button>
       </aside>
