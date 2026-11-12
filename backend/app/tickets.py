@@ -207,7 +207,9 @@ def customer_view(ticket: ServiceRequest) -> dict:
         {"from": "you" if m.author_type == "customer" else "homexo", "message": m.message, "at": _iso(m.created_at)}
         for m in ticket.messages if m.visibility == "customer"
     ]
+    from .document_preservation import held_for
     return {
+        "document_hold": held_for(ticket),
         "ticket_number": ticket.ticket_number,
         "service_name": ticket.service_type.name,
         "package": ticket.package,

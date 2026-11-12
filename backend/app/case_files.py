@@ -86,6 +86,7 @@ def document_view(document: Document, *, staff: bool = False, locked_tags: set[s
         "download_url": file_url(document.id) if document.scan_status == "clean" else None,
         "scan_status": document.scan_status, "scanned_at": _iso(document.scanned_at),
     }
+    from . import document_preservation
     from . import upload_check  # local import: upload_check depends on modules that import this one
     view["check"] = upload_check.view(document)
     if staff:
@@ -93,7 +94,7 @@ def document_view(document: Document, *, staff: bool = False, locked_tags: set[s
     return view | {
         "uploaded_by": "you" if document.uploader_type == "customer" else "homexo",
         # Customers can remove their own files until the lawyer has accepted the item they are filed under.
-        "can_delete": document.uploader_type == "customer" and (document.tag or "") not in locked_tags,
+        "can_delete": document.uploader_type == "customer" and (document.tag or "") not in locked_tags and not document_preservation.held_for(document),
     }
 
 def locked_tags(ticket: ServiceRequest) -> set[str]:

@@ -1,6 +1,7 @@
 "use client";
 import ScanStatus from "../ui/ScanStatus";
 import FileLink from "../ui/FileLink";
+import DocumentPreservation from "./DocumentPreservation";
 
 import { useEffect, useRef, useState } from "react";
 import { describeUploadCheck, formatBytes, normalizeTag, type GovSource } from "@homexo/shared";
@@ -24,6 +25,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [preserved,setPreserved]=useState(true);
   const base = `/admin/tickets/${encodeURIComponent(ticket.ticket_number)}`;
   const report = ticket.report;
 
@@ -68,6 +70,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
         </div>
         {report && <FileLink className="btn small light" href={fileHref(report.preliminary_pdf_url)} staff>Preliminary PDF</FileLink>}
       </div>
+      <DocumentPreservation ticketNumber={ticket.ticket_number} onHeld={setPreserved}/>
       {(error || notice) && <p className={error ? "admin-error" : "admin-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
       {!report && ticket.document_request?.items.length ? <div className="casefile-empty"><h3>Automatic document request</h3><p>{ticket.document_request.prompt}</p><small>Intake: {ticket.document_request.intake.state} · {ticket.document_request.intake.transaction} · {ticket.document_request.intake.seller_capacity.replaceAll("_", " ")}</small><ul>{ticket.document_request.items.map(item => <li key={item.id}>{item.label} · {item.status_label} · {item.fetch_by === "homexo" ? "official-record task" : "customer upload"}</li>)}</ul></div> : null}
 
@@ -135,7 +138,7 @@ export default function CaseFile({ ticket, staff, onTicket, onError }: {
         </>
       )}
 
-      <DocumentList ticket={ticket} tags={tags} busy={busy}
+      <DocumentList preserved={preserved} ticket={ticket} tags={tags} busy={busy}
         onTag={(id, tag) => call(id, `/documents/${id}`, "PATCH", { tag }, tag ? `Filed under #${tag}.` : "Tag removed.")}
         onDelete={(id) => call(id, `/documents/${id}`, "DELETE", undefined, "Document removed.")}
         onScan={(id) => call(id, `/documents/${id}/scan`, "POST", undefined, "Security scan completed.")}
@@ -356,11 +359,12 @@ const PROPERTY_FIELDS: [keyof NonNullable<TicketDetail["property"]>, string][] =
   ["village", "Village"], ["hobli", "Hobli"], ["taluk", "Taluk"], ["district", "District"], ["address_line", "Address"],
 ];
 
-function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onScan, onUpload, onProperty }: {
+function DocumentList({ ticket, tags, busy, preserved, onTag, onDelete, onRecheck, onScan, onUpload, onProperty }: {
   ticket: TicketDetail;
   tags: string[];
   busy: string;
   onTag: (id: string, tag: string) => void;
+  preserved: boolean;
   onDelete: (id: string) => void;
   onRecheck: (id: string) => void;
   onScan: (id: string) => void;
@@ -407,7 +411,7 @@ function DocumentList({ ticket, tags, busy, onTag, onDelete, onRecheck, onScan, 
                   {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
                   {d.tag && !tags.includes(d.tag) && <option value={d.tag}>#{d.tag}</option>}
                 </select>
-                {!final && <button className="admin-link" disabled={busy === d.id} onClick={() => window.confirm(`Remove ${d.filename}?`) && onDelete(d.id)}>Remove</button>}
+                {!final && !preserved && <button className="admin-link" disabled={busy === d.id} onClick={() => window.confirm(`Remove ${d.filename}?`) && onDelete(d.id)}>Remove</button>}
               </li>
             ))}
           </ul>

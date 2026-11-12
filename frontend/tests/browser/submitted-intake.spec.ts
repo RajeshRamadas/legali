@@ -41,6 +41,7 @@ async function fixtures(context: BrowserContext, mode: "normal" | "legacy" | "pl
     if (path.endsWith("/admin/staff")) return reply({ items: [person] });
     if (path.endsWith("/admin/meta")) return reply({ statuses: [{ value: "submitted", label: "Received" }, { value: "in_progress", label: "In progress" }], priorities: ["normal", "urgent"], notifications: {}, meetings: { google_calendar: false, whatsapp: false, timezone: "Asia/Kolkata", reminder_minutes: [] } });
     if (path.endsWith(`/admin/tickets/${number}`)) { state.ticketReads++; return mode === "denied" ? reply({ detail: "Ticket not found" }, 404) : reply(ticket); }
+    if (path.endsWith("/document-hold")) return reply({held:false,revision:0,can_manage:false,changed_at:null});
     if (path.endsWith("/ai-processing")) return reply({allowed:false,status:"not_allowed"});
     if (path.endsWith("/admin/verification/config")) return reply({ configured: false, provider: "off", model: "", states: [], max_documents: 10, max_pages_per_document: 15 });
     if (path.endsWith("/verification")) return reply({ items: [] });

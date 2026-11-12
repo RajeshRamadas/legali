@@ -159,6 +159,11 @@ Status changes, assignments, sign-ins and staff changes are written to `audit_lo
 
 ## Case deadline monitoring
 
+Case file preservation status, administrator decisions and the filtered hold queue
+are documented in [document preservation](document-preservation.md). Customer
+case responses include the safe `document_hold` flag; held files have no customer
+delete capability. Private review notes remain restricted to administrators.
+
 Staff case deadline monitoring and pause behavior are documented in [deadline alerts](deadline-alerts.md), including `GET /api/v1/admin/case-alerts` and its acknowledgement endpoint.
 
 ## Background verification provider usage

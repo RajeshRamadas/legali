@@ -181,6 +181,7 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
         <span className={`status-pill status-${ticket.status}`}>{ticket.status_label}</span>
       </div>
       <AIProcessingChoice ticketNumber={ticket.ticket_number}/>
+      {ticket.document_hold&&<p className="dc-card" role="status">Your case team is preserving these files. File removal is paused; uploads and advocate review can continue. Contact the case team for help.</p>}
       {(error || notice) && <p className={error ? "dc-error" : "dc-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
       <details className="hx-card hx-case-messages" id="messages" ref={messagesRef}><summary>Messages and case updates</summary><TicketStatusCard ticket={ticket} contact={reference.contact} onUpdate={onChange}/></details>
       {journey && <Stepper journey={journey} />}

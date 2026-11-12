@@ -1,5 +1,10 @@
 # Privacy requests and anonymous chat retention
 
+Administrators can now place [case document preservation holds](document-preservation.md)
+to prevent application deletion/replacement of stored files during a records
+review. These controls are separate from anonymous-chat cleanup and from approval
+of a privacy-request outcome. A hold does not freeze every kind of case data.
+
 Verified customers can use **Privacy requests** at `/account/privacy` to ask for access to information, a correction or deletion. They can scope a request to an owned ticket or their account generally, view the team's response and withdraw an open request. Administrators review requests at `/admin/privacy`; agents cannot read this desk. The existing phone sign-in, session revocation, staff MFA and administrator authorization rules apply. No new provider integration or live message delivery is added; customers follow progress in the authenticated center.
 
 Apply migration **`0023_privacy_requests`** and restart API/workers. It adds privacy requests, explicit conversation account ownership and a retention-hold flag/index. It preserves existing case, account, payment, document, consent and chat records. Because old general chats did not record whether the caller was signed in, migration places existing conversations without a customer link on retention hold. Review those legacy holds before releasing any; ownership cannot be reconstructed safely from a shared client-IP hash. Migration rollback drops the new request/hold/ownership fields, so preserve a backup before any rollback involving real requests.

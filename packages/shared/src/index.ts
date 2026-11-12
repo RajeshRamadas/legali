@@ -245,6 +245,7 @@ export type CaseProgress = {
 
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
+  document_hold?: boolean;
   document_request?: DocumentRequest;
   ticket_number: string;
   service_name: string;

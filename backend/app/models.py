@@ -116,6 +116,22 @@ class CaseAIConsent(Base):
     notice_snapshot: Mapped[dict] = mapped_column(JSONType, default=dict)
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+class CaseDocumentHold(Base):
+    __tablename__ = "case_document_holds"
+    __table_args__ = (
+        CheckConstraint("revision >= 1", name="ck_document_hold_revision"),
+        CheckConstraint("reason IN ('privacy_review','legal_obligation','manual_review')", name="ck_document_hold_reason"),
+        Index("ix_document_hold_queue", "held", "changed_at"),
+    )
+    service_request_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), primary_key=True)
+    held: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(30), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    changed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class VerificationUsage(Base):
     """Provider attempts from background jobs. Loose references avoid case locks."""
     __tablename__ = "verification_usage"

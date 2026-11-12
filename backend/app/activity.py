@@ -26,6 +26,8 @@ GROUPS = {
         "service.intake_form_published": "Intake form published",
     }),
     "cases": ("Case work", {
+        "document_preservation.held": "Case file preservation hold placed",
+        "document_preservation.released": "Case file preservation hold released",
         "case.ai_processing_allowed": "Customer allowed external AI document processing",
         "case.ai_processing_withdrawn": "Customer withdrew external AI document processing",
         "verification.job_queued": "Analysis job queued", "verification.job_started": "Analysis job started",

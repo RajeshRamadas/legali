@@ -162,6 +162,10 @@ def store_document(db: Session, ticket: ServiceRequest, filename: str, content_t
     return document
 
 def _remove_document(db: Session, ticket: ServiceRequest, document: Document) -> None:
+    from .document_preservation import ensure_removable
+    ensure_removable(db,ticket.id)
+    if not db.scalar(select(Document.id).where(Document.id==document.id,Document.service_request_id==ticket.id)):
+        raise HTTPException(404,"Document not found.")
     ticket.documents.remove(document)
     db.delete(document)
     db.flush()
@@ -521,7 +525,7 @@ def review_item(ticket_number: str, item_id: uuid.UUID, payload: ItemReview, use
 @router.post("/admin/tickets/{ticket_number}/report/final")
 def generate_final(ticket_number: str, user: User = Depends(current_staff), db: Session = Depends(get_db)):
     """Make the final report PDF to print and sign. Needs every checklist item verified or waived."""
-    ticket = _get_ticket(db, user, ticket_number)
+    ticket = _get_ticket(db, user, ticket_number,lock=True)
     report = _editable_report(ticket)
     malware_scan.require_clean_case(ticket)
     from .verification_workflow import validate_final_approval
@@ -533,11 +537,14 @@ def generate_final(ticket_number: str, user: User = Depends(current_staff), db: 
         raise HTTPException(status_code=409, detail=f"Verify or waive every checklist item first. Still open: {', '.join(left)}.")
     if not (report.final or {}).get("opinion", "").strip():
         raise HTTPException(status_code=422, detail="Write the opinion before generating the final report.")
+    old = db.get(Document, report.final_document_id) if report.final_document_id else None
+    if old:
+        from .document_preservation import ensure_removable
+        ensure_removable(db,ticket.id)
     now = utcnow()
     signers = [i for i in (report.lawyer_user_id, report.reviewer_user_id) if i]
     enrolments = dict(db.execute(select(LawyerProfile.user_id, LawyerProfile.bar_enrolment).where(LawyerProfile.user_id.in_(signers))).all()) if signers else {}
     pdf = report_pdf.final_pdf(ticket, report, case_files.case_documents(ticket), enrolments, now)
-    old = db.get(Document, report.final_document_id) if report.final_document_id else None
     document = store_document(db, ticket, f"{ticket.ticket_number}-final-report.pdf", "application/pdf", pdf, uploader_type="system", user=user, category="final_report")
     db.flush()
     report.final_document_id, report.final_generated_at, report.status = document.id, now, "final_generated"

@@ -142,3 +142,13 @@
   width: auto;
   flex: 0 0 auto;
 }
+
+.document-preservation { border:1px solid var(--line); border-radius:12px; padding:18px; margin-block:18px; }
+.document-preservation fieldset { border:0; padding:0; margin:16px 0; min-width:0; }
+.document-preservation label { display:block; margin-block:12px; }
+.document-preservation select, .document-preservation textarea { display:block; box-sizing:border-box; width:100%; max-width:100%; margin-top:8px; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--ink); font:inherit; }
+.document-preservation .preservation-confirm { display:flex; gap:12px; align-items:flex-start; }
+.document-preservation input[type="checkbox"] { flex:0 0 auto; width:20px; height:20px; margin:2px 0 0; }
+.document-preservation summary { cursor:pointer; padding-block:10px; font-weight:600; }
+.document-preservation .preservation-note { white-space:pre-wrap; overflow-wrap:anywhere; }
+.document-preservation [tabindex="-1"]:focus { outline:2px solid var(--primary); outline-offset:4px; }

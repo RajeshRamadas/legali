@@ -13,7 +13,7 @@ from .rera_sample import load_sample
 from .abuse_protection import AbuseProtection
 from . import operations, privacy, support, support_alerts, support_delivery, site_policies, refunds, review_moderation, customer_reviews, notification_preferences, service_availability, service_descriptions, service_intake_forms, time_off
 from .telemetry import RequestTelemetry, disable_raw_access_logs
-from . import activity, task_queue, verification_jobs, verification_usage, ai_processing
+from . import activity, task_queue, verification_jobs, verification_usage, ai_processing, document_preservation
 
 disable_raw_access_logs()
 
@@ -78,13 +78,14 @@ app.include_router(activity.router)
 app.include_router(verification_jobs.router)
 app.include_router(verification_usage.router)
 app.include_router(ai_processing.router)
+app.include_router(document_preservation.router)
 app.include_router(task_queue.router)
 
 
 @app.middleware("http")
 async def private_customer_responses(request, call_next):
     response = await call_next(request)
-    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/auth", "/api/v1/account", "/api/v1/intake", "/api/v1/files/", "/api/v1/admin/activity", "/api/v1/admin/task-queue", "/api/v1/admin/tasks", "/api/v1/admin/time-off", "/api/v1/admin/support-requests")) or "/ai-processing" in request.url.path or "/verification" in request.url.path or request.url.path == "/api/v1/chat":
+    if request.headers.get("authorization") or request.url.path.startswith(("/api/v1/auth", "/api/v1/account", "/api/v1/intake", "/api/v1/files/", "/api/v1/admin/activity", "/api/v1/admin/task-queue", "/api/v1/admin/tasks", "/api/v1/admin/time-off", "/api/v1/admin/support-requests")) or "/document-hold" in request.url.path or "/ai-processing" in request.url.path or "/verification" in request.url.path or request.url.path == "/api/v1/chat":
         response.headers["Cache-Control"] = "private, no-store"
         vary = response.headers.get("Vary", "")
         if "authorization" not in vary.lower():
