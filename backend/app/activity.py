@@ -61,6 +61,7 @@ GROUPS = {
         "support.deadline_reopened": "Support deadline alert reopened", "support.deadline_resolved": "Support deadline alert resolved",
     }),
     "privacy": ("Privacy & retention", {
+        "privacy.account_summary_prepared": "Customer account summary prepared",
         "privacy.requested": "Privacy request created", "privacy.reviewed": "Privacy request reviewed",
         "privacy.withdrawn": "Privacy request withdrawn", "retention.chats_cleaned": "Chat retention cleanup recorded",
         "retention.hold_set": "Retention hold set", "retention.hold_released": "Retention hold released",

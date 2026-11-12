@@ -437,6 +437,17 @@ export type AccountOverview = {
   payments_mode: BookingPayment["mode"];
 };
 
+export type AccountSummaryCounts = {requests:number;meetings:number;payments:number};
+export type AccountSummaryManifest = {format_version:string;counts:AccountSummaryCounts;limits:AccountSummaryCounts;ready:boolean;sections:string[];excluded:string[];checked_at:string};
+export type AccountActivitySummary = {
+  format_version:string;generated_at:string;scope:string;counts:AccountSummaryCounts;sections:string[];excluded:string[];
+  profile:{name:string|null;email:string|null;verified_phone:string;account_created_at:string;profile_updated_at:string};
+  notification_preferences:NotificationPreferences;
+  requests:{ticket_number:string;title:string;service_name:string;package:string|null;status:string;status_label:string;created_at:string;updated_at:string;document_count:number;document_preservation_active:boolean;external_document_ai:{status:string;changed_at:string|null}}[];
+  meetings:{ticket_number:string;starts_at:string;ends_at:string;status:string;created_at:string}[];
+  payments:{ticket_number:string;amount_paise:number;currency:string;status:string;created_at:string;paid_at:string|null;refunded_paise:number;refund_pending_paise:number}[];
+};
+
 export const formatFee = (rupees: number) => `₹${rupees.toLocaleString("en-IN")}`;
 
 // Test mode takes a pretend payment; this id is what the server accepts for it.
@@ -731,6 +742,8 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     }
   }
   return {
+    accountSummary():Promise<AccountSummaryManifest> { return request(baseUrl, "/api/v1/account/data-summary", {cache:"no-store"}); },
+    downloadAccountSummary():Promise<AccountActivitySummary> { return request(baseUrl, "/api/v1/account/data-summary/download", {cache:"no-store"}); },
     aiProcessing(ticket:string):Promise<CaseAIProcessing> { return request(baseUrl, `/api/v1/account/requests/${encodeURIComponent(ticket)}/ai-processing`, {cache:"no-store"}); },
     setAIProcessing(ticket:string,payload:{allowed:boolean;revision:number;notice_version:string;processing_revision:string}):Promise<CaseAIProcessing> { return request(baseUrl, `/api/v1/account/requests/${encodeURIComponent(ticket)}/ai-processing`, {...post(payload),method:"PUT"}); },
     supportRequests(page = 1): Promise<SupportPage> { return request(baseUrl, `/api/v1/account/support-requests?page=${page}`); },

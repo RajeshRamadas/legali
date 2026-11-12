@@ -58,6 +58,10 @@ def policy_for(method, path):
     if method == "PUT" and re.fullmatch(r"/api/v1/admin/tickets/[^/]+/document-hold", path):
         return Policy("customer_writes", config.API_WRITES_PER_MINUTE)
     if method == "GET":
+        if path == "/api/v1/account/data-summary/download":
+            return Policy("account_summaries", config.API_ACCOUNT_SUMMARIES_PER_HOUR, 3600)
+        if path == "/api/v1/account/data-summary":
+            return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path == "/api/v1/admin/document-holds" or re.fullmatch(r"/api/v1/admin/tickets/[^/]+/document-hold", path):
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if re.fullmatch(r"/api/v1/admin/tickets/[^/]+/ai-processing", path):

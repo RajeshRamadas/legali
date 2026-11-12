@@ -11,6 +11,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - A versioned synthetic verification benchmark gates evidence grounding, factual accuracy and screening regressions offline in CI, with an explicit provider-evaluation command (`docs/verification-evaluation.md`).
 - Verified customers can allow or withdraw external document AI per case, with processor-bound notices, default denial and checks across upload classification and full-case analysis (`docs/case-ai-consent.md`).
 - Administrator document-preservation holds block application file deletion/replacement, retain review decisions and provide a private filtered queue (`docs/document-preservation.md`).
+- Verified customers can download an audited account-activity JSON summary with explicit field/size limits and no public export link (`docs/customer-account-summary.md`).
 
 - Database-enforced append-only audit records reject updates/deletes and PostgreSQL truncation, with guard checks in readiness/System health and private task-change auditing (`docs/append-only-audit.md`).
 

@@ -65,6 +65,8 @@
 - [ ] Never let the model autonomously declare a property legally safe
 
 ## Phase 5 — Launch readiness
+- [x] Give verified customers a secure account-activity summary download
+  Owner-only profile/preferences/request/meeting/payment summaries, explicit collection limits, private attachments and preparation audit are implemented (`customer-account-summary.md`). This self-service summary does not fulfill a formal access request; reviewed evidence copies and broader privacy actions remain separate procedures.
 - [x] Prioritize pending support responses before targets are missed
   Administrator response-target filters, earliest-target ordering, checked-at timestamps and draft-safe queue refresh are implemented (`support-queue-priority.md`). Monitor both overdue and upcoming work; targets are operational and require an accountable team.
 - [x] Inspect support notification delivery without exposing private payloads

@@ -159,6 +159,11 @@ Status changes, assignments, sign-ins and staff changes are written to `audit_lo
 
 ## Case deadline monitoring
 
+Verified customer account-summary coverage and private JSON attachments are
+available under `/api/v1/account/data-summary`; see
+[customer account summary](customer-account-summary.md) for field scope, limits
+and preparation-audit behavior.
+
 Case file preservation status, administrator decisions and the filtered hold queue
 are documented in [document preservation](document-preservation.md). Customer
 case responses include the safe `document_hold` flag; held files have no customer

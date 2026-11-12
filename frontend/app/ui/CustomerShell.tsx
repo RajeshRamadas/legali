@@ -80,6 +80,7 @@ export default function CustomerShell({
         { href: "/account/notifications", label: "Notifications", icon: "bell" as const },
         { href: "/account#payments", label: "Payments", icon: "card" as const },
         { href: "/account/privacy", label: "Privacy requests", icon: "shield" as const },
+        { href: "/account/data", label: "Download my summary", icon: "file" as const },
         { href: "/account/support", label: "Support & complaints", icon: "inbox" as const, count: supportReplies },
       ],
     },

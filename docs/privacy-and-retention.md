@@ -1,5 +1,9 @@
 # Privacy requests and anonymous chat retention
 
+Verified customers can download a [current account-activity summary](customer-account-summary.md)
+at `/account/data`. It contains selected profile, preference and activity fields;
+it does not replace the reviewed access-copy process or close a privacy request.
+
 Administrators can now place [case document preservation holds](document-preservation.md)
 to prevent application deletion/replacement of stored files during a records
 review. These controls are separate from anonymous-chat cleanup and from approval
