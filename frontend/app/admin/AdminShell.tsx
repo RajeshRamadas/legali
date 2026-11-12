@@ -162,6 +162,7 @@ export default function AdminShell({
               { href: "/admin/staff", label: "Staff", icon: "users" as const },
               { href: "/admin/operations", label: "System health", icon: "settings" as const },
               { href: "/admin/activity", label: "Activity history", icon: "file" as const },
+              { href: "/admin/file-access", label: "File access history", icon: "file" as const },
               { href: "/admin/document-holds", label: "Document holds", icon: "file" as const },
               { href: "/admin/ai-usage", label: "Provider usage", icon: "file" as const },
               { href: "/admin/services", label: "Service availability", icon: "settings" as const },

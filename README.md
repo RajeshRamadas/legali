@@ -14,6 +14,7 @@ A GitHub-ready starter repository for a unified Homexo platform covering **homes
 - Verified customers can download an audited account-activity JSON summary with explicit field/size limits and no public export link (`docs/customer-account-summary.md`).
 - Customer sign-ins are individually revocable, with an active-session center, approximate browser/device hints and server-confirmed sign-out (`docs/customer-sessions.md`).
 - Staff can review and individually revoke their own workspace sessions, with MFA/role-change revocation and server-confirmed sign-out (`docs/staff-sessions.md`).
+- Private file requests append authorization records, with safe administrator filters, case links and retained file references (`docs/file-access-history.md`).
 
 - Database-enforced append-only audit records reject updates/deletes and PostgreSQL truncation, with guard checks in readiness/System health and private task-change auditing (`docs/append-only-audit.md`).
 

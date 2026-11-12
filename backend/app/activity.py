@@ -26,6 +26,10 @@ GROUPS = {
         "service.intake_form_published": "Intake form published",
     }),
     "cases": ("Case work", {
+        "file.customer_document_authorized": "Customer file access authorized",
+        "file.staff_document_authorized": "Staff file access authorized",
+        "file.customer_preliminary_authorized": "Customer preliminary report access authorized",
+        "file.staff_preliminary_authorized": "Staff preliminary report access authorized",
         "document_preservation.held": "Case file preservation hold placed",
         "document_preservation.released": "Case file preservation hold released",
         "case.ai_processing_allowed": "Customer allowed external AI document processing",

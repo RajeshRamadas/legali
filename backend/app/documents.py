@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements, upload_check, malware_scan
+from . import case_files, config, gov_sources, report_pdf, report_templates, storage, tickets, document_requirements, upload_check, malware_scan, file_access
 from .admin import _detail, _get_ticket, _visible_tickets
 from .db import get_db
 from .customer_auth import current_customer, owned_ticket, _UNAUTHORIZED
@@ -292,6 +292,7 @@ def download(token: str, reader = Depends(file_reader), db: Session = Depends(ge
         if isinstance(reader, CustomerAccount) and document.document_category == "final_report":
             raise HTTPException(status_code=404, detail="File not found")
         malware_scan.require_clean(document)
+        file_access.record_authorized(db, reader, ticket, document.id)
         inline = document.content_type == "application/pdf" or document.content_type.startswith("image/")
         return storage.download_response(document.storage_key, document.original_filename, document.content_type, inline=inline)
     report = db.get(LegalReport, uuid.UUID(claims["report"])) if claims.get("kind") == "preliminary" else None
@@ -301,6 +302,7 @@ def download(token: str, reader = Depends(file_reader), db: Session = Depends(ge
     _authorize_file(db, reader, ticket)
     if isinstance(reader, CustomerAccount) and report.status == "draft":
         raise HTTPException(status_code=404, detail="Report not found")
+    file_access.record_authorized(db, reader, ticket, report.id, preliminary=True)
     pdf = report_pdf.preliminary_pdf(ticket, report)
     return Response(pdf, media_type="application/pdf", headers={
         "Content-Disposition": f'inline; filename="{ticket.ticket_number}-preliminary-report.pdf"', "Cache-Control": "private, no-store",

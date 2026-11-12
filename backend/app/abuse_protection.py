@@ -74,7 +74,7 @@ def policy_for(method, path):
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if re.fullmatch(r"/api/v1/admin/tickets/[^/]+/verification(?:/jobs)?", path):
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
-        if path in ("/api/v1/admin/verification-usage", "/api/v1/admin/activity", "/api/v1/admin/task-queue", "/api/v1/admin/tasks"):
+        if path in ("/api/v1/admin/verification-usage", "/api/v1/admin/activity", "/api/v1/admin/file-access", "/api/v1/admin/task-queue", "/api/v1/admin/tasks"):
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path.startswith("/api/v1/files/"):
             return Policy("downloads", config.API_DOWNLOADS_PER_MINUTE)

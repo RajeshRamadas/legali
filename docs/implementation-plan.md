@@ -43,6 +43,8 @@
   PostgreSQL/SQLite guards preserve `audit_logs` against data rewrites and deletion, including PostgreSQL truncation and SQLite replacement (`append-only-audit.md`). Readiness and administrator health inspect actual guard configuration. Manual task writes append safe audit events atomically; schema owners and broader timeline/event coverage remain outside this protection boundary.
 
 ## Phase 3 — Documents and communications
+- [x] Record and review authorized private file requests
+  Download/preliminary-PDF permission checks append immutable authorization records before private bytes are released. An administrator history provides safe reader/type/case/India-date filters and cursor paging (`file-access-history.md`). Records do not establish completed delivery or reading; denied-attempt monitoring and operational retention/capacity review remain separate work.
 - [x] Preserve stored case files during an administrator records review
   Case-scoped file holds, explicit reviewed release, private decision history, deletion/replacement guards and an administrator queue are implemented (`document-preservation.md`). This protects application file removal; broader retention periods, storage locks, backups and case-purge procedures still need review.
 - [ ] Private object storage and presigned uploads

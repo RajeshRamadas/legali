@@ -1088,7 +1088,11 @@ class Consent(Base):
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
-    __table_args__ = (Index("ix_audit_logs_created_id", "created_at", "id"),)
+    __table_args__ = (
+        Index("ix_audit_logs_created_id", "created_at", "id"),
+        Index("ix_audit_logs_action_created_id", "action", "created_at", "id"),
+        Index("ix_audit_logs_entity_action_created", "entity_type", "entity_id", "action", "created_at", "id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"))

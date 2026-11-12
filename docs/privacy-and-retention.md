@@ -1,5 +1,10 @@
 # Privacy requests and anonymous chat retention
 
+[File access history](file-access-history.md) retains case/file references,
+authorized-reader identity and timestamps in append-only audit records. The
+administrator view masks customer identity and excludes file contents and signed
+links. Apply the reviewed audit retention policy separately from chat cleanup.
+
 [Staff sessions](staff-sessions.md) retain bounded browser/device hints and
 authentication lifecycle metadata separately from customer records. No raw user
 agent or IP is retained in session records. Expired/revoked session metadata has

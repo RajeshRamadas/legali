@@ -107,6 +107,11 @@ Search cards include `courts`. A booking includes `payment` (null when the fee i
 
 ## Staff API
 
+Administrators can review authorized private file requests through
+`GET /api/v1/admin/file-access`; see [file access history](file-access-history.md)
+for reader/type/case/India-date filters, cursor paging and authorization-event
+semantics. Review reads never open the underlying file.
+
 [Staff session controls](staff-sessions.md) add owner-only active sign-in review
 and revocation. Migration `0046_staff_sessions` requires existing staff to sign in
 again; enrollment-only tokens cannot use these endpoints.
