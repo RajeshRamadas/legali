@@ -61,6 +61,10 @@ GROUPS = {
         "support.deadline_reopened": "Support deadline alert reopened", "support.deadline_resolved": "Support deadline alert resolved",
     }),
     "privacy": ("Privacy & retention", {
+        "customer.session_revoked": "Customer sign-in session revoked",
+        "customer.other_sessions_revoked": "Customer ended other sign-in sessions",
+        "customer.all_sessions_revoked": "Customer ended all sign-in sessions",
+        "customer.sessions_limited": "Customer active session limit applied",
         "privacy.account_summary_prepared": "Customer account summary prepared",
         "privacy.requested": "Privacy request created", "privacy.reviewed": "Privacy request reviewed",
         "privacy.withdrawn": "Privacy request withdrawn", "retention.chats_cleaned": "Chat retention cleanup recorded",

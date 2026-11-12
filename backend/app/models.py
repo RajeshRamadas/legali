@@ -283,6 +283,26 @@ class CustomerAccount(TimestampMixin, Base):
     # Part of every session token; raising it signs the account out on every device.
     token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"), nullable=False)
 
+class CustomerSession(Base):
+    __tablename__ = "customer_sessions"
+    __table_args__ = (
+        CheckConstraint("expires_at > created_at", name="ck_customer_session_expiry"),
+        CheckConstraint("token_version >= 1", name="ck_customer_session_version"),
+        CheckConstraint("revoke_reason IS NULL OR revoke_reason IN ('customer','other_sessions','all_sessions','session_limit')", name="ck_customer_session_reason"),
+        Index("ix_customer_session_active", "account_id", "revoked_at", "expires_at"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("customer_accounts.id", ondelete="CASCADE"), nullable=False)
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    browser: Mapped[str] = mapped_column(String(40), nullable=False)
+    device: Mapped[str] = mapped_column(String(40), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoke_reason: Mapped[str | None] = mapped_column(String(30))
+
+
 class CustomerNotificationPreference(Base):
     __tablename__ = "customer_notification_preferences"
     __table_args__ = (CheckConstraint("revision >= 1", name="ck_customer_notification_preferences_revision"),)

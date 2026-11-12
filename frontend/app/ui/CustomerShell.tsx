@@ -4,12 +4,13 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ApiError, type AccountOverview } from "@homexo/shared";
 import { api } from "../api";
-import { signOut, type Session } from "../account/session";
+import { signOut, readSession, type Session } from "../account/session";
 import { openDocuments } from "../documents/ref";
 import AppShell from "./AppShell";
 import { initials, maskedPhone } from "./utils";
@@ -25,6 +26,14 @@ export default function CustomerShell({
   const [data, setData] = useState<AccountOverview | null>(null),
     [query, setQuery] = useState("");
   const [supportReplies, setSupportReplies] = useState(0);
+  const [signOutError,setSignOutError]=useState("");
+  const ending=useRef(false);
+  async function endCurrentSession(){
+    if(ending.current)return;ending.current=true;setSignOutError("");const token=session.token;
+    try{await api.revokeCurrentCustomerSession(token);if(readSession()?.token===token)signOut();}
+    catch(error){if(readSession()?.token===token)setSignOutError(error instanceof Error?error.message:"Could not confirm sign-out. Please try again.");}
+    finally{ending.current=false;}
+  }
   const pathname = usePathname(),
     router = useRouter();
   useEffect(() => {
@@ -81,6 +90,7 @@ export default function CustomerShell({
         { href: "/account#payments", label: "Payments", icon: "card" as const },
         { href: "/account/privacy", label: "Privacy requests", icon: "shield" as const },
         { href: "/account/data", label: "Download my summary", icon: "file" as const },
+        { href: "/account/security", label: "Signed-in sessions", icon: "shield" as const },
         { href: "/account/support", label: "Support & complaints", icon: "inbox" as const, count: supportReplies },
       ],
     },
@@ -102,7 +112,7 @@ export default function CustomerShell({
           sub: maskedPhone(session.profile.phone),
           initials: initials(session.profile.name || "Your account"),
         }}
-        onSignOut={signOut}
+        onSignOut={endCurrentSession}
         searchPlaceholder="Search requests by service or ticket number"
         onSearch={(q) => {
           setQuery(q);
@@ -128,6 +138,7 @@ export default function CustomerShell({
           { href: "/account#profile", label: "Account", icon: "users" },
         ]}
       >
+        {signOutError&&<p className="form-error" role="alert">Could not confirm sign-out. {signOutError}</p>}
         {children}
       </AppShell>
     </SearchContext.Provider>

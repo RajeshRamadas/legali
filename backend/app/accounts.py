@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from . import case_files, case_management, config, payments, tickets, whatsapp, document_requirements
@@ -21,7 +21,7 @@ from .customer_auth import current_customer, create_session_token
 from .chat import client_key
 from .db import get_db
 from .lawyers import booking_view
-from .models import CLOSED_STATUSES, Customer, CustomerAccount, LoginCode, ServiceRequest, utcnow
+from .models import AuditLog, CLOSED_STATUSES, Customer, CustomerAccount, CustomerSession, LoginCode, ServiceRequest, utcnow
 
 log = logging.getLogger("homexo.accounts")
 
@@ -102,7 +102,7 @@ def _latest_customer(db: Session, phone: str) -> Customer | None:
     return db.scalars(select(Customer).where(Customer.phone_normalized == phone).order_by(Customer.created_at.desc())).first()
 
 @router.post("/login/verify")
-def verify_login(payload: CodeCheck, db: Session = Depends(get_db)):
+def verify_login(payload: CodeCheck, request: Request, db: Session = Depends(get_db)):
     phone = _phone(payload.phone)
     now = utcnow()
     login = db.scalars(
@@ -123,8 +123,10 @@ def verify_login(payload: CodeCheck, db: Session = Depends(get_db)):
         account = CustomerAccount(phone_normalized=phone, full_name=known.full_name if known else None, email=known.email if known else None)
         db.add(account)
     account.last_login_at = now
+    db.flush()
+    token=create_session_token(account,db=db,user_agent=request.headers.get("user-agent",""))
     db.commit()
-    return {"access_token": create_session_token(account), "token_type": "bearer", "account": _profile(account)}
+    return {"access_token": token, "token_type": "bearer", "account": _profile(account)}
 
 def _profile(account: CustomerAccount) -> dict:
     return {
@@ -227,6 +229,10 @@ def update_profile(payload: ProfileUpdate, account: CustomerAccount = Depends(cu
 @router.post("/logout-all")
 def logout_everywhere(account: CustomerAccount = Depends(current_customer), db: Session = Depends(get_db)):
     """Ends every session of this account, including the one making the call."""
+    account=db.scalar(select(CustomerAccount).where(CustomerAccount.id==account.id).with_for_update().execution_options(populate_existing=True))
     account.token_version += 1
+    db.execute(update(CustomerSession).where(CustomerSession.account_id==account.id,CustomerSession.revoked_at.is_(None))
+        .values(revoked_at=utcnow(),revoke_reason="all_sessions").execution_options(synchronize_session=False))
+    db.add(AuditLog(action="customer.all_sessions_revoked",entity_type="customer_account",entity_id=account.id,metadata_={"source":"customer"}))
     db.commit()
     return {"ok": True}

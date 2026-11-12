@@ -53,6 +53,8 @@ def policy_for(method, path):
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path.startswith("/api/v1/auth/") or path in ("/api/v1/account/login/start", "/api/v1/account/login/verify"):
             return Policy("authentication", config.API_AUTH_PER_MINUTE)
+    if method == "POST" and (path == "/api/v1/account/logout" or path.startswith("/api/v1/account/sessions/")):
+        return Policy("customer_writes", config.API_WRITES_PER_MINUTE)
     if method == "PUT" and re.fullmatch(r"/api/v1/account/requests/[^/]+/ai-processing", path):
         return Policy("customer_writes", config.API_WRITES_PER_MINUTE)
     if method == "PUT" and re.fullmatch(r"/api/v1/admin/tickets/[^/]+/document-hold", path):
@@ -60,6 +62,8 @@ def policy_for(method, path):
     if method == "GET":
         if path == "/api/v1/account/data-summary/download":
             return Policy("account_summaries", config.API_ACCOUNT_SUMMARIES_PER_HOUR, 3600)
+        if path == "/api/v1/account/sessions":
+            return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path == "/api/v1/account/data-summary":
             return Policy("lookups", config.API_LOOKUPS_PER_MINUTE)
         if path == "/api/v1/admin/document-holds" or re.fullmatch(r"/api/v1/admin/tickets/[^/]+/document-hold", path):

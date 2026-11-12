@@ -39,7 +39,7 @@ import {
 import "../ui/views/documents-documents.css";
 import { saveBooking } from "../lawyers/store";
 import "../ui/views/account-account.css";
-import { signOut, updateProfile, useSession, type Session } from "./session";
+import { signOut, readSession, updateProfile, useSession, type Session } from "./session";
 import SignInForm from "./SignInForm";
 
 const dateFormat = new Intl.DateTimeFormat("en-IN", {
@@ -490,12 +490,15 @@ function Profile({ session }: { session: Session }) {
     }
   }
 
-  async function signOutEverywhere() {
+  async function endSessions(all: boolean) {
+    if(busy)return;setBusy(true);setError("");
     try {
-      await api.signOutEverywhere(session.token);
-    } finally {
-      signOut();
-    }
+      if(all)await api.signOutEverywhere(session.token);
+      else await api.revokeCurrentCustomerSession(session.token);
+      if(readSession()?.token===session.token)signOut();
+    } catch(error) {
+      if(readSession()?.token===session.token)setError(error instanceof Error?error.message:"Could not confirm sign-out. Please try again.");
+    } finally {setBusy(false);}
   }
 
   return (
@@ -567,11 +570,12 @@ function Profile({ session }: { session: Session }) {
           <dd>{profile.email || "Not added"}</dd>
         </dl>
       )}
+      {!editing&&error&&<p className="form-error" role="alert">Could not confirm sign-out. {error}</p>}
       <div className="ac-row" style={{ marginTop: 16 }}>
-        <button className="dc-link ac-plain" onClick={signOut}>
+        <button className="dc-link ac-plain" disabled={busy} onClick={()=>endSessions(false)}>
           Sign out
         </button>
-        <button className="dc-link" onClick={signOutEverywhere}>
+        <button className="dc-link" disabled={busy} onClick={()=>endSessions(true)}>
           Sign out on all devices
         </button>
       </div>

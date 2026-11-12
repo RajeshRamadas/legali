@@ -25,6 +25,8 @@
 - [x] Add verified customer contact flow
 
 ## Phase 2 — Admin and agent workspaces
+- [x] Let verified customers review and revoke their signed-in sessions
+  Persistent session identifiers, active-session listing, individual/other/global revocation and server-confirmed sign-out are implemented (`customer-sessions.md`). Legacy customer tokens require fresh phone verification after migration; security-record retention and broader account security review remain operational work.
 - [x] Review retained platform activity with administrator-only filters
   A private read-only activity index supports group, current staff-name, India-day and record-reference filters with cursor paging and draft-safe refresh (`activity-history.md`). It excludes audit payloads and unknown action text. Database guards and task-change coverage are implemented separately (`append-only-audit.md`); broader event coverage remains future work.
 - [x] Review submitted customer intake with original wording and case-scoped access

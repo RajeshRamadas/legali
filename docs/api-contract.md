@@ -159,6 +159,11 @@ Status changes, assignments, sign-ins and staff changes are written to `audit_lo
 
 ## Case deadline monitoring
 
+Verified customers can manage individual sign-ins under `/api/v1/account/sessions`
+and revoke the current sign-in at `/api/v1/account/logout`. See
+[customer sessions](customer-sessions.md) for revocation, privacy and the one-time
+fresh sign-in requirement for legacy customer tokens after migration 0045.
+
 Verified customer account-summary coverage and private JSON attachments are
 available under `/api/v1/account/data-summary`; see
 [customer account summary](customer-account-summary.md) for field scope, limits

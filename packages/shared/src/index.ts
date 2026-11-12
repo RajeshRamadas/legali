@@ -438,6 +438,8 @@ export type AccountOverview = {
 };
 
 export type AccountSummaryCounts = {requests:number;meetings:number;payments:number};
+export type CustomerSessionRecord={id:string;browser:string;device:string;created_at:string;last_seen_at:string;expires_at:string;is_current:boolean};
+export type CustomerSessions={items:CustomerSessionRecord[];checked_at:string;max_active:number;activity_interval_seconds:number};
 export type AccountSummaryManifest = {format_version:string;counts:AccountSummaryCounts;limits:AccountSummaryCounts;ready:boolean;sections:string[];excluded:string[];checked_at:string};
 export type AccountActivitySummary = {
   format_version:string;generated_at:string;scope:string;counts:AccountSummaryCounts;sections:string[];excluded:string[];
@@ -742,6 +744,10 @@ export function createApiClient(baseUrl: string = DEFAULT_API_BASE_URL, auth: {
     }
   }
   return {
+    customerSessions(token:string):Promise<CustomerSessions> { return request(baseUrl,"/api/v1/account/sessions",{headers:bearer(token),cache:"no-store"}); },
+    revokeCustomerSession(id:string,token:string):Promise<{revoked:boolean;current:boolean}> { return request(baseUrl,`/api/v1/account/sessions/${encodeURIComponent(id)}/revoke`,{...post({}),headers:{...bearer(token),"Content-Type":"application/json"}}); },
+    revokeOtherCustomerSessions(token:string):Promise<{revoked:number}> { return request(baseUrl,"/api/v1/account/sessions/revoke-others",{...post({}),headers:{...bearer(token),"Content-Type":"application/json"}}); },
+    revokeCurrentCustomerSession(token:string):Promise<{revoked:boolean;current:boolean}> { return request(baseUrl,"/api/v1/account/logout",{...post({}),headers:{...bearer(token),"Content-Type":"application/json"}}); },
     accountSummary():Promise<AccountSummaryManifest> { return request(baseUrl, "/api/v1/account/data-summary", {cache:"no-store"}); },
     downloadAccountSummary():Promise<AccountActivitySummary> { return request(baseUrl, "/api/v1/account/data-summary/download", {cache:"no-store"}); },
     aiProcessing(ticket:string):Promise<CaseAIProcessing> { return request(baseUrl, `/api/v1/account/requests/${encodeURIComponent(ticket)}/ai-processing`, {cache:"no-store"}); },

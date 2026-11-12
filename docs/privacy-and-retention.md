@@ -1,5 +1,10 @@
 # Privacy requests and anonymous chat retention
 
+[Customer session management](customer-sessions.md) now provides individually
+revocable sign-ins. Only fixed browser/device hints and lifecycle times are kept;
+review their retention separately from anonymous chat cleanup. Existing customer
+tokens need fresh phone verification after the session migration.
+
 Verified customers can download a [current account-activity summary](customer-account-summary.md)
 at `/account/data`. It contains selected profile, preference and activity fields;
 it does not replace the reviewed access-copy process or close a privacy request.
