@@ -41,6 +41,7 @@ tasks stay current without each endpoint having to remember.
   status, due-date and case-priority filters, matching counts and paging.
 - Ticket page: Case progress panel, Tasks, Case team, Case fee, and close or reopen in the Status card.
 - Customer tracking card and account requests: step bar, next step, target date and fee.
+- Mobile customers can open **Account → Show details** on a property request to see its milestones, next step, target date or hold, fee status and closure outcome.
 
 Task assignment does not grant case access. Both the board's My tasks list and
 the dedicated queue exclude tasks whose case the current staff member cannot
@@ -49,5 +50,5 @@ paths hides its tasks without deleting or reassigning them.
 
 ## Not yet
 
-Online payment of case fees, WhatsApp alerts for tasks and overdue cases, and case screens in the mobile app.
+Online payment of case fees, WhatsApp alerts for tasks and overdue cases, and staff case-management screens in the mobile app.
 Staff in-app/email deadline alerts and on-hold clock pauses are implemented; see [setup and behavior](deadline-alerts.md).
