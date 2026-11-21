@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { formatFee, REVIEW_MODERATION_LABELS, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
 import { forgetBookingRef, saveBookingRef, useBookingRefs } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
-import { Avatar, SlotPicker, ui } from "./lawyerUi";
+import { ConsultationJoin, Avatar, SlotPicker, ui } from "./lawyerUi";
 import { PayPanel } from "./PayPanel";
 import { api, colors } from "./theme";
 
@@ -125,9 +125,7 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
         <Text style={ui.muted}>{Math.round((new Date(m.ends_at).getTime() - new Date(m.starts_at).getTime()) / 60000)} min on Google Meet{booking.fee !== null ? ` · ${formatFee(booking.fee)}` : ""}</Text>
       </View>
       <ConsultationBrief booking={booking} />
-      {live && (m.meet_link
-        ? <Pressable style={styles.button} onPress={() => Linking.openURL(m.meet_link!)}><Text style={styles.buttonText}>Join on Google Meet</Text></Pressable>
-        : <Text style={ui.muted}>The meeting link will come on WhatsApp before it starts.</Text>)}
+      <ConsultationJoin meeting={m} />
       <PayPanel bookingRef={bookingRef} booking={booking} onChange={applyUpdate} />
       {booking.review && (
         <View style={{ gap: 4 }}>
