@@ -1,10 +1,52 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { LawyerCard, LawyerSlot, SlotDay } from "@homexo/shared";
+import { ActivityIndicator, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import type { CustomerMeeting, LawyerCard, LawyerSlot, SlotDay } from "@homexo/shared";
 import { api, colors } from "./theme";
 
 export const gold = "#d6ad66";
 export const forest = "#123b35";
+
+function joinPhase(meeting: CustomerMeeting, now: number) {
+  const start = Date.parse(meeting.starts_at);
+  const end = Date.parse(meeting.ends_at);
+  if (meeting.status !== "scheduled" || !Number.isFinite(start) || !Number.isFinite(end) || now >= end) return "closed";
+  return now < start - 15 * 60000 ? "early" : "open";
+}
+
+export function ConsultationJoin({ meeting }: { meeting: CustomerMeeting }) {
+  const [now, setNow] = useState(Date.now);
+  const [error, setError] = useState("");
+  const phase = joinPhase(meeting, now);
+  useEffect(() => {
+    if (phase === "closed") return;
+    const boundary = phase === "early" ? Date.parse(meeting.starts_at) - 15 * 60000 : Date.parse(meeting.ends_at);
+    const refresh = () => setNow(Date.now());
+    const timer = setTimeout(refresh, Math.min(2147483647, Math.max(1, boundary - Date.now())));
+    const subscription = AppState.addEventListener("change", state => { if (state === "active") refresh(); });
+    return () => { clearTimeout(timer); subscription.remove(); };
+  }, [phase, meeting.starts_at, meeting.ends_at, now]);
+
+  async function join() {
+    const at = Date.now();
+    setNow(at);
+    if (!meeting.meet_link || joinPhase(meeting, at) !== "open") return;
+    setError("");
+    try { await Linking.openURL(meeting.meet_link); }
+    catch { setError("Could not open the meeting. Tap Join on Google Meet to retry."); }
+  }
+
+  if (phase === "closed") return null;
+  if (!meeting.meet_link) return <Text style={ui.muted}>Meeting link pending.</Text>;
+  if (phase === "early") return <Text style={ui.muted}>Joining opens 15 minutes before your consultation.</Text>;
+  return (
+    <View style={{ gap: 4 }}>
+      <Pressable accessibilityRole="button" onPress={join} style={[ui.day, ui.dayOn]}>
+        <Text style={[ui.dayLabel, { color: colors.white }]}>Join on Google Meet</Text>
+      </Pressable>
+      {error ? <Text style={ui.error}>{error}</Text> : null}
+    </View>
+  );
+}
 
 export function Avatar({ initials, size = 56 }: { initials: string; size?: number }) {
   return (
