@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
-import { ApiError, COURIER_STATUS_LABELS, paymentLabel, type AccountOverview, type AccountRequest, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ApiError, COURIER_STATUS_LABELS, paymentLabel, type AccountOverview, type AccountRequest, type CustomerMeeting, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
 import { expireSession, signIn, signOut, updateProfile, useSession, type Session } from "./accountStore";
 import { saveBookingRef } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
@@ -148,6 +148,7 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
         </View>
       ) : !data ? <ActivityIndicator color={colors.green} /> : (
         <>
+          <UpcomingMeetings data={data} />
           {data.requests.length === 0 && <View style={styles.card}><Text style={styles.body}>Nothing on this number yet. Requests and consultations you make show up here.</Text></View>}
           {requests.length > 0 && (
             <View style={styles.card}>
@@ -191,6 +192,56 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
       )}
       <Profile session={session} />
     </ScrollView>
+  );
+}
+
+function UpcomingMeetings({ data }: { data: AccountOverview }) {
+  const [now, setNow] = useState(Date.now);
+  const [failedId, setFailedId] = useState<string | null>(null);
+  const byId = new Map<string, CustomerMeeting>();
+  for (const request of data.requests) {
+    if (request.next_meeting) byId.set(request.next_meeting.id, request.next_meeting);
+  }
+  for (const booking of data.bookings) byId.set(booking.meeting.id, booking.meeting);
+  const meetings = [...byId.values()]
+    .filter((meeting) => meeting.status === "scheduled" && Date.parse(meeting.ends_at) > now)
+    .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
+
+  useEffect(() => {
+    if (!meetings.length) return;
+    const timer = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(timer);
+  }, [meetings.length]);
+
+  async function join(meeting: CustomerMeeting) {
+    const time = Date.now();
+    setNow(time);
+    if (!meeting.meet_link || time < Date.parse(meeting.starts_at) - 15 * 60000 || time >= Date.parse(meeting.ends_at)) return;
+    setFailedId(null);
+    try {
+      await Linking.openURL(meeting.meet_link);
+    } catch {
+      setFailedId(meeting.id);
+    }
+  }
+
+  if (!meetings.length) return null;
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Upcoming meetings</Text>
+      {meetings.map((meeting) => (
+        <View key={meeting.id} style={{ gap: 4 }}>
+          <Text style={styles.label}>{meeting.title || "Consultation"}</Text>
+          <Text style={ui.muted}>{meeting.when}{meeting.lawyer_name ? ` · ${meeting.lawyer_name}` : ""}</Text>
+          {meeting.meet_link && now >= Date.parse(meeting.starts_at) - 15 * 60000 ? (
+            <Pressable accessibilityRole="button" onPress={() => join(meeting)}>
+              <Text style={styles.link}>Join meeting</Text>
+            </Pressable>
+          ) : <Text style={ui.muted}>{meeting.meet_link ? "Joining opens 15 minutes before the meeting." : "Meeting link pending."}</Text>}
+          {failedId === meeting.id && <Text style={ui.error}>Could not open the meeting link. Tap Join meeting to retry.</Text>}
+        </View>
+      ))}
+    </View>
   );
 }
 
