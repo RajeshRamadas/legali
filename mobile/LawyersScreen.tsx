@@ -11,7 +11,7 @@ const DAY_NAMES: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", 
 
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]} accessibilityState={{ selected: on }}>
+    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]} accessibilityRole="button" accessibilityState={{ selected: on }}>
       <Text style={[styles.chipText, on && { color: colors.white }]}>{label}</Text>
     </Pressable>
   );
@@ -31,7 +31,14 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
   }, []);
   useEffect(() => {
     setError("");
-    api.searchLawyers(search).then((r) => setResults(r.items)).catch((e) => setError(e instanceof Error ? e.message : "Could not load lawyers."));
+    let active = true;
+    setResults(null);
+    api.searchLawyers(search).then((response) => {
+      if (active) setResults(response.items);
+    }).catch((e) => {
+      if (active) setError(e instanceof Error ? e.message : "Could not load lawyers.");
+    });
+    return () => { active = false; };
   }, [search]);
 
   const set = (patch: Partial<LawyerSearch>) => setSearch((prev) => ({ ...prev, ...patch }));
@@ -53,6 +60,17 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
         <Pressable style={styles.searchButton} onPress={() => set({ q: query.trim() || undefined })}><Text style={styles.searchButtonText}>Search</Text></Pressable>
       </View>
 
+      {!!filters?.cities.length && (
+        <View style={{ gap: 4 }}>
+          <Text style={styles.label}>City</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            <Chip label="All cities" on={!search.city} onPress={() => set({ city: undefined })} />
+            {filters.cities.map(({ value }) => (
+              <Chip key={value} label={value} on={search.city === value} onPress={() => toggle("city", value)} />
+            ))}
+          </ScrollView>
+        </View>
+      )}
       {filters && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {filters.specialisations.map((s) => <Chip key={s.value} label={s.value} on={search.specialisation === s.value} onPress={() => toggle("specialisation", s.value)} />)}
@@ -62,7 +80,7 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
         <Chip label="Available today" on={search.available === "today"} onPress={() => toggle("available", "today")} />
         <Chip label="Up to ₹1,000" on={search.max_fee === 1000} onPress={() => toggle("max_fee", 1000)} />
         <Chip label="10+ years" on={search.min_experience === 10} onPress={() => toggle("min_experience", 10)} />
-        {filters?.languages.slice(0, 6).map((l) => <Chip key={l.value} label={l.value} on={search.language === l.value} onPress={() => toggle("language", l.value)} />)}
+        {filters?.languages.map((l) => <Chip key={l.value} label={l.value} on={search.language === l.value} onPress={() => toggle("language", l.value)} />)}
       </ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         <Text style={[ui.muted, { alignSelf: "center" }]}>Sort:</Text>
@@ -70,7 +88,7 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
       </ScrollView>
 
       {error ? <Text style={ui.error}>{error}</Text> : null}
-      {results === null ? <ActivityIndicator color={colors.green} style={{ marginTop: 24 }} /> : (
+      {error ? <Pressable accessibilityRole="button" onPress={() => set({})}><Text style={styles.link}>Retry search</Text></Pressable> : results === null ? <ActivityIndicator color={colors.green} style={{ marginTop: 24 }} /> : (
         <Text style={ui.muted}>{results.length} lawyer{results.length === 1 ? "" : "s"}{search.specialisation ? ` for ${search.specialisation}` : ""}</Text>
       )}
       {results?.length === 0 && <View style={styles.card}><Text style={styles.body}>No lawyers match these filters. Try clearing one.</Text></View>}
