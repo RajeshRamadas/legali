@@ -53,7 +53,7 @@ and preliminary-PDF requests before serving private bytes. Administrators can
 review safe case/file references and reader categories at `/admin/file-access`.
 An authorization record is not confirmation of completed delivery or reading.
 
-Not done yet: document upload in the mobile app, and automatic portal fetchers.
+In the mobile app, open **Account**, expand a property request, and choose a checklist item or **Other document**. Review the filename and tap **Upload to case**. The returned case lists the file and its scan status. Automatic government portal fetching remains pending.
 
 Security scanning and quarantine are implemented; see [malware scanning](malware-scanning.md) for deployment, backfilling existing files and staff retries.
 
