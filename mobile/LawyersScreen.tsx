@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { formatFee, type Booking, type BookingRef, type LawyerCard, type LawyerFilters, type LawyerProfile, type LawyerSearch, type LawyerSlot, type LawyerSort } from "@homexo/shared";
+import { useSession } from "./accountStore";
 import { saveBookingRef } from "./bookingsStore";
 import { ConsultationJoin, Avatar, Rating, SlotPicker, Tags, forest, ui } from "./lawyerUi";
 import { PayPanel } from "./PayPanel";
@@ -137,6 +138,7 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
 }
 
 function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack: () => void; onBooked: () => void }) {
+  const session = useSession();
   const [lawyer, setLawyer] = useState<LawyerProfile | null>(null);
   const [error, setError] = useState("");
   const [slot, setSlot] = useState<(LawyerSlot & { day: string }) | null>(null);
@@ -241,6 +243,19 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
           {error ? <Text style={ui.error}>{error}</Text> : null}
           {slot && !lawyer.booking_paused && (
             <View style={{ gap: 10, marginTop: 6 }}>
+              {session && (
+                <Pressable accessibilityRole="button" disabled={busy} onPress={() => {
+                  const { name, contact, email } = session.profile;
+                  setForm(current => ({
+                    ...current,
+                    name: name?.trim() || current.name,
+                    phone: contact,
+                    email: email?.trim() || current.email,
+                  }));
+                }}>
+                  <Text style={styles.link}>Use my account details</Text>
+                </Pressable>
+              )}
               <View style={styles.summary}><Text style={ui.muted}>Your slot</Text><Text style={styles.summaryValue}>{slot.day}, {slot.label}</Text></View>
               <Field label="Your name" value={form.name} onChangeText={(name) => setForm({ ...form, name })} autoComplete="name" />
               <Field label="WhatsApp number" value={form.phone} onChangeText={(phone) => setForm({ ...form, phone })} keyboardType="phone-pad" autoComplete="tel" placeholder="+91 98765 43210" />
