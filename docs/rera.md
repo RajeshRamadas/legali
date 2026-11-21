@@ -14,7 +14,7 @@ The pages render on the server and refresh every five minutes. The API is `GET /
 ```bash
 cd backend
 python -m app.rera_import path/to/projects.csv            # add or update by registration number
-python -m app.rera_import path/to/projects.json --replace # wipe the table first
+python -m app.rera_import path/to/projects.json --replace # replace the catalogue with the valid rows
 ```
 
 CSV, JSON (a list of objects, or `{"projects": [...]}`) and JSON Lines are accepted. Column names are matched loosely, so exports with headers such as `RERA Registration No.`, `Promoter Name`, `Proposed Date of Completion` or `Units Sold` work as they are; the full list is `COLUMNS` in `backend/app/rera_import.py`. Only registration number, project name and promoter are required. Dates can be `2027-03-31`, `31/03/2027`, `31-Mar-2027` and similar. Rows that can't be read are skipped and listed.
@@ -30,6 +30,8 @@ CSV, JSON (a list of objects, or `{"projects": [...]}`) and JSON Lines are accep
 | price_per_sqft, land_area_sqm | Locality prices. |
 | complaints | Complaint warnings and developer record. |
 | source_url | "View on the RERA portal" link. |
+
+An import with zero valid rows exits with an error and keeps the existing catalogue.
 
 ## Sample data
 

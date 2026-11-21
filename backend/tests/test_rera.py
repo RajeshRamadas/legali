@@ -1,9 +1,11 @@
 from datetime import date
 
+import pytest
+
 from app import rera
 from app.db import SessionLocal
 from app.models import ReraProject
-from app.rera_import import load, normalise
+from app.rera_import import load, main, normalise
 from app.rera_sample import load_sample
 
 ON = date(2026, 10, 19)
@@ -94,6 +96,40 @@ def test_real_import_replaces_sample_data(client):
     with SessionLocal() as db:
         assert load(db, [{**rows[0], "name": "One Renamed"}]) == {"added": 0, "updated": 1, "skipped": []}
     assert client.get("/api/v1/rera/projects/prm-ka-rera-1-2").json()["name"] == "One Renamed"
+
+@pytest.mark.parametrize("contents", [
+    "[]",
+    '[{"name": "Missing registration number"}, null]',
+])
+@pytest.mark.parametrize("replace", [False, True])
+def test_invalid_import_preserves_catalogue(client, tmp_path, capsys, contents, replace):
+    with SessionLocal() as db:
+        load_sample(db)
+        db.add(_project())
+        db.commit()
+    before = client.get("/api/v1/rera/summary").json()
+    assert before["data"]["projects"] == 151
+
+    path = tmp_path / "projects.json"
+    path.write_text(contents)
+    args = [str(path), "--replace"] if replace else [str(path)]
+    assert main(args) == 1
+    assert "No valid RERA projects to import" in capsys.readouterr().err
+    assert client.get("/api/v1/rera/summary").json() == before
+
+
+def test_replacement_import_with_valid_rows(client):
+    with SessionLocal() as db:
+        db.add(_project())
+        db.commit()
+        result = load(db, [
+            {"name": "Invalid project"},
+            {"registration_no": "NEW/1", "name": "New project", "promoter_name": "New developer"},
+        ], replace=True)
+    assert result == {"added": 1, "updated": 0, "skipped": ["row 1: missing registration_no, promoter_name"]}
+    projects = client.get("/api/v1/rera/projects").json()
+    assert [p["registration_no"] for p in projects["items"]] == ["NEW/1"]
+
 
 def test_search_and_pages(client):
     with SessionLocal() as db:
