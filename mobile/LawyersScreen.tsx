@@ -6,7 +6,7 @@ import { Avatar, Rating, SlotPicker, Tags, forest, ui } from "./lawyerUi";
 import { PayPanel } from "./PayPanel";
 import { api, colors } from "./theme";
 
-const SORTS: [LawyerSort, string][] = [["relevance", "Relevant"], ["soonest", "Soonest"], ["rating", "Top rated"], ["experience", "Experience"], ["fee_low", "Lowest fee"]];
+const SORTS: [LawyerSort, string][] = [["relevance", "Relevant"], ["soonest", "Soonest"], ["rating", "Top rated"], ["experience", "Experience"], ["fee_low", "Lowest fee"], ["fee_high", "Highest fee"]];
 const DAY_NAMES: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
 
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
@@ -78,8 +78,19 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
       )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         <Chip label="Available today" on={search.available === "today"} onPress={() => toggle("available", "today")} />
-        <Chip label="Up to ₹1,000" on={search.max_fee === 1000} onPress={() => toggle("max_fee", 1000)} />
-        <Chip label="10+ years" on={search.min_experience === 10} onPress={() => toggle("min_experience", 10)} />
+        <Chip label="Next 3 days" on={search.available === "3days"} onPress={() => toggle("available", "3days")} />
+      </ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+        {[500, 1000, 1500, 2000, 3000].map(fee => (
+          <Chip key={fee} label={`Up to ${formatFee(fee)}`} on={search.max_fee === fee} onPress={() => toggle("max_fee", fee)} />
+        ))}
+      </ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+        {[5, 10, 15, 20].map(years => (
+          <Chip key={years} label={`${years}+ years`} on={search.min_experience === years} onPress={() => toggle("min_experience", years)} />
+        ))}
+      </ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {filters?.languages.map((l) => <Chip key={l.value} label={l.value} on={search.language === l.value} onPress={() => toggle("language", l.value)} />)}
       </ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -87,6 +98,11 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
         {SORTS.map(([value, label]) => <Chip key={value} label={label} on={search.sort === value} onPress={() => set({ sort: value })} />)}
       </ScrollView>
 
+      {(query || Object.entries(search).some(([key, value]) => key !== "sort" && value !== undefined)) ? (
+        <Pressable accessibilityRole="button" onPress={() => { setQuery(""); setSearch({ sort: search.sort }); }}>
+          <Text style={styles.link}>Clear all filters</Text>
+        </Pressable>
+      ) : null}
       {error ? <Text style={ui.error}>{error}</Text> : null}
       {error ? <Pressable accessibilityRole="button" onPress={() => set({})}><Text style={styles.link}>Retry search</Text></Pressable> : results === null ? <ActivityIndicator color={colors.green} style={{ marginTop: 24 }} /> : (
         <Text style={ui.muted}>{results.length} lawyer{results.length === 1 ? "" : "s"}{search.specialisation ? ` for ${search.specialisation}` : ""}</Text>
