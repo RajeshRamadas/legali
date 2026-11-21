@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
-import { ApiError, COURIER_STATUS_LABELS, paymentLabel, type AccountOverview, type AccountRequest, type CustomerMeeting, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
+import { ApiError, COURIER_STATUS_LABELS, paymentLabel, type NotificationChoices, type AccountOverview, type AccountRequest, type CustomerMeeting, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
 import { expireSession, signIn, signOut, updateProfile, useSession, type Session } from "./accountStore";
 import { saveBookingRef } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
@@ -190,6 +190,7 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
           )}
         </>
       )}
+      <AlertPreferences key={session.token} />
       <Profile session={session} />
     </ScrollView>
   );
@@ -394,6 +395,74 @@ function RequestCard({ request: r, token, contact, expanded, onToggle }: { reque
           <CaseDocuments ticket={detail} contact={contact} onUpdate={setDetail} />
         </View>
       ) : !detailError && <ActivityIndicator color={colors.green} />)}
+    </View>
+  );
+}
+
+const alertChannels = { email: "Email", sms: "SMS", whatsapp: "WhatsApp" } as const;
+const channelKeys = Object.keys(alertChannels) as (keyof typeof alertChannels)[];
+
+function AlertPreferences() {
+  const [saved, setSaved] = useState<NotificationChoices | null>(null);
+  const [draft, setDraft] = useState<NotificationChoices | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const [message, setMessage] = useState("");
+  const lock = useRef(false);
+
+  async function sync(save: boolean) {
+    if (lock.current || (save && (!draft || conflict))) return;
+    lock.current = true;
+    setBusy(true);
+    setMessage("");
+    try {
+      const value = save && draft
+        ? await api.saveNotificationPreferences({ email: draft.email, sms: draft.sms, whatsapp: draft.whatsapp, revision: draft.revision })
+        : await api.notificationPreferences();
+      setDraft(value);
+      setSaved(value);
+      setConflict(false);
+      if (save) setMessage("Notification preferences saved.");
+    } catch (error) {
+      if (save && error instanceof ApiError && error.status === 409) {
+        setConflict(true);
+        setMessage("Your preferences changed elsewhere. Reload the saved choices before editing again.");
+      } else {
+        setMessage(error instanceof Error ? error.message : "Could not confirm your preferences. Please try again.");
+      }
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  const changed = draft && saved && channelKeys.some(key => draft[key] !== saved[key]);
+  return (
+    <View style={styles.card}>
+      <Text accessibilityRole="header" style={styles.cardTitle}>Notification preferences</Text>
+      {draft && (
+        <>
+          <Text style={styles.body}>Choose where to receive automated updates. Turning off a channel also cancels queued alerts. You can still request sign-in codes.</Text>
+          {channelKeys.map(key => (
+            <Pressable key={key} accessibilityRole="checkbox" accessibilityLabel={alertChannels[key]}
+              accessibilityState={{ checked: draft[key], disabled: busy || conflict }} disabled={busy || conflict}
+              onPress={() => { setDraft({ ...draft, [key]: !draft[key] }); setMessage(""); }}>
+              <Text style={styles.label}>{alertChannels[key]} · {draft[key] ? "On" : "Off"}</Text>
+            </Pressable>
+          ))}
+          <Pressable accessibilityRole="button" disabled={!changed || busy || conflict}
+            style={[styles.button, (!changed || busy || conflict) && { opacity: 0.5 }]} onPress={() => sync(true)}>
+            <Text style={styles.buttonText}>Save preferences</Text>
+          </Pressable>
+        </>
+      )}
+      {(!draft || conflict) && (
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => sync(false)}>
+          <Text style={styles.link}>{draft ? "Reload saved choices" : "Manage alert channels"}</Text>
+        </Pressable>
+      )}
+      {busy && <ActivityIndicator color={colors.green} />}
+      {message ? <Text accessibilityLiveRegion="polite" style={styles.body}>{message}</Text> : null}
     </View>
   );
 }
