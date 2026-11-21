@@ -6,7 +6,7 @@ from threading import Barrier, Event
 import pytest
 from sqlalchemy import func, select
 
-from app import config, verification, verification_jobs as jobs
+from app import abuse_protection, config, verification, verification_jobs as jobs
 from app.db import SessionLocal, engine
 from app.models import ApiRateBucket, AuditLog, Document, Notification, ServiceRequest, VerificationJob, VerificationRun, utcnow
 from test_verification import local, upload, approve
@@ -143,6 +143,9 @@ def test_strict_job_submission(client,admin_headers,case,extra):
 
 
 def test_submission_and_lookup_budgets_apply(client,admin_headers,case,monkeypatch):
+    # Each request pair must consume the same fixed-minute budget.
+    now = utcnow()
+    monkeypatch.setattr(abuse_protection, "utcnow", lambda: now)
     with SessionLocal() as db:db.query(ApiRateBucket).delete();db.commit()
     monkeypatch.setattr(config,"API_AI_ACTIONS_PER_MINUTE",1)
     queued(client,admin_headers,case)

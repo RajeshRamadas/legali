@@ -151,7 +151,7 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
   }, [slug]);
 
   async function book() {
-    if (!slot) return;
+    if (!slot || lawyer?.booking_paused) return;
     setError("");
     setBusy(true);
     try {
@@ -225,10 +225,21 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
             <View><Text style={ui.muted}>Consultation fee</Text><Text style={styles.fee}>{formatFee(lawyer.consultation_fee)}</Text></View>
             <Text style={ui.muted}>{lawyer.consultation_minutes} min · Google Meet</Text>
           </View>
-          <Text style={styles.label}>Pick a time</Text>
-          <SlotPicker slug={slug} selected={slot?.starts_at ?? null} onSelect={setSlot} refreshKey={slotsKey} />
+          {lawyer.booking_paused ? (
+            <View style={{ gap: 6 }}>
+              <Text style={styles.label}>New consultations are temporarily paused</Text>
+              <Pressable accessibilityRole="button" onPress={onBooked}>
+                <Text style={styles.link}>View my existing bookings</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.label}>Pick a time</Text>
+              <SlotPicker slug={slug} selected={slot?.starts_at ?? null} onSelect={setSlot} refreshKey={slotsKey} />
+            </>
+          )}
           {error ? <Text style={ui.error}>{error}</Text> : null}
-          {slot && (
+          {slot && !lawyer.booking_paused && (
             <View style={{ gap: 10, marginTop: 6 }}>
               <View style={styles.summary}><Text style={ui.muted}>Your slot</Text><Text style={styles.summaryValue}>{slot.day}, {slot.label}</Text></View>
               <Field label="Your name" value={form.name} onChangeText={(name) => setForm({ ...form, name })} autoComplete="name" />
