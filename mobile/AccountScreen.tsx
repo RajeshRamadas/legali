@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { ApiError, COURIER_STATUS_LABELS, paymentLabel, type AccountOverview, type AccountRequest, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
 import { expireSession, signIn, signOut, updateProfile, useSession, type Session } from "./accountStore";
@@ -167,6 +167,30 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
 function RequestCard({ request: r, token, contact, expanded, onToggle }: { request: AccountRequest; token: string; contact: string; expanded: boolean; onToggle: () => void }) {
   const [detail, setDetail] = useState<TicketStatus | null>(null);
   const [detailError, setDetailError] = useState("");
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [replyError, setReplyError] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const submitting = useRef(false);
+
+  async function sendReply() {
+    const message = draft.trim();
+    if (!detail?.can_reply || !message || submitting.current) return;
+    submitting.current = true;
+    setSending(true);
+    setReplyError("");
+    try {
+      const updated = await api.replyToTicket(r.ticket_number, contact, message);
+      setDetail(updated);
+      setDraft("");
+    } catch (error) {
+      setReplyError(error instanceof ApiError ? error.message : "Could not confirm delivery. Reopen this case to check the conversation before retrying.");
+    } finally {
+      submitting.current = false;
+      setSending(false);
+    }
+  }
+
   useEffect(() => {
     if (!expanded) return;
     setDetail(null);
@@ -185,7 +209,7 @@ function RequestCard({ request: r, token, contact, expanded, onToggle }: { reque
 
   return (
     <View style={styles.card}>
-      <Pressable onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded }}>
+      <Pressable onPress={onToggle} disabled={sending} accessibilityRole="button" accessibilityState={{ expanded }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle}>{r.kind === "consultation" ? r.title : r.service_name}</Text>
@@ -217,9 +241,27 @@ function RequestCard({ request: r, token, contact, expanded, onToggle }: { reque
           {detail.history.map((h, i) => (
             <View key={i}><Text style={styles.label}>{h.label}</Text>{h.note ? <Text style={ui.muted}>{h.note}</Text> : null}</View>
           ))}
-          {detail.messages.slice(-3).map((m, i) => (
+          <Text accessibilityRole="header" style={styles.label}>Case messages</Text>
+          {detail.messages.length > 3 && (
+            <Pressable accessibilityRole="button" onPress={() => setShowHistory(!showHistory)}>
+              <Text style={styles.link}>{showHistory ? "Show recent messages" : "Show earlier messages"}</Text>
+            </Pressable>
+          )}
+          {(showHistory ? detail.messages : detail.messages.slice(-3)).map((m, i) => (
             <Text key={`m${i}`} style={ui.muted}><Text style={styles.label}>{m.from === "you" ? "You: " : "Homexo: "}</Text>{m.message}</Text>
           ))}
+          {detail.can_reply && (
+            <View style={{ gap: 8 }}>
+              <TextInput multiline maxLength={4000} editable={!sending} value={draft}
+                accessibilityLabel="Message to your case team" placeholder="Message your case team"
+                onChangeText={setDraft} style={styles.input} />
+              {replyError ? <Text accessibilityLiveRegion="polite" style={ui.error}>{replyError}</Text> : null}
+              <Pressable accessibilityRole="button" disabled={sending || !draft.trim()} onPress={sendReply}
+                style={[styles.button, (sending || !draft.trim()) && { opacity: 0.5 }]}>
+                <Text style={styles.buttonText}>{sending ? "Sending…" : "Send reply"}</Text>
+              </Pressable>
+            </View>
+          )}
           <CaseDocuments ticket={detail} contact={contact} onUpdate={setDetail} />
         </View>
       ) : !detailError && <ActivityIndicator color={colors.green} />)}
