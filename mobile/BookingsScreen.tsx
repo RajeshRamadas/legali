@@ -9,6 +9,37 @@ import { api, colors } from "./theme";
 
 const upcoming = (b: Booking) => b.meeting.status === "scheduled" && new Date(b.meeting.ends_at).getTime() > Date.now();
 
+function ConsultationBrief({ booking }: { booking: Booking }) {
+  const [expanded, setExpanded] = useState(false);
+  const issue = booking.issue?.trim();
+  const agenda = booking.meeting.agenda?.trim();
+  if (!issue && !agenda) return null;
+
+  return (
+    <View style={{ gap: 6 }}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)}>
+        <Text style={styles.link}>{expanded ? "Hide consultation brief" : "View consultation brief"}</Text>
+      </Pressable>
+      {expanded && (
+        <>
+          {!!issue && (
+            <View>
+              <Text style={styles.label}>What you asked to discuss</Text>
+              <Text selectable style={styles.body}>{issue}</Text>
+            </View>
+          )}
+          {!!agenda && agenda !== issue && (
+            <View>
+              <Text style={styles.label}>Meeting agenda</Text>
+              <Text selectable style={styles.body}>{agenda}</Text>
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
 function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState("");
@@ -65,6 +96,7 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
         <Text style={styles.summaryValue}>{m.when}</Text>
         <Text style={ui.muted}>{Math.round((new Date(m.ends_at).getTime() - new Date(m.starts_at).getTime()) / 60000)} min on Google Meet{booking.fee !== null ? ` · ${formatFee(booking.fee)}` : ""}</Text>
       </View>
+      <ConsultationBrief booking={booking} />
       {live && (m.meet_link
         ? <Pressable style={styles.button} onPress={() => Linking.openURL(m.meet_link!)}><Text style={styles.buttonText}>Join on Google Meet</Text></Pressable>
         : <Text style={ui.muted}>The meeting link will come on WhatsApp before it starts.</Text>)}
