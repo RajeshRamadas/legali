@@ -1,7 +1,7 @@
 """Loads Karnataka RERA projects from a CSV or JSON export into rera_projects.
 
     python -m app.rera_import projects.csv            # add new projects, update existing ones by registration number
-    python -m app.rera_import projects.json --replace # drop every project first, then load
+    python -m app.rera_import projects.json --replace # replace the catalogue after validating the input
 
 Column names are matched loosely (case, spaces and punctuation are ignored, and common alternatives such as
 "Promoter Name" / "Developer" or "Proposed Date of Completion" are understood); see COLUMNS. Rows without a
@@ -123,6 +123,8 @@ def _unit_mix(value) -> dict:
 
 def normalise(raw: dict) -> dict:
     """One export row (any supported headers) as ReraProject fields. Raises ValueError for a row that can't be used."""
+    if not isinstance(raw, dict):
+        raise ValueError("expected a project object")
     row = {}
     for header, value in raw.items():
         field = _field_for(str(header))
@@ -171,20 +173,26 @@ def normalise(raw: dict) -> dict:
 
 def load(db: Session, rows: list[dict], *, sample: bool = False, replace: bool = False) -> dict:
     """Upserts rows by registration number. Real data clears out sample projects; sample data never touches real rows."""
+    valid_rows = []
+    skipped: list[str] = []
+    for n, raw in enumerate(rows, start=1):
+        try:
+            fields = normalise(raw)
+        except ValueError as exc:
+            skipped.append(f"row {n}: {exc}")
+        else:
+            valid_rows.append((n, fields))
+    if not valid_rows:
+        raise ValueError(f"No valid RERA projects to import ({len(skipped)} skipped).")
+
     if replace:
         db.execute(delete(ReraProject))
     elif not sample:
         db.execute(delete(ReraProject).where(ReraProject.is_sample.is_(True)))
     existing = {p.registration_no: p for p in db.scalars(select(ReraProject)).all()}
     added = updated = 0
-    skipped: list[str] = []
     seen_slugs = {p.slug: p.registration_no for p in existing.values()}
-    for n, raw in enumerate(rows, start=1):
-        try:
-            fields = normalise(raw)
-        except ValueError as exc:
-            skipped.append(f"row {n}: {exc}")
-            continue
+    for n, fields in valid_rows:
         project = existing.get(fields["registration_no"])
         if project is None:
             if seen_slugs.get(fields["slug"]) not in (None, fields["registration_no"]):
@@ -215,10 +223,14 @@ def read_rows(path: Path) -> list[dict]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("path", type=Path, help="CSV, JSON (a list of objects) or JSON Lines file")
-    parser.add_argument("--replace", action="store_true", help="delete every project before loading")
+    parser.add_argument("--replace", action="store_true", help="replace the catalogue after validating the input")
     args = parser.parse_args(argv)
-    with SessionLocal() as db:
-        result = load(db, read_rows(args.path), replace=args.replace)
+    try:
+        with SessionLocal() as db:
+            result = load(db, read_rows(args.path), replace=args.replace)
+    except ValueError as exc:
+        print(f"Import failed: {exc}", file=sys.stderr)
+        return 1
     print(f"Added {result['added']}, updated {result['updated']}, skipped {len(result['skipped'])}.")
     for line in result["skipped"][:20]:
         print(f"  skipped {line}", file=sys.stderr)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { ApiError, paymentLabel, type AccountOverview, type AccountRequest, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
-import { signIn, signOut, updateProfile, useSession, type Session } from "./accountStore";
+import { expireSession, signIn, signOut, updateProfile, useSession, type Session } from "./accountStore";
 import { saveBookingRef } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
 import { ui } from "./lawyerUi";
@@ -203,6 +203,22 @@ function Profile({ session }: { session: Session }) {
   const [email, setEmail] = useState(profile.email ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [signOutError, setSignOutError] = useState("");
+
+  async function endSessions(all: boolean) {
+    if (busy) return;
+    setBusy(true);
+    setSignOutError("");
+    try {
+      if (all) await api.signOutEverywhere(session.token);
+      else await api.revokeCurrentCustomerSession(session.token);
+      expireSession(session.token);
+    } catch (e) {
+      setSignOutError(e instanceof ApiError ? e.message : "Could not confirm sign-out. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function save() {
     setBusy(true);
@@ -234,9 +250,10 @@ function Profile({ session }: { session: Session }) {
           <Pressable onPress={() => { setName(profile.name ?? ""); setEmail(profile.email ?? ""); setEditing(true); }}><Text style={styles.link}>Edit details</Text></Pressable>
         </>
       )}
+      {signOutError ? <Text style={ui.error}>{signOutError}</Text> : null}
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
-        <Pressable onPress={signOut} hitSlop={8}><Text style={styles.link}>Sign out</Text></Pressable>
-        <Pressable onPress={() => api.signOutEverywhere(session.token).finally(signOut)} hitSlop={8}><Text style={[styles.link, { color: colors.danger }]}>Sign out on all devices</Text></Pressable>
+        <Pressable onPress={() => endSessions(false)} disabled={busy} hitSlop={8}><Text style={styles.link}>Sign out</Text></Pressable>
+        <Pressable onPress={() => endSessions(true)} disabled={busy} hitSlop={8}><Text style={[styles.link, { color: colors.danger }]}>Sign out on all devices</Text></Pressable>
       </View>
     </View>
   );
