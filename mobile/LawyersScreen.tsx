@@ -136,6 +136,16 @@ export function LawyersScreen({ onBooked }: { onBooked: () => void }) {
   );
 }
 
+function bookingFieldErrors(form: { name: string; phone: string; email: string; issue: string }) {
+  const email = form.email.trim();
+  return {
+    name: form.name.trim().length < 2 ? "Enter at least 2 characters for your name." : "",
+    phone: form.phone.replace(/\D/g, "").length < 10 ? "Enter a mobile number with at least 10 digits." : "",
+    email: email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? "Enter a valid email address or leave this blank." : "",
+    issue: form.issue.trim().length < 10 ? "Describe your question in at least 10 characters." : "",
+  };
+}
+
 function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack: () => void; onBooked: () => void }) {
   const [lawyer, setLawyer] = useState<LawyerProfile | null>(null);
   const [error, setError] = useState("");
@@ -150,7 +160,12 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
     api.getLawyer(slug).then(setLawyer).catch((e) => setError(e instanceof Error ? e.message : "Could not load this lawyer."));
   }, [slug]);
 
+  const [attempted, setAttempted] = useState(false);
+  const fieldErrors = bookingFieldErrors(form);
+
   async function book() {
+    setAttempted(true);
+    if (busy || Object.values(fieldErrors).some(Boolean)) return;
     if (!slot || lawyer?.booking_paused) return;
     setError("");
     setBusy(true);
@@ -204,7 +219,6 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
     );
   }
 
-  const ready = slot && form.name.trim().length >= 2 && form.phone.trim().length >= 10 && form.issue.trim().length >= 10;
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
@@ -242,11 +256,11 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
           {slot && !lawyer.booking_paused && (
             <View style={{ gap: 10, marginTop: 6 }}>
               <View style={styles.summary}><Text style={ui.muted}>Your slot</Text><Text style={styles.summaryValue}>{slot.day}, {slot.label}</Text></View>
-              <Field label="Your name" value={form.name} onChangeText={(name) => setForm({ ...form, name })} autoComplete="name" />
-              <Field label="WhatsApp number" value={form.phone} onChangeText={(phone) => setForm({ ...form, phone })} keyboardType="phone-pad" autoComplete="tel" placeholder="+91 98765 43210" />
-              <Field label="Email (optional)" value={form.email} onChangeText={(email) => setForm({ ...form, email })} keyboardType="email-address" autoComplete="email" />
-              <Field label="What would you like to discuss?" value={form.issue} onChangeText={(issue) => setForm({ ...form, issue })} multiline placeholder="A few lines so the lawyer can prepare." />
-              <Pressable style={[styles.button, (!ready || busy) && { opacity: 0.5 }]} disabled={!ready || busy} onPress={book}>
+              <Field label="Your name" value={form.name} maxLength={120} error={attempted ? fieldErrors.name : undefined} onChangeText={(name) => setForm({ ...form, name })} autoComplete="name" />
+              <Field label="WhatsApp number" value={form.phone} maxLength={20} error={attempted ? fieldErrors.phone : undefined} onChangeText={(phone) => setForm({ ...form, phone })} keyboardType="phone-pad" autoComplete="tel" placeholder="+91 98765 43210" />
+              <Field label="Email (optional)" value={form.email} maxLength={254} error={attempted ? fieldErrors.email : undefined} onChangeText={(email) => setForm({ ...form, email })} keyboardType="email-address" autoComplete="email" />
+              <Field label="What would you like to discuss?" value={form.issue} maxLength={2000} error={attempted ? fieldErrors.issue : undefined} onChangeText={(issue) => setForm({ ...form, issue })} multiline placeholder="A few lines so the lawyer can prepare." />
+              <Pressable style={[styles.button, busy && { opacity: 0.5 }]} disabled={busy} onPress={book}>
                 <Text style={styles.buttonText}>{busy ? "Booking…" : lawyer.pay_online ? `Continue to pay ${formatFee(lawyer.consultation_fee)}` : `Confirm booking · ${formatFee(lawyer.consultation_fee)}`}</Text>
               </Pressable>
               <Text style={styles.small}>Please don’t share Aadhaar numbers, passwords or bank details. {lawyer.pay_online ? "You pay right after booking, and get the fee back if you cancel in time." : "Our team confirms the fee and how to pay before the call."}</Text>
@@ -277,12 +291,13 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
   );
 }
 
-export function Field(props: { label: string; value: string; onChangeText: (v: string) => void; placeholder?: string; multiline?: boolean } & Pick<React.ComponentProps<typeof TextInput>, "keyboardType" | "autoComplete">) {
-  const { label, multiline, ...input } = props;
+export function Field(props: { label: string; value: string; onChangeText: (v: string) => void; placeholder?: string; multiline?: boolean; error?: string } & Pick<React.ComponentProps<typeof TextInput>, "keyboardType" | "autoComplete" | "maxLength">) {
+  const { label, multiline, error, ...input } = props;
   return (
     <View style={{ gap: 6 }}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput {...input} style={[styles.input, multiline && { minHeight: 90, textAlignVertical: "top" }]} placeholderTextColor="#9aa59f" multiline={multiline} />
+      <TextInput {...input} accessibilityLabel={label} style={[styles.input, multiline && { minHeight: 90, textAlignVertical: "top" }]} placeholderTextColor="#9aa59f" multiline={multiline} />
+      {error ? <Text accessibilityLiveRegion="polite" style={ui.error}>{error}</Text> : null}
     </View>
   );
 }
