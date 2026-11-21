@@ -245,6 +245,32 @@ function UpcomingMeetings({ data }: { data: AccountOverview }) {
   );
 }
 
+function PreliminaryReport({ report }: { report: NonNullable<TicketStatus["report"]> }) {
+  const [expanded, setExpanded] = useState(false);
+  const sections = report.sections.filter((section) => section.text.trim());
+  if (!sections.length) return null;
+
+  return (
+    <View style={{ gap: 6 }}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)}>
+        <Text style={styles.link}>{expanded ? "Hide preliminary report" : "Read preliminary report"}</Text>
+      </Pressable>
+      {expanded && (
+        <View style={{ gap: 8 }}>
+          {report.lawyer_name && <Text style={ui.muted}>Prepared by {report.lawyer_name}</Text>}
+          {report.issued_at && <Text style={ui.muted}>Issued {dateFormat.format(new Date(report.issued_at))}</Text>}
+          {sections.map((section) => (
+            <View key={section.key}>
+              <Text accessibilityRole="header" style={styles.label}>{section.heading}</Text>
+              <Text selectable style={styles.body}>{section.text}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function RequestCard({ request: r, token, contact, expanded, onToggle }: { request: AccountRequest; token: string; contact: string; expanded: boolean; onToggle: () => void }) {
   const [detail, setDetail] = useState<TicketStatus | null>(null);
   const [detailError, setDetailError] = useState("");
@@ -307,6 +333,7 @@ function RequestCard({ request: r, token, contact, expanded, onToggle }: { reque
       {expanded && (detail ? (
         <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
           {detail.progress && <CaseProgressPanel progress={detail.progress} />}
+          {detail.report && <PreliminaryReport report={detail.report} />}
           {detail.courier !== undefined && (
             <View>
               <Text style={styles.label}>Courier tracking</Text>
