@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { getDocumentAsync, type DocumentPickerAsset } from "expo-document-picker";
-import { type CustomerDocument, type TicketStatus } from "@homexo/shared";
+import { type CustomerDocument, type JourneyCheck, type TicketStatus } from "@homexo/shared";
 import { styles } from "./LawyersScreen";
 import { ui } from "./lawyerUi";
 import { api } from "./theme";
@@ -16,6 +16,36 @@ const scanLabels: Record<CustomerDocument["scan_status"], string> = {
   infected: "Blocked by security scan", failed: "Security scan failed",
 };
 
+const checkLabels: Record<JourneyCheck["status"], string> = {
+  passed: "Verified", in_review: "Being checked", waiting: "Waiting for documents", problem: "Needs attention",
+};
+
+function VerificationCheck({ check }: { check: JourneyCheck }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={{ gap: 4 }}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)}>
+        <Text style={styles.link}>{check.question}</Text>
+        <Text style={ui.muted}>{checkLabels[check.status]}</Text>
+      </Pressable>
+      {expanded && (
+        <View style={{ gap: 4 }}>
+          <Text style={styles.body}>{check.detail}</Text>
+          {check.total > 0 && check.key !== "opinion" && (
+            <Text style={ui.muted}>{check.accepted} of {check.total} documents accepted</Text>
+          )}
+          {!!check.flags?.length && (
+            <>
+              <Text style={styles.label}>Flagged by the automatic upload check</Text>
+              {check.flags.map((flag, index) => <Text key={index} style={ui.muted}>{flag}</Text>)}
+            </>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function CaseDocuments({ ticket, contact, onUpdate }: {
   ticket: TicketStatus; contact: string; onUpdate: (next: TicketStatus) => void;
 }) {
@@ -23,6 +53,7 @@ export function CaseDocuments({ ticket, contact, onUpdate }: {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const locked = useRef(false);
+  const checks = ticket.document_request?.journey?.checks ?? [];
   const open = ticket.can_upload && (!ticket.report || ticket.report.status === "issued");
   const items = ticket.report?.items ?? ticket.document_request?.items ?? [];
 
@@ -75,6 +106,12 @@ export function CaseDocuments({ ticket, contact, onUpdate }: {
       {ticket.documents.map(doc => (
         <Text key={doc.id} style={ui.muted}>{doc.filename} · {scanLabels[doc.scan_status]}</Text>
       ))}
+      {checks.length > 0 && (
+        <>
+          <Text accessibilityRole="header" style={styles.label}>Verification checks</Text>
+          {checks.map(check => <VerificationCheck key={check.key} check={check} />)}
+        </>
+      )}
       {items.length > 0 && <Text accessibilityRole="header" style={styles.label}>Document checklist</Text>}
       {items.map(item => (
         <View key={item.id} style={{ gap: 4 }}>
