@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { formatFee, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
+import { formatFee, REVIEW_MODERATION_LABELS, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
 import { forgetBookingRef, saveBookingRef, useBookingRefs } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
 import { Avatar, SlotPicker, ui } from "./lawyerUi";
@@ -69,7 +69,18 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
         ? <Pressable style={styles.button} onPress={() => Linking.openURL(m.meet_link!)}><Text style={styles.buttonText}>Join on Google Meet</Text></Pressable>
         : <Text style={ui.muted}>The meeting link will come on WhatsApp before it starts.</Text>)}
       <PayPanel bookingRef={bookingRef} booking={booking} onChange={setBooking} />
-      {booking.review && <Text style={ui.muted}>You rated this {"★".repeat(booking.review.rating)}</Text>}
+      {booking.review && (
+        <View style={{ gap: 4 }}>
+          <Text style={styles.label}>Your review · {booking.review.rating} of 5 stars</Text>
+          {booking.review.comment ? <Text style={styles.body}>{booking.review.comment}</Text> : null}
+          {booking.review.moderation_status && (
+            <Text accessibilityLiveRegion="polite" style={ui.muted}>
+              {REVIEW_MODERATION_LABELS[booking.review.moderation_status]}
+              {booking.review.moderation_status === "pending" ? ". Your feedback is private until published." : ""}
+            </Text>
+          )}
+        </View>
+      )}
       {error ? <Text style={ui.error}>{error}</Text> : null}
 
       {mode === "" && (
@@ -109,7 +120,10 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
               </Pressable>
             ))}
           </View>
-          <Field label="Your review (optional)" value={comment} onChangeText={setComment} multiline />
+          <Text style={ui.muted}>Published reviews show your first name and last initial. Leave out contact information and private case details.</Text>
+          <Text style={styles.label}>Your review (optional)</Text>
+          <TextInput accessibilityLabel="Your review (optional)" multiline maxLength={1000}
+            style={styles.input} value={comment} onChangeText={setComment} />
           <Pressable style={[styles.button, (!rating || busy) && { opacity: 0.5 }]} disabled={!rating || busy} onPress={() => run(() => api.reviewBooking(bookingRef, rating, comment.trim()))}>
             <Text style={styles.buttonText}>Submit rating</Text>
           </Pressable>
