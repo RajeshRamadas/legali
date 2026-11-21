@@ -16,6 +16,7 @@ import { signOut, useSession, type Session } from "../account/session";
 import { openDocuments, readRef, type Ref } from "./ref";
 import { CheckList, DocumentMap, MapLegend, Stepper, revealCheck } from "./Journey";
 import AIProcessingChoice from "./AIProcessingChoice";
+import CourierTracking from "../CourierTracking";
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx";
 const dateFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
@@ -181,9 +182,10 @@ function Repository({ ticket, reference, onChange }: { ticket: TicketStatus; ref
         <span className={`status-pill status-${ticket.status}`}>{ticket.status_label}</span>
       </div>
       <AIProcessingChoice ticketNumber={ticket.ticket_number}/>
+      <CourierTracking shipment={ticket.courier} />
       {ticket.document_hold&&<p className="dc-card" role="status">Your case team is preserving these files. File removal is paused; uploads and advocate review can continue. Contact the case team for help.</p>}
       {(error || notice) && <p className={error ? "dc-error" : "dc-notice"} role={error ? "alert" : "status"}>{error || notice}</p>}
-      <details className="hx-card hx-case-messages" id="messages" ref={messagesRef}><summary>Messages and case updates</summary><TicketStatusCard ticket={ticket} contact={reference.contact} onUpdate={onChange}/></details>
+      <details className="hx-card hx-case-messages" id="messages" ref={messagesRef}><summary>Messages and case updates</summary><TicketStatusCard ticket={ticket} contact={reference.contact} onUpdate={onChange} showCourier={false}/></details>
       {journey && <Stepper journey={journey} />}
 
       {report?.signed_report_url && (

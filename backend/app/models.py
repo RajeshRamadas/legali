@@ -58,6 +58,8 @@ CLOSURE_OUTCOMES = ("delivered", "withdrawn", "not_viable", "duplicate", "other"
 FEE_STATUSES = ("none", "quoted", "paid", "waived")
 RERA_STATUSES = ("ongoing", "completed", "lapsed", "revoked", "withdrawn")
 
+COURIER_STATUSES = ("dispatched", "in_transit", "out_for_delivery", "delivered", "delivery_issue", "returned")
+
 class Base(DeclarativeBase):
     pass
 
@@ -500,12 +502,30 @@ class ServiceRequest(TimestampMixin, Base):
     conversation: Mapped[Conversation | None] = relationship()
     documents: Mapped[list["Document"]] = relationship(order_by="Document.created_at", lazy="selectin")
     report: Mapped["LegalReport | None"] = relationship(lazy="selectin")
+    courier_shipment: Mapped["CourierShipment | None"] = relationship()
     tasks: Mapped[list["CaseTask"]] = relationship(back_populates="service_request", order_by="CaseTask.created_at", lazy="selectin", cascade="all, delete-orphan")
     members: Mapped[list["CaseMember"]] = relationship(order_by="CaseMember.added_at", lazy="selectin", cascade="all, delete-orphan")
 
     @property
     def active_assignment(self) -> "Assignment | None":
         return next((a for a in reversed(self.assignments) if a.unassigned_at is None), None)
+
+class CourierShipment(Base):
+    __tablename__ = "courier_shipments"
+    __table_args__ = (
+        CheckConstraint(_check_in("status", COURIER_STATUSES), name="ck_courier_shipment_status"),
+        CheckConstraint("revision >= 1", name="ck_courier_shipment_revision"),
+    )
+
+    service_request_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("service_requests.id", ondelete="CASCADE"), primary_key=True,
+    )
+    carrier: Mapped[str] = mapped_column(String(80), nullable=False)
+    tracking_number: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
 
 class CaseDeadlineAlert(Base):
     __tablename__ = "case_deadline_alerts"

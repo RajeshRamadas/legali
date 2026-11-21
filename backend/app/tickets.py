@@ -207,8 +207,10 @@ def customer_view(ticket: ServiceRequest) -> dict:
         {"from": "you" if m.author_type == "customer" else "homexo", "message": m.message, "at": _iso(m.created_at)}
         for m in ticket.messages if m.visibility == "customer"
     ]
+    from .courier import ticket_fields
     from .document_preservation import held_for
     return {
+        **ticket_fields(ticket),
         "document_hold": held_for(ticket),
         "ticket_number": ticket.ticket_number,
         "service_name": ticket.service_type.name,
@@ -259,10 +261,12 @@ def property_view(prop: Property) -> dict:
     return {"type": prop.property_type, "location": prop.locality, **{field: getattr(prop, field) for field in PROPERTY_ID_FIELDS}}
 
 def staff_detail(ticket: ServiceRequest, notifications: list[Notification]) -> dict:
+    from .courier import ticket_fields
     from .submitted_intake import review
     customer = ticket.customer
     return {
         **staff_summary(ticket),
+        **ticket_fields(ticket, staff=True),
         "description": ticket.description,
         "guided_request": review((ticket.structured_answers or {}).get("guided_intake")),
         "customer": {"id": str(customer.id), "name": customer.full_name, "phone": customer.phone, "email": customer.email},

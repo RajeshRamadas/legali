@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
-import { ApiError, paymentLabel, type AccountOverview, type AccountRequest, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
+import { ApiError, COURIER_STATUS_LABELS, paymentLabel, type AccountOverview, type AccountRequest, type LoginCodeSent, type TicketStatus } from "@homexo/shared";
 import { expireSession, signIn, signOut, updateProfile, useSession, type Session } from "./accountStore";
 import { saveBookingRef } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
@@ -164,9 +164,20 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
 
 function RequestCard({ request: r, token, expanded, onToggle }: { request: AccountRequest; token: string; expanded: boolean; onToggle: () => void }) {
   const [detail, setDetail] = useState<TicketStatus | null>(null);
+  const [detailError, setDetailError] = useState("");
   useEffect(() => {
-    if (expanded && !detail) api.getAccountRequest(token, r.ticket_number).then(setDetail).catch(() => undefined);
-  }, [expanded, detail, token, r.ticket_number]);
+    if (!expanded) return;
+    let active = true;
+    api.getAccountRequest(token, r.ticket_number).then((next) => {
+      if (active) {
+        setDetail(next);
+        setDetailError("");
+      }
+    }).catch(() => {
+      if (active) setDetailError("Could not refresh this request. Close it and open it again to retry.");
+    });
+    return () => { active = false; };
+  }, [expanded, token, r.ticket_number]);
 
   return (
     <Pressable style={styles.card} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded }}>
@@ -180,8 +191,21 @@ function RequestCard({ request: r, token, expanded, onToggle }: { request: Accou
       {r.next_meeting && <Text style={styles.next}>Meeting {r.next_meeting.when}</Text>}
       {r.report && <Text style={ui.muted}>{r.report.status_label}{r.report.signed ? "" : ` · ${r.report.progress.done} of ${r.report.progress.total} done`}</Text>}
       {r.needs_you && <Text style={[styles.label, { color: "#8a6420" }]}>{r.needs_you}</Text>}
+      {expanded && detailError && <Text style={ui.error}>{detailError}</Text>}
       {expanded && (detail ? (
         <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
+          {detail.courier !== undefined && (
+            <View>
+              <Text style={styles.label}>Courier tracking</Text>
+              {detail.courier ? (
+                <>
+                  <Text style={styles.body}>{COURIER_STATUS_LABELS[detail.courier.status]} · {detail.courier.carrier}</Text>
+                  <Text style={styles.body}>Tracking number {detail.courier.tracking_number}</Text>
+                  <Text style={ui.muted}>Updated {dateFormat.format(new Date(detail.courier.updated_at))}</Text>
+                </>
+              ) : <Text style={ui.muted}>No dispatch has been recorded yet.</Text>}
+            </View>
+          )}
           {detail.history.map((h, i) => (
             <View key={i}><Text style={styles.label}>{h.label}</Text>{h.note ? <Text style={ui.muted}>{h.note}</Text> : null}</View>
           ))}
@@ -190,7 +214,7 @@ function RequestCard({ request: r, token, expanded, onToggle }: { request: Accou
           ))}
           {r.documents > 0 && <Text style={ui.muted}>{r.documents} document{r.documents === 1 ? "" : "s"} on file. Upload and download them on the website under My documents.</Text>}
         </View>
-      ) : <ActivityIndicator color={colors.green} />)}
+      ) : !detailError && <ActivityIndicator color={colors.green} />)}
       <Text style={styles.link}>{r.kind === "consultation" ? "Manage in My bookings →" : expanded ? "Hide details" : "Show details"}</Text>
     </Pressable>
   );

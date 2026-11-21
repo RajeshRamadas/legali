@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { PROPERTY_TYPES } from "@homexo/shared";
+import { COURIER_STATUS_LABELS, PROPERTY_TYPES, type CourierStatus } from "@homexo/shared";
 import { useStaff } from "../../AdminShell";
 import CaseFile from "../../CaseFile";
 import { CaseOverview, FeeCard, TasksCard, TeamCard } from "../../CasePanel";
 import VerificationPanel from "../../VerificationPanel";
 import VerificationOverview from "../../VerificationOverview";
 import SubmittedIntakeReview from "../../SubmittedIntakeReview";
+import CourierPanel from "../../CourierPanel";
 import { adminFetch, formatDate, joinable, toLocalInput, type Meeting, type Meta, type StaffUser, type TicketDetail } from "../../api";
 
 const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Record<string, string>) => string> = {
@@ -33,6 +34,8 @@ const EVENT_TEXT: Record<string, (e: TicketDetail["events"][number], labels: Rec
   report_item_reviewed: (e) => `#${e.new?.tag}: ${e.old?.status} → ${e.new?.status}`,
   final_report_generated: () => "Final report PDF generated for signature",
   report_signed: () => "Signed final report uploaded",
+  courier_status_recorded: (e) => "Courier: " + (COURIER_STATUS_LABELS[e.new?.status as CourierStatus] ?? "status updated"),
+  courier_details_updated: () => "Courier tracking details corrected",
   intake_updated: () => "Property intake and document request updated",
   agent_report_drafted: () => "Evidence-based report drafted for advocate review",
   payment_received: (e) => `Fee of ₹${e.new?.amount} paid online${e.new?.method ? ` by ${String(e.new.method).toUpperCase()}` : ""}${e.new?.reference ? ` (${e.new.reference})` : ""}`,
@@ -148,6 +151,7 @@ export default function TicketPage() {
         <div className="ticket-main">
           <CaseOverview ticket={ticket} act={act} />
           <SubmittedIntakeReview key={ticket.ticket_number} review={ticket.guided_request} hasHistory={ticket.chat_transcript.length > 0} />
+          <CourierPanel key={ticket.ticket_number} ticket={ticket} onTicket={setTicket} onError={onError} />
           <TasksCard ticket={ticket} staff={user.role === "admin" ? staff : [user]} act={act} />
           <Conversation ticket={ticket} onSend={(message, visibility) => act("/messages", "POST", { message, visibility }, visibility === "internal" ? "Internal note added." : "Message sent to the customer.")} />
 

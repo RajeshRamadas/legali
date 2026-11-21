@@ -56,3 +56,13 @@ An authorization record is not confirmation of completed delivery or reading.
 Not done yet: document upload in the mobile app, and automatic portal fetchers.
 
 Security scanning and quarantine are implemented; see [malware scanning](malware-scanning.md) for deployment, backfilling existing files and staff retries.
+
+## Physical document delivery
+
+For **Government Document Retrieval & Courier** cases, open **Courier tracking** on the staff ticket. After handing over the parcel, record the courier company and tracking number. Staff with current case access can record subsequent delivery updates, including an exception, another attempt, delivery, or return. A stale edit needs a refresh.
+
+The verified customer can see the carrier, tracking number and last recorded status on the case's Documents page, in request tracking, and in the expanded mobile account request. The website also shows recent delivery history. Delivery status is separate from case closure.
+
+This version supports one shipment per courier case and staff-entered updates. Staff use their existing courier booking process and check the carrier for updates.
+
+Run `alembic upgrade head` before serving the new version. Migration `0048_courier_shipments` creates the shipment table. Existing cases show no recorded dispatch until staff add one.
