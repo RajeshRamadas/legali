@@ -243,8 +243,27 @@ export type CaseProgress = {
   closed: { outcome_label: string | null; summary: string | null; at: string | null } | null;
 };
 
+export const COURIER_STATUS_LABELS = {
+  dispatched: "Dispatched",
+  in_transit: "In transit",
+  out_for_delivery: "Out for delivery",
+  delivered: "Delivered",
+  delivery_issue: "Delivery issue",
+  returned: "Returned to sender",
+} as const;
+
+export type CourierStatus = keyof typeof COURIER_STATUS_LABELS;
+export type CourierShipment = {
+  carrier: string;
+  tracking_number: string;
+  status: CourierStatus;
+  updated_at: string;
+  history: { status: CourierStatus; at: string }[];
+};
+
 // Mirrors customer_view in backend/app/tickets.py.
 export type TicketStatus = {
+  courier?: CourierShipment | null;
   document_hold?: boolean;
   document_request?: DocumentRequest;
   ticket_number: string;

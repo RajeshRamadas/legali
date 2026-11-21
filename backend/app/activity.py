@@ -39,6 +39,7 @@ GROUPS = {
         "verification.job_cancelled": "Analysis job cancelled", "verification.job_stale": "Analysis inputs changed",
         "verification.job_interrupted": "Analysis worker interrupted",
         "case.task_created": "Case task created", "case.task_updated": "Case task updated",
+        "case.courier_updated": "Courier tracking updated",
         "ticket.status_changed": "Case status changed", "ticket.assigned": "Case assignment changed",
         "case.due_changed": "Case due date changed", "case.member_added": "Case team member added",
         "case.member_removed": "Case team member removed", "case.fee_quote": "Case fee quoted",

@@ -1,4 +1,4 @@
-import { DEFAULT_API_BASE_URL, type UploadCheck, type CustomerMeeting, type GovSource, type ReportItem, type ReportSection, type DocumentRequest, type PrivacyRequestRecord, type PrivacyRequestSummary } from "@homexo/shared";
+import { DEFAULT_API_BASE_URL, type CourierShipment, type CourierStatus, type UploadCheck, type CustomerMeeting, type GovSource, type ReportItem, type ReportSection, type DocumentRequest, type PrivacyRequestRecord, type PrivacyRequestSummary } from "@homexo/shared";
 
 // Staff workspace API (backend/app/admin.py). Kept out of @homexo/shared because only the website uses it.
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
@@ -162,7 +162,10 @@ export type SubmittedIntake = {
   answers: { key: string; question: string; answer: string; skipped: boolean; section: "general" | "service" }[];
 };
 
+export type StaffShipment = CourierShipment & { revision: number; next_statuses: CourierStatus[] };
+
 export type TicketDetail = TicketSummary & {
+  courier?: StaffShipment | null;
   guided_request?: SubmittedIntake | null;
   case: CaseView;
   document_request?: DocumentRequest;

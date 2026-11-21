@@ -8,11 +8,14 @@ import Link from "next/link";
 import { api } from "./api";
 import { openDocuments } from "./documents/ref";
 import CaseProgress from "./CaseProgress";
+import CourierTracking from "./CourierTracking";
 
 const dateFormat = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 // With `contact`, the customer can also reply to the case team from the card.
-export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: TicketStatus; contact?: string; onUpdate?: (ticket: TicketStatus) => void }) {
+export function TicketStatusCard({ ticket, contact, onUpdate, showCourier = true }: {
+  ticket: TicketStatus; contact?: string; onUpdate?: (ticket: TicketStatus) => void; showCourier?: boolean;
+}) {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -40,6 +43,7 @@ export function TicketStatusCard({ ticket, contact, onUpdate }: { ticket: Ticket
       </div>
       <p className="ticket-service">{ticket.service_name}{ticket.package ? ` · ${ticket.package}` : ""}</p>
       {ticket.progress && <CaseProgress progress={ticket.progress} />}
+      {showCourier && <CourierTracking shipment={ticket.courier} />}
       <ol className="ticket-timeline">
         {ticket.history.map((event) => (
           <li key={`${event.status}-${event.at}`}>
