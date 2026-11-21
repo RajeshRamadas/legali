@@ -102,6 +102,19 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
   const [refreshing, setRefreshing] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
 
+  const [query, setQuery] = useState("");
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  const term = query.trim().toLowerCase();
+  const requests = data?.requests ?? [];
+  const matches = requests.filter((request) =>
+    (!attentionOnly || request.needs_you) &&
+    [request.ticket_number, request.service_name, request.title].some(
+      (value) => value?.toLowerCase().includes(term),
+    ),
+  );
+
+  const matchingTickets = new Set(matches.map((request) => request.ticket_number));
+
   const load = useCallback(async () => {
     setError("");
     try {
@@ -136,9 +149,26 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
       ) : !data ? <ActivityIndicator color={colors.green} /> : (
         <>
           {data.requests.length === 0 && <View style={styles.card}><Text style={styles.body}>Nothing on this number yet. Requests and consultations you make show up here.</Text></View>}
-          {data.requests.map((r) => (
-            <RequestCard key={r.ticket_number} request={r} token={session.token} contact={data.profile.contact} expanded={open === r.ticket_number}
+          {requests.length > 0 && (
+            <View style={styles.card}>
+              <Field label="Search requests" placeholder="Ticket number, service or title" value={query} onChangeText={setQuery} />
+              <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: attentionOnly }}
+                onPress={() => setAttentionOnly(!attentionOnly)}>
+                <Text style={styles.link}>{attentionOnly ? "☑" : "☐"} Needs your attention</Text>
+              </Pressable>
+              <Text style={ui.muted}>{matches.length === 0 ? "No matching requests." : `${matches.length} ${matches.length === 1 ? "request" : "requests"}`}</Text>
+              {(query.length > 0 || attentionOnly) && (
+                <Pressable accessibilityRole="button" onPress={() => { setQuery(""); setAttentionOnly(false); }}>
+                  <Text style={styles.link}>Clear filters</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+          {requests.filter((r) => matchingTickets.has(r.ticket_number) || r.ticket_number === open).map((r) => (
+            <View key={r.ticket_number} style={!matchingTickets.has(r.ticket_number) && { display: "none" }}>
+            <RequestCard request={r} token={session.token} contact={data.profile.contact} expanded={open === r.ticket_number}
               onToggle={() => (r.kind === "consultation" ? onOpenBookings() : setOpen(open === r.ticket_number ? null : r.ticket_number))} />
+            </View>
           ))}
           {data.payments.length > 0 && (
             <View style={styles.card}>
