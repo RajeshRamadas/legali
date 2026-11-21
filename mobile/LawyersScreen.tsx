@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { formatFee, type Booking, type BookingRef, type LawyerCard, type LawyerFilters, type LawyerProfile, type LawyerSearch, type LawyerSlot, type LawyerSort } from "@homexo/shared";
 import { saveBookingRef } from "./bookingsStore";
-import { Avatar, Rating, SlotPicker, Tags, forest, ui } from "./lawyerUi";
+import { ConsultationJoin, Avatar, Rating, SlotPicker, Tags, forest, ui } from "./lawyerUi";
 import { PayPanel } from "./PayPanel";
 import { api, colors } from "./theme";
 
@@ -197,7 +197,7 @@ function LawyerProfileScreen({ slug, onBack, onBooked }: { slug: string; onBack:
           <Text style={styles.summaryValue} selectable>{booked.ticket_number}</Text>
         </View>
         <View style={{ alignSelf: "stretch" }}><PayPanel bookingRef={bookedRef} booking={booked} onChange={setBooked} /></View>
-        {booked.meeting.meet_link && <Pressable style={styles.button} onPress={() => Linking.openURL(booked.meeting.meet_link!)}><Text style={styles.buttonText}>Open Google Meet link</Text></Pressable>}
+        <ConsultationJoin meeting={booked.meeting} />
         <Pressable style={[styles.button, { alignSelf: "stretch" }]} onPress={onBooked}><Text style={styles.buttonText}>See my bookings</Text></Pressable>
         <Pressable onPress={onBack} hitSlop={12}><Text style={styles.link}>Back to all lawyers</Text></Pressable>
       </ScrollView>
