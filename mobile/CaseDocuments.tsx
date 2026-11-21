@@ -24,9 +24,7 @@ export function CaseDocuments({ ticket, contact, onUpdate }: {
   const [message, setMessage] = useState("");
   const locked = useRef(false);
   const open = ticket.can_upload && (!ticket.report || ticket.report.status === "issued");
-  const items = (ticket.report?.items ?? ticket.document_request?.items ?? []).filter(
-    item => item.fetch_by === "customer" && item.status !== "verified" && item.status !== "waived",
-  );
+  const items = ticket.report?.items ?? ticket.document_request?.items ?? [];
 
   async function choose(tag: string, label: string) {
     if (locked.current) return;
@@ -77,6 +75,24 @@ export function CaseDocuments({ ticket, contact, onUpdate }: {
       {ticket.documents.map(doc => (
         <Text key={doc.id} style={ui.muted}>{doc.filename} · {scanLabels[doc.scan_status]}</Text>
       ))}
+      {items.length > 0 && <Text accessibilityRole="header" style={styles.label}>Document checklist</Text>}
+      {items.map(item => (
+        <View key={item.id} style={{ gap: 4 }}>
+          <Text style={styles.label}>{item.label} · {item.status_label}</Text>
+          {item.guidance ? <Text style={ui.muted}>{item.guidance}</Text> : null}
+          {item.fetch_by === "homexo" && (
+            <Text style={ui.muted}>Handled by the case team{item.source ? ` · ${item.source.name}` : ""}</Text>
+          )}
+          {item.status === "rejected" && item.note ? (
+            <Text style={styles.body}>Advocate feedback: {item.note}</Text>
+          ) : null}
+          {open && !selected && item.fetch_by === "customer" && item.status !== "verified" && item.status !== "waived" && (
+            <Pressable accessibilityRole="button" accessibilityLabel={`Upload file for ${item.label}`} disabled={busy} onPress={() => choose(item.tag, item.label)}>
+              <Text style={styles.link}>{item.status === "rejected" ? "Upload replacement" : "Choose file"}</Text>
+            </Pressable>
+          )}
+        </View>
+      ))}
       {open && (selected ? (
         <>
           <Text style={styles.body}>{selected.label} · {selected.asset.name}</Text>
@@ -89,14 +105,8 @@ export function CaseDocuments({ ticket, contact, onUpdate }: {
         </>
       ) : (
         <>
-          <Text style={ui.muted}>Choose the document you want to upload.</Text>
-          {items.map(item => (
-            <Pressable key={item.tag} accessibilityRole="button" disabled={busy} onPress={() => choose(item.tag, item.label)}>
-              <Text style={styles.link}>{item.label}</Text>
-            </Pressable>
-          ))}
           <Pressable accessibilityRole="button" disabled={busy} onPress={() => choose("", "Other document")}>
-            <Text style={styles.link}>Other document</Text>
+            <Text style={styles.link}>Upload another document</Text>
           </Pressable>
         </>
       ))}
