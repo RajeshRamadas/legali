@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking, Pressable, Text, View } from "react-native";
-import { formatFee, paymentLabel, testPayment, type Booking, type BookingRef } from "@homexo/shared";
+import { formatFee, formatPaise, paymentLabel, testPayment, type Booking, type BookingRef } from "@homexo/shared";
 import { styles } from "./LawyersScreen";
 import { ui } from "./lawyerUi";
 import { api, colors } from "./theme";
@@ -12,23 +12,40 @@ export function PayPanel({ bookingRef, booking, onChange }: { bookingRef: Bookin
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
+  const [checkingRefund, setCheckingRefund] = useState(false);
+  const refundLock = useRef(false);
   const payment = booking.payment;
 
-  async function check() {
+  async function refreshRefund() {
+    if (refundLock.current) return;
+    refundLock.current = true;
+    setCheckingRefund(true);
+    setError("");
+    try {
+      onChange(await api.lookupBooking(bookingRef));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not refresh your refund status.");
+    } finally {
+      refundLock.current = false;
+      setCheckingRefund(false);
+    }
+  }
+
+  const check = useCallback(async () => {
     setError("");
     try {
       onChange(await api.refreshPayment(bookingRef));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not check the payment.");
     }
-  }
+  }, [bookingRef, onChange]);
 
   // Back from the payment page: ask whether it went through.
   useEffect(() => {
     if (!waiting) return;
     const sub = AppState.addEventListener("change", (state) => { if (state === "active") check(); });
     return () => sub.remove();
-  }, [waiting]);
+  }, [waiting, check]);
 
   useEffect(() => {
     if (payment?.status !== "due") setWaiting(false);
@@ -59,10 +76,24 @@ export function PayPanel({ bookingRef, booking, onChange }: { bookingRef: Bookin
   return (
     <View style={[styles.summary, !due && { backgroundColor: "#f3f5f1" }]}>
       <Text style={[styles.summaryValue, due && { color: colors.danger }]}>{paymentLabel(payment)}</Text>
-      {due && payment.pay_by && <Text style={ui.muted}>Pay by {time(payment.pay_by)} to keep this time. After that it's released for others.</Text>}
+      {due && payment.pay_by && <Text style={ui.muted}>Pay by {time(payment.pay_by)} to keep this time. After that it’s released for others.</Text>}
       {payment.status === "paid" && <Text style={ui.muted}>Paid{payment.method ? ` by ${payment.method.toUpperCase()}` : ""}{payment.reference ? ` · ${payment.reference}` : ""}</Text>}
-      {payment.status === "refund_due" && <Text style={ui.muted}>Refunds reach the original payment method within 5 to 7 working days.</Text>}
-      {payment.last_error ? <Text style={ui.error}>Last try didn't go through: {payment.last_error}</Text> : null}
+      {(payment.status === "refund_due" || payment.status === "refunded" ||
+        !!payment.refunded_paise || !!payment.refund_pending_paise || payment.refund_review_required) && (
+        <View style={{ gap: 4 }}>
+          {!payment.refund_review_required && (
+            <>
+              <Text style={ui.muted}>Original fee · {formatFee(payment.amount)}</Text>
+              {!!payment.refunded_paise && <Text style={ui.muted}>Refunded · {formatPaise(payment.refunded_paise)}</Text>}
+              {!!payment.refund_pending_paise && <Text style={ui.muted}>Processing · {formatPaise(payment.refund_pending_paise)}</Text>}
+            </>
+          )}
+          <Pressable accessibilityRole="button" disabled={checkingRefund} onPress={refreshRefund}>
+            <Text style={styles.link}>{checkingRefund ? "Checking…" : "Refresh refund status"}</Text>
+          </Pressable>
+        </View>
+      )}
+      {payment.last_error ? <Text style={ui.error}>Last try didn’t go through: {payment.last_error}</Text> : null}
       {error ? <Text style={ui.error}>{error}</Text> : null}
       {payment.can_pay && (
         <View style={{ gap: 8, marginTop: 6 }}>
@@ -70,7 +101,7 @@ export function PayPanel({ bookingRef, booking, onChange }: { bookingRef: Bookin
             <Text style={styles.buttonText}>{busy ? "Opening…" : payment.mode === "test" ? `Pay ${formatFee(payment.amount)} (test mode)` : `Pay ${formatFee(payment.amount)} securely`}</Text>
           </Pressable>
           {waiting
-            ? <Pressable onPress={check} hitSlop={8}><Text style={styles.link}>I've paid, check again</Text></Pressable>
+            ? <Pressable onPress={check} hitSlop={8}><Text style={styles.link}>I’ve paid, check again</Text></Pressable>
             : <Text style={styles.small}>UPI, cards, netbanking and wallets through Razorpay. We never see your card or bank details.</Text>}
         </View>
       )}
