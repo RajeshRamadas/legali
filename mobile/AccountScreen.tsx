@@ -6,6 +6,7 @@ import { saveBookingRef } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
 import { ui } from "./lawyerUi";
 import { api, colors } from "./theme";
+import { CaseDocuments } from "./CaseDocuments";
 
 const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
@@ -135,7 +136,7 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
         <>
           {data.requests.length === 0 && <View style={styles.card}><Text style={styles.body}>Nothing on this number yet. Requests and consultations you make show up here.</Text></View>}
           {data.requests.map((r) => (
-            <RequestCard key={r.ticket_number} request={r} token={session.token} expanded={open === r.ticket_number}
+            <RequestCard key={r.ticket_number} request={r} token={session.token} contact={data.profile.contact} expanded={open === r.ticket_number}
               onToggle={() => (r.kind === "consultation" ? onOpenBookings() : setOpen(open === r.ticket_number ? null : r.ticket_number))} />
           ))}
           {data.payments.length > 0 && (
@@ -162,11 +163,13 @@ function Overview({ session, onOpenBookings }: { session: Session; onOpenBooking
   );
 }
 
-function RequestCard({ request: r, token, expanded, onToggle }: { request: AccountRequest; token: string; expanded: boolean; onToggle: () => void }) {
+function RequestCard({ request: r, token, contact, expanded, onToggle }: { request: AccountRequest; token: string; contact: string; expanded: boolean; onToggle: () => void }) {
   const [detail, setDetail] = useState<TicketStatus | null>(null);
   const [detailError, setDetailError] = useState("");
   useEffect(() => {
     if (!expanded) return;
+    setDetail(null);
+    setDetailError("");
     let active = true;
     api.getAccountRequest(token, r.ticket_number).then((next) => {
       if (active) {
@@ -180,7 +183,8 @@ function RequestCard({ request: r, token, expanded, onToggle }: { request: Accou
   }, [expanded, token, r.ticket_number]);
 
   return (
-    <Pressable style={styles.card} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded }}>
+    <View style={styles.card}>
+      <Pressable onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle}>{r.kind === "consultation" ? r.title : r.service_name}</Text>
@@ -191,6 +195,8 @@ function RequestCard({ request: r, token, expanded, onToggle }: { request: Accou
       {r.next_meeting && <Text style={styles.next}>Meeting {r.next_meeting.when}</Text>}
       {r.report && <Text style={ui.muted}>{r.report.status_label}{r.report.signed ? "" : ` · ${r.report.progress.done} of ${r.report.progress.total} done`}</Text>}
       {r.needs_you && <Text style={[styles.label, { color: "#8a6420" }]}>{r.needs_you}</Text>}
+      <Text style={styles.link}>{r.kind === "consultation" ? "Manage in My bookings →" : expanded ? "Hide details" : "Show details"}</Text>
+      </Pressable>
       {expanded && detailError && <Text style={ui.error}>{detailError}</Text>}
       {expanded && (detail ? (
         <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
@@ -212,11 +218,10 @@ function RequestCard({ request: r, token, expanded, onToggle }: { request: Accou
           {detail.messages.slice(-3).map((m, i) => (
             <Text key={`m${i}`} style={ui.muted}><Text style={styles.label}>{m.from === "you" ? "You: " : "Homexo: "}</Text>{m.message}</Text>
           ))}
-          {r.documents > 0 && <Text style={ui.muted}>{r.documents} document{r.documents === 1 ? "" : "s"} on file. Upload and download them on the website under My documents.</Text>}
+          <CaseDocuments ticket={detail} contact={contact} onUpdate={setDetail} />
         </View>
       ) : !detailError && <ActivityIndicator color={colors.green} />)}
-      <Text style={styles.link}>{r.kind === "consultation" ? "Manage in My bookings →" : expanded ? "Hide details" : "Show details"}</Text>
-    </Pressable>
+    </View>
   );
 }
 
