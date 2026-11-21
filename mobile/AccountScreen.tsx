@@ -6,6 +6,7 @@ import { saveBookingRef } from "./bookingsStore";
 import { Field, styles } from "./LawyersScreen";
 import { ui } from "./lawyerUi";
 import { api, colors } from "./theme";
+import { CaseProgressPanel } from "./CaseProgressPanel";
 import { CaseDocuments } from "./CaseDocuments";
 
 const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -200,6 +201,7 @@ function RequestCard({ request: r, token, contact, expanded, onToggle }: { reque
       {expanded && detailError && <Text style={ui.error}>{detailError}</Text>}
       {expanded && (detail ? (
         <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
+          {detail.progress && <CaseProgressPanel progress={detail.progress} />}
           {detail.courier !== undefined && (
             <View>
               <Text style={styles.label}>Courier tracking</Text>
