@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { formatFee, REVIEW_MODERATION_LABELS, type Booking, type BookingRef, type LawyerSlot } from "@homexo/shared";
 import { forgetBookingRef, saveBookingRef, useBookingRefs } from "./bookingsStore";
@@ -19,15 +19,37 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [reload, setReload] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const version = useRef(0);
+
   useEffect(() => {
-    api.lookupBooking(bookingRef).then(setBooking).catch((e) => setError(e instanceof Error ? e.message : "Not found"));
-  }, [bookingRef]);
+    let active = true;
+    const request = version.current;
+    setRefreshing(true);
+    setError("");
+    api.lookupBooking(bookingRef).then((value) => {
+      if (active && request === version.current) setBooking(value);
+    }).catch((e) => {
+      if (active && request === version.current) setError(e instanceof Error ? e.message : "Could not refresh this booking.");
+    }).finally(() => {
+      if (active && request === version.current) setRefreshing(false);
+    });
+    return () => { active = false; };
+  }, [bookingRef, reload]);
+
+  function applyUpdate(value: Booking) {
+    version.current++;
+    setRefreshing(false);
+    setBooking(value);
+  }
+
 
   async function run(action: () => Promise<Booking>) {
     setError("");
     setBusy(true);
     try {
-      setBooking(await action());
+      applyUpdate(await action());
       setMode("");
       setSlot(null);
     } catch (e) {
@@ -43,6 +65,7 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
         {error ? (
           <>
             <Text style={ui.error}>{bookingRef.ticket_number}: {error}</Text>
+            <Pressable accessibilityRole="button" onPress={() => setReload(n => n + 1)}><Text style={styles.link}>Retry lookup</Text></Pressable>
             <Pressable onPress={() => forgetBookingRef(bookingRef.ticket_number)}><Text style={styles.link}>Remove</Text></Pressable>
           </>
         ) : <ActivityIndicator color={colors.green} />}
@@ -61,6 +84,11 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
           <Text style={ui.muted}>{booking.ticket_number} · {m.status_label}</Text>
         </View>
       </View>
+      {mode === "" && (
+        <Pressable accessibilityRole="button" disabled={refreshing || busy} onPress={() => setReload(n => n + 1)}>
+          <Text style={styles.link}>{refreshing ? "Refreshing…" : "Refresh booking"}</Text>
+        </Pressable>
+      )}
       <View style={styles.summary}>
         <Text style={styles.summaryValue}>{m.when}</Text>
         <Text style={ui.muted}>{Math.round((new Date(m.ends_at).getTime() - new Date(m.starts_at).getTime()) / 60000)} min on Google Meet{booking.fee !== null ? ` · ${formatFee(booking.fee)}` : ""}</Text>
@@ -68,7 +96,7 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
       {live && (m.meet_link
         ? <Pressable style={styles.button} onPress={() => Linking.openURL(m.meet_link!)}><Text style={styles.buttonText}>Join on Google Meet</Text></Pressable>
         : <Text style={ui.muted}>The meeting link will come on WhatsApp before it starts.</Text>)}
-      <PayPanel bookingRef={bookingRef} booking={booking} onChange={setBooking} />
+      <PayPanel bookingRef={bookingRef} booking={booking} onChange={applyUpdate} />
       {booking.review && (
         <View style={{ gap: 4 }}>
           <Text style={styles.label}>Your review · {booking.review.rating} of 5 stars</Text>
@@ -83,7 +111,7 @@ function BookingItem({ bookingRef }: { bookingRef: BookingRef }) {
       )}
       {error ? <Text style={ui.error}>{error}</Text> : null}
 
-      {mode === "" && (
+      {mode === "" && !refreshing && (
         <View style={ui.row}>
           {booking.can_change && <Pressable onPress={() => setMode("move")} hitSlop={8}><Text style={styles.link}>Reschedule</Text></Pressable>}
           {booking.can_change && <Text style={ui.muted}>·</Text>}
