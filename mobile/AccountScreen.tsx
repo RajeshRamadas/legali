@@ -271,6 +271,38 @@ function PreliminaryReport({ report }: { report: NonNullable<TicketStatus["repor
   );
 }
 
+const courierDate = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short",
+});
+
+function CourierTracking({ shipment }: { shipment: Exclude<TicketStatus["courier"], undefined> }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={{ gap: 4 }}>
+      <Text accessibilityRole="header" style={styles.label}>Courier tracking</Text>
+      {shipment ? (
+        <>
+          <Text style={styles.body}>{COURIER_STATUS_LABELS[shipment.status]} · {shipment.carrier}</Text>
+          <Text selectable style={styles.body}>Tracking number {shipment.tracking_number}</Text>
+          <Text style={ui.muted}>Updated {courierDate.format(new Date(shipment.updated_at))} IST</Text>
+          {shipment.history.length > 1 && (
+            <>
+              <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded(!expanded)}>
+                <Text style={styles.link}>{expanded ? "Hide delivery history" : "Show delivery history"}</Text>
+              </Pressable>
+              {expanded && [...shipment.history].reverse().map((event, index) => (
+                <Text key={`${event.at}-${index}`} style={ui.muted}>
+                  {COURIER_STATUS_LABELS[event.status]} · {courierDate.format(new Date(event.at))} IST
+                </Text>
+              ))}
+            </>
+          )}
+        </>
+      ) : <Text style={ui.muted}>No dispatch has been recorded yet.</Text>}
+    </View>
+  );
+}
+
 function RequestCard({ request: r, token, contact, expanded, onToggle }: { request: AccountRequest; token: string; contact: string; expanded: boolean; onToggle: () => void }) {
   const [detail, setDetail] = useState<TicketStatus | null>(null);
   const [detailError, setDetailError] = useState("");
@@ -334,18 +366,7 @@ function RequestCard({ request: r, token, contact, expanded, onToggle }: { reque
         <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
           {detail.progress && <CaseProgressPanel progress={detail.progress} />}
           {detail.report && <PreliminaryReport report={detail.report} />}
-          {detail.courier !== undefined && (
-            <View>
-              <Text style={styles.label}>Courier tracking</Text>
-              {detail.courier ? (
-                <>
-                  <Text style={styles.body}>{COURIER_STATUS_LABELS[detail.courier.status]} · {detail.courier.carrier}</Text>
-                  <Text style={styles.body}>Tracking number {detail.courier.tracking_number}</Text>
-                  <Text style={ui.muted}>Updated {dateFormat.format(new Date(detail.courier.updated_at))}</Text>
-                </>
-              ) : <Text style={ui.muted}>No dispatch has been recorded yet.</Text>}
-            </View>
-          )}
+          {detail.courier !== undefined && <CourierTracking shipment={detail.courier} />}
           {detail.history.map((h, i) => (
             <View key={i}><Text style={styles.label}>{h.label}</Text>{h.note ? <Text style={ui.muted}>{h.note}</Text> : null}</View>
           ))}
