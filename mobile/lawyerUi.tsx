@@ -45,28 +45,62 @@ export function SlotPicker({ slug, selected, onSelect, refreshKey = 0 }: {
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
 
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
+    let active = true;
+    setDays(null);
     setError("");
-    api.lawyerSlots(slug, 7)
-      .then((r) => {
-        setDays(r.days);
-        setIndex(Math.max(0, r.days.findIndex((d) => d.slots.length > 0)));
+    api.lawyerSlots(slug, 31)
+      .then(({ days: available }) => {
+        if (!active) return;
+        setIndex(Math.max(0, available.findIndex(d => d.slots.length > 0)));
+        setDays(available);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Could not load times."));
-  }, [slug, refreshKey]);
+      .catch(e => {
+        if (active) setError(e instanceof Error ? e.message : "Could not load times.");
+      });
+    return () => { active = false; };
+  }, [slug, refreshKey, retry]);
 
-  if (error) return <Text style={ui.error}>{error}</Text>;
+  if (error) return (
+    <View style={{ gap: 6 }}>
+      <Text style={ui.error}>{error}</Text>
+      <Pressable accessibilityRole="button" onPress={() => setRetry(n => n + 1)}>
+        <Text style={ui.dayLabel}>Retry loading times</Text>
+      </Pressable>
+    </View>
+  );
   if (!days) return <ActivityIndicator color={colors.green} />;
   const day = days[index];
+  if (!day) return <Text style={ui.muted}>No consultation dates available.</Text>;
+  const weekStart = Math.floor(index / 7) * 7;
+  const week = days.slice(weekStart, weekStart + 7);
+  function showWeek(start: number) {
+    const firstOpen = days!.slice(start, start + 7).findIndex(d => d.slots.length > 0);
+    setIndex(start + Math.max(0, firstOpen));
+  }
   const groups = ["Morning", "Afternoon", "Evening"].map((name) => ({ name, slots: day.slots.filter((s) => part(s) === name) })).filter((g) => g.slots.length);
 
   return (
     <View style={{ gap: 10 }}>
+      {days.length > 7 && (
+        <View style={ui.row}>
+          <Pressable accessibilityRole="button" disabled={weekStart === 0}
+            onPress={() => showWeek(weekStart - 7)}>
+            <Text style={weekStart === 0 ? ui.muted : ui.dayLabel}>Previous week</Text>
+          </Pressable>
+          <Text style={ui.muted}>Week {weekStart / 7 + 1} of {Math.ceil(days.length / 7)}</Text>
+          <Pressable accessibilityRole="button" disabled={weekStart + 7 >= days.length}
+            onPress={() => showWeek(weekStart + 7)}>
+            <Text style={weekStart + 7 >= days.length ? ui.muted : ui.dayLabel}>Next week</Text>
+          </Pressable>
+        </View>
+      )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-        {days.map((d, i) => (
-          <Pressable key={d.date} onPress={() => setIndex(i)} style={[ui.day, i === index && ui.dayOn]} accessibilityRole="tab" accessibilityState={{ selected: i === index }}>
-            <Text style={[ui.dayLabel, i === index && { color: colors.white }]}>{d.label}</Text>
-            <Text style={[ui.daySlots, i === index && { color: "#c9ddd4" }, !d.slots.length && { color: colors.muted }]}>{d.slots.length ? `${d.slots.length} slots` : "No slots"}</Text>
+        {week.map((d, i) => (
+          <Pressable key={d.date} onPress={() => setIndex(i + weekStart)} style={[ui.day, i + weekStart === index && ui.dayOn]} accessibilityRole="tab" accessibilityState={{ selected: i + weekStart === index }}>
+            <Text style={[ui.dayLabel, i + weekStart === index && { color: colors.white }]}>{d.label}</Text>
+            <Text style={[ui.daySlots, i + weekStart === index && { color: "#c9ddd4" }, !d.slots.length && { color: colors.muted }]}>{d.slots.length ? `${d.slots.length} slots` : "No slots"}</Text>
           </Pressable>
         ))}
       </ScrollView>
